@@ -704,6 +704,32 @@ class Handler(BaseHTTPRequestHandler):
                     pass
             return cfg.get(name)
 
+        # paths
+        cfg["video_dir"] = get("video_dir")
+        cfg["image_dir"] = get("image_dir")
+        subdir = (data.get("subtitle_dir", [""])[0] or "").strip()
+        if subdir:
+            cfg["subtitle_dir"] = subdir
+        else:
+            # if user cleared it, remove key to fall back to video_dir behavior
+            if "subtitle_dir" in cfg:
+                del cfg["subtitle_dir"]
+
+        # playback flags
+        cfg["play_mode"] = str(get("play_mode") or "VIDEO").upper()
+
+        expo_raw = str(get("expo_mode", str) or "0").strip()
+        cfg["expo_mode"] = (expo_raw == "1")
+
+        cfg["slideshow_interval_s"] = get("slideshow_interval_s", float)
+
+        # schedule gating
+        win_raw = str(get("screensaver_window_enable", str) or "1").strip()
+        cfg["screensaver_window_enable"] = (win_raw == "1")
+        cfg["screensaver_start_hhmm"] = str(get("screensaver_start_hhmm") or "17:00").strip()
+        cfg["screensaver_end_hhmm"] = str(get("screensaver_end_hhmm") or "09:00").strip()
+
+        # existing fields
         cfg["loop_mode"] = get("loop_mode")
         cfg["idle_timeout_s"] = get("idle_timeout_s", float)
         cfg["powersave_after_s"] = get("powersave_after_s", float)
@@ -722,6 +748,7 @@ class Handler(BaseHTTPRequestHandler):
         notify_config_changed()
 
         self._send(200, render_page(cfg, "Config saved & applied"))
+
 
     def log_message(self, fmt: str, *args) -> None:
         return
