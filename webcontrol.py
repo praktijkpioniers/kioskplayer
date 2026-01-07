@@ -238,7 +238,6 @@ def render_page(cfg: dict, msg: str = "") -> str:
     # Color preset dropdown (names only)
     cur_preset = str(cfg.get("color_preset", "") or "")
     preset_opts = []
-    # If config has something unknown, keep it selectable so we don't clobber.
     all_presets = list(COLOR_PRESET_NAMES)
     if cur_preset and cur_preset not in all_presets:
         all_presets = [cur_preset] + all_presets
@@ -247,6 +246,15 @@ def render_page(cfg: dict, msg: str = "") -> str:
         s = "selected" if name == cur_preset else ""
         preset_opts.append(f'<option value="{esc(name)}" {s}>{esc(name)}</option>')
     preset_opts_html = "\n".join(preset_opts) if preset_opts else '<option value="">(none)</option>'
+
+    # New fields
+    expo_mode = bool(cfg.get("expo_mode", False))
+    play_mode = str(cfg.get("play_mode", "VIDEO") or "VIDEO").upper()
+    slideshow_interval_s = cfg.get("slideshow_interval_s", 10.0)
+
+    screensaver_window_enable = bool(cfg.get("screensaver_window_enable", True))
+    screensaver_start_hhmm = str(cfg.get("screensaver_start_hhmm", "17:00") or "17:00")
+    screensaver_end_hhmm = str(cfg.get("screensaver_end_hhmm", "09:00") or "09:00")
 
     return f"""<!doctype html>
 <html>
@@ -288,6 +296,17 @@ a.buttonlink {{
 <a class="buttonlink" href="/files">File management</a>
 
 <form method="POST" action="/">
+
+<fieldset>
+<legend>Paths</legend>
+<label>Video directory</label>
+<input name="video_dir" value="{esc(cfg.get("video_dir",""))}">
+<label>Image directory</label>
+<input name="image_dir" value="{esc(cfg.get("image_dir",""))}">
+<label>Subtitle directory (optional; defaults to video_dir)</label>
+<input name="subtitle_dir" value="{esc(cfg.get("subtitle_dir",""))}">
+</fieldset>
+
 <fieldset>
 <legend>Video selection</legend>
 <div class="small">Scanned from: {esc(cfg.get("video_dir","(unset)"))}</div>
@@ -308,6 +327,22 @@ a.buttonlink {{
 
 <fieldset>
 <legend>Playback</legend>
+
+<label>Play mode</label>
+<select name="play_mode">
+  <option value="VIDEO" {"selected" if play_mode == "VIDEO" else ""}>VIDEO</option>
+  <option value="SLIDESHOW" {"selected" if play_mode == "SLIDESHOW" else ""}>SLIDESHOW (image gallery)</option>
+</select>
+
+<label>Expo mode (auto-start after idle timeout)</label>
+<select name="expo_mode">
+  <option value="0" {"selected" if not expo_mode else ""}>OFF</option>
+  <option value="1" {"selected" if expo_mode else ""}>ON</option>
+</select>
+
+<label>Slideshow interval (seconds)</label>
+<input name="slideshow_interval_s" value="{esc(slideshow_interval_s)}">
+
 <label>Loop mode</label>
 <select name="loop_mode">
   <option {sel("loop_mode","OFF")}>OFF</option>
@@ -323,6 +358,23 @@ a.buttonlink {{
 <input name="idle_timeout_s" value="{esc(cfg.get("idle_timeout_s", ""))}">
 <label>Powersave after (s)</label>
 <input name="powersave_after_s" value="{esc(cfg.get("powersave_after_s", ""))}">
+</fieldset>
+
+<fieldset>
+<legend>Screensaver schedule</legend>
+<div class="small">Controls when the *idle blanking/sleep* is allowed. Window may cross midnight (e.g., 17:00 → 09:00).</div>
+
+<label>Enable schedule gating</label>
+<select name="screensaver_window_enable">
+  <option value="0" {"selected" if not screensaver_window_enable else ""}>OFF (always allow)</option>
+  <option value="1" {"selected" if screensaver_window_enable else ""}>ON (use window)</option>
+</select>
+
+<label>Start (HH:MM)</label>
+<input name="screensaver_start_hhmm" value="{esc(screensaver_start_hhmm)}">
+
+<label>End (HH:MM)</label>
+<input name="screensaver_end_hhmm" value="{esc(screensaver_end_hhmm)}">
 </fieldset>
 
 <fieldset>

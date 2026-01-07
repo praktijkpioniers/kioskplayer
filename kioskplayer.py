@@ -135,7 +135,20 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
     "web_port": 8080,
 
+    # Gallery mode switch
     "play_mode": "VIDEO",  # VIDEO | SLIDESHOW
+
+    # NEW: expo/continuous mode (auto-start after idle timeout even if loop_mode is OFF)
+    "expo_mode": False,
+
+    # NEW: slideshow timing (seconds per image) when play_mode=SLIDESHOW
+    "slideshow_interval_s": 10.0,
+
+    # NEW: screensaver schedule gating (when idle blanking is allowed)
+    # window may cross midnight (e.g., 17:00 -> 09:00)
+    "screensaver_window_enable": True,
+    "screensaver_start_hhmm": "17:00",
+    "screensaver_end_hhmm": "09:00",
 
     # Subtitle control (2nd button)
     "subtitle_button_pin": 27,          # pick your GPIO
@@ -144,14 +157,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "subtitle_lang_prefer": ["nl", "en", "de", "fr", "es"],
 
     "subtitle_remember_s": 120.0,  # remember selection for 2 minutes
-
     "subtitle_default_on": False,
-
-
-
-
-
 }
+
 
 
 def load_config() -> dict[str, Any]:
