@@ -42,6 +42,8 @@ CONTROL_UDP_HOST = "127.0.0.1"
 CONTROL_UDP_PORT = 9999
 CONTROL_MAGIC = b"CONFIG_CHANGED\n"
 
+# Subtitle sidecars we consider while scanning the video directory
+SUB_EXTS = (".srt", ".vtt", ".ass", ".ssa")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -821,6 +823,103 @@ class App:
             return "".join(f"{int(p):02x}" for p in ip.split("."))
         except Exception:
             return "00000000"
+
+    #subtitle scanning
+    def _scan_subtitle_files(self) -> list[Path]:
+        try:
+            if not self.video_dir.exists() or not self.video_dir.is_dir():
+                return []
+            return sorted(
+                p for p in self.video_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in self.SUB_EXTS
+            )
+        except Exception as e:
+            log(f"scan_subtitles error: {e!r}")
+            return []
+
+    def _extract_lang_from_sub_filename(self, p: Path) -> Optional[str]:
+        """
+        Accepts common patterns:
+          - movie.en.srt  -> "en"
+          - movie.pt-BR.vtt -> "pt-br"
+          - whatever.nl.ass -> "nl"
+        Strategy: take last token of stem after '.', validate.
+        """
+        try:
+            stem = p.stem  # filename without extension, e.g. "movie.en"
+            if "." not in stem:
+                return None
+            tok = stem.split(".")[-1].strip().lower()
+            if not tok:
+                return None
+
+            # Normalize separators
+            tok = tok.replace("_", "-")
+
+            # Very small sanity checks (avoid grabbing "final", "subtitles", etc.)
+            # Allow: "en", "nl", "de", "fr", "es", "pt-br", "zh-hans", "sr-latn" (up to 8+ parts but short tokens)
+            parts = tok.split("-")
+            if any((not part.isalnum()) for part in parts):
+                return None
+
+            # Typical: 2-3 letters for language, optionally region/script pieces
+            # Require first part to look like a language code.
+            first = parts[0]
+            if not (2 <= len(first) <= 3) or not first.isalpha():
+                return None
+
+            # Limit total token length so we don’t accept random long junk.
+            if len(tok) > 16:
+                return None
+
+            return tok
+        except Exception:
+            return None
+
+    def _discover_subtitle_languages(self) -> list[str]:
+        langs: set[str] = set()
+        for p in self._scan_subtitle_files():
+            lang = self._extract_lang_from_sub_filename(p)
+            if lang:
+                langs.add(lang)
+
+        # Return stable order for “extras”
+        return sorted(langs)
+
+    def _merge_subtitle_preferences_startup(self) -> None:
+        """
+        Startup-only:
+          - keep configured prefer order
+          - append discovered languages not already present
+          - keep everything lowercase
+        """
+        base = [str(x).lower() for x in (self.subtitle_lang_prefer or [])]
+        base = [x.replace("_", "-") for x in base if x]
+
+        discovered = self._discover_subtitle_languages()
+
+        merged: list[str] = []
+        seen: set[str] = set()
+
+        for x in base:
+            if x not in seen:
+                merged.append(x)
+                seen.add(x)
+
+        for x in discovered:
+            if x not in seen:
+                merged.append(x)
+                seen.add(x)
+
+        # If nothing at all, keep a safe default
+        if not merged:
+            merged = ["nl", "en"]
+
+        if merged != self.subtitle_lang_prefer:
+            log(f"subtitle_lang_prefer startup merge: {self.subtitle_lang_prefer} -> {merged}")
+        self.subtitle_lang_prefer = merged
+
+
 
     def _udp_control_loop(self) -> None:
         # Receives:
@@ -1924,6 +2023,9 @@ class App:
             self.active_video %= len(self.videos)
         else:
             self.active_video = 0
+
+        #scan once for subtitles
+        self._merge_subtitle_preferences_startup()
 
         self.renderer.start()
         self.renderer.load_idle(self._bg_path(), force=True)
