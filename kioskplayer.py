@@ -42,9 +42,6 @@ CONTROL_UDP_HOST = "127.0.0.1"
 CONTROL_UDP_PORT = 9999
 CONTROL_MAGIC = b"CONFIG_CHANGED\n"
 
-# Subtitle sidecars we consider while scanning the video directory
-SUB_EXTS = (".srt", ".vtt", ".ass", ".ssa")
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -680,6 +677,9 @@ class App:
 
     # NEW: menu-cyclable deep-powersave delay; 300s default is “5 min then powersave”
     POWERSAVE_CHOICES = [0, 300, 600, 1800]  # OFF, 5m, 10m, 30m
+
+    # Subtitle sidecars we consider while scanning the video directory
+    SUB_EXTS = (".srt", ".vtt", ".ass", ".ssa")
 
     def __init__(self, cfg: dict[str, Any]):
         self.cfg = cfg
