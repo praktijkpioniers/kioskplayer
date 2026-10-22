@@ -201,6 +201,40 @@ def _white_with_shadow(im: "Image.Image") -> "Image.Image":
     return canvas
 
 
+def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> tuple[list["Image.Image"], dict[str, Any]]:
+    """
+    Baked animation folder (tools/bake/*.py): clips.json + <clip>_NNNN.png.
+    All frames are cropped to their *union* bounding box (per-frame crops would make the
+    animation jitter) and scaled together. Returns frames in clip order + clip table.
+    """
+    d = theme_dir / sdef["anim"]
+    info = json.loads((d / "clips.json").read_text(encoding="utf-8"))
+    names = list(info["clips"])
+    raw: list["Image.Image"] = []
+    clips: dict[str, Any] = {}
+    for n in names:
+        c = info["clips"][n]
+        files = sorted(d.glob(c.get("files", f"{n}_*.png")))
+        clips[n] = {"start": len(raw), "count": len(files), "fps": float(c.get("fps", 24)),
+                    "loop": bool(c.get("loop", True)), "stride": float(c.get("stride", 0))}
+        raw.extend(Image.open(f).convert("RGBA") for f in files)
+
+    render_w = raw[0].width
+    box = None
+    for im in raw:
+        b = im.getchannel("A").getbbox()
+        if b:
+            box = b if box is None else (min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3]))
+    box = box or (0, 0, raw[0].width, raw[0].height)
+    scale = height_px / (box[3] - box[1])
+    w = max(1, round((box[2] - box[0]) * scale))
+    frames = [im.crop(box).resize((w, height_px), Image.LANCZOS) for im in raw]
+    for c in clips.values():
+        # baked stride is a fraction of the full render width → pixels per cycle on screen
+        c["stride_px"] = c.pop("stride") * render_w * scale
+    return frames, clips
+
+
 def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> list["Image.Image"]:
     files = sdef.get("frames") or [sdef["file"]]
     frames = []
@@ -226,29 +260,54 @@ def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> lis
                 canvas.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
                 rotated.append(canvas.rotate(360.0 * k / spin, resample=Image.BICUBIC))
         frames = rotated
+    return frames
 
-    # All frames share one cell size (largest), centred horizontally, bottom-aligned.
+
+def _cells(frames: list["Image.Image"], square: bool = False) -> list["Image.Image"]:
+    """All frames share one cell size (largest), centred horizontally, bottom-aligned."""
     cw = max(f.width for f in frames)
     ch = max(f.height for f in frames)
+    if square:
+        cw = ch = max(cw, ch)
     cells = []
     for f in frames:
         cell = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-        cell.paste(f, ((cw - f.width) // 2, ch - f.height))
+        cell.paste(f, ((cw - f.width) // 2, ch - f.height if not square else (ch - f.height) // 2))
         cells.append(cell)
     return cells
 
 
+# Variants stacked in the atlas. Art faces right; "directions" sprites (seen from below)
+# can also walk up/down the screen, so they get rotated copies instead of just a mirror.
+VARIANTS_MIRROR = ["normal", "mirror"]
+VARIANTS_DIRECTIONS = ["right", "left", "up", "down"]
+
+
+def _variant(im: "Image.Image", name: str) -> "Image.Image":
+    if name in ("normal", "right"):
+        return im
+    if name == "mirror":
+        return im.transpose(Image.FLIP_LEFT_RIGHT)
+    if name == "left":
+        return im.transpose(Image.ROTATE_180)
+    if name == "up":
+        return im.transpose(Image.ROTATE_90)
+    return im.transpose(Image.ROTATE_270)
+
+
 def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int) -> dict[str, Any]:
-    """Atlas layout: [frames..., mirrored frames...] stacked vertically → frame k at offset k*w*h*4."""
+    """Atlas: for each variant, all frames, stacked → frame k of variant v at offset (v*frames + k)*w*h*4."""
     height_px = max(4, round(float(sdef.get("height", 0.1)) * screen_h))
     opacity = float(sdef.get("opacity", 1.0))
 
-    src_files = sdef.get("frames") or [sdef["file"]]
+    if "anim" in sdef:
+        src_files = sorted((theme_dir / sdef["anim"]).glob("*"))
+    else:
+        src_files = [theme_dir / f for f in (sdef.get("frames") or [sdef["file"]])]
     h = hashlib.sha1()
-    h.update(json.dumps([sdef, screen_h], sort_keys=True).encode())
-    for f in src_files:
-        p = theme_dir / f
-        h.update(str(p.stat().st_mtime_ns).encode())
+    h.update(json.dumps([sdef, screen_h, 2], sort_keys=True).encode())
+    for p in src_files:
+        h.update(f"{p.name}{p.stat().st_mtime_ns}".encode())
     key = h.hexdigest()[:16]
 
     out = CACHE_DIR / f"{theme_dir.name}_{name}_{key}.bgra"
@@ -256,13 +315,21 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     if out.exists() and meta_path.exists():
         return json.loads(meta_path.read_text(encoding="utf-8"))
 
-    frames = _sprite_frames(theme_dir, sdef, height_px)
-    mirrored = [f.transpose(Image.FLIP_LEFT_RIGHT) for f in frames]
+    clips: dict[str, Any] = {}
+    if "anim" in sdef:
+        frames, clips = _load_anim(theme_dir, sdef, height_px)
+    else:
+        frames = _sprite_frames(theme_dir, sdef, height_px)
+    directions = bool(sdef.get("directions"))
+    variants = VARIANTS_DIRECTIONS if directions else VARIANTS_MIRROR
+    frames = _cells(frames, square=directions)
+
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
     with tmp.open("wb") as fh:
-        for f in frames + mirrored:
-            fh.write(_premultiplied_bgra(f, opacity))
+        for v in variants:
+            for f in frames:
+                fh.write(_premultiplied_bgra(_variant(f, v), opacity))
     tmp.replace(out)
 
     meta = {
@@ -270,8 +337,10 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "w": frames[0].width,
         "h": frames[0].height,
         "frames": len(frames),
+        "variants": variants,
         "fps": float(sdef.get("fps", 0)),
         "spin": int(sdef.get("spin", 0)),
+        "clips": clips,
     }
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
     return meta

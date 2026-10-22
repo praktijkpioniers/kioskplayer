@@ -44,9 +44,12 @@ end
 
 -- ── overlay plumbing ────────────────────────────────────────────────────────
 
-local function draw(id, spr, frame, mirror, x, y)
+-- variant: false/true (mirror) for normal sprites, or an index into spr.variants
+-- ("right", "left", "up", "down") for sprites baked with directions.
+local function draw(id, spr, frame, variant, x, y)
     local n = spr.frames
-    local idx = (frame % n) + (mirror and n or 0)
+    local v = (variant == true) and 1 or (tonumber(variant) or 0)
+    local idx = (frame % n) + v * n
     local xi, yi = math.floor(x + 0.5), math.floor(y + 0.5)
     local key = xi .. ":" .. yi .. ":" .. idx
     if shown[id] == key then return end
@@ -271,6 +274,72 @@ function spawn.dropper(el, spr)
     return a
 end
 
+-- crawler: a baked animated creature (clips walk / idle / wave) that walks across the screen
+-- in one of four directions, matching speed to its walk cycle, and now and then stops to
+-- look around or wave before walking on.
+local DIR_INDEX = { right = 0, left = 1, up = 2, down = 3 }
+local DIR_VEC = { right = { 1, 0 }, left = { -1, 0 }, up = { 0, -1 }, down = { 0, 1 } }
+
+function spawn.crawler(el, spr)
+    local walk = spr.clips and spr.clips.walk
+    if not walk then return nil end
+    local a = { el = el, spr = spr }
+    local dirs = el.directions or { "right", "left" }
+    if not spr.variants or #spr.variants < 4 then dirs = { "right", "left" } end
+    a.dir = dirs[math.random(#dirs)]
+    local dx, dy = DIR_VEC[a.dir][1], DIR_VEC[a.dir][2]
+    a.variant = (#(spr.variants or {}) >= 4) and DIR_INDEX[a.dir] or (a.dir == "left")
+
+    if dx ~= 0 then
+        local ylo, yhi = range(el.y, 0.5)
+        if mode == "video" and intensity() < 1 then ylo, yhi = 0.86, 0.92 end
+        a.x = (dx > 0) and -spr.w or W
+        a.y = rnd(ylo, yhi) * H - spr.h / 2
+    else
+        a.x = band_x(el, spr.w)
+        a.y = (dy > 0) and -spr.h or H
+    end
+    a.dx, a.dy = dx, dy
+    a.v = walk.stride_px * walk.fps / walk.count * (el.speed or 1.0)
+    a.clip, a.tc = "walk", 0
+    a.walk_left = rnd(range(el.walk, 3))
+
+    local function onscreen()
+        return a.x > 0 and a.y > 0 and a.x + spr.w < W and a.y + spr.h < H
+    end
+
+    local function start(clip, dur)
+        a.clip, a.tc = clip, 0
+        a.dur = dur
+    end
+
+    function a.update(dt, t)
+        a.tc = a.tc + dt
+        local c = spr.clips[a.clip]
+        if a.clip == "walk" then
+            a.x = a.x + a.dx * a.v * dt
+            a.y = a.y + a.dy * a.v * dt
+            a.walk_left = a.walk_left - dt
+            if a.walk_left <= 0 and onscreen() then
+                if spr.clips.wave and math.random() < (el.wave_chance or 0.4) then
+                    start("wave", spr.clips.wave.count / spr.clips.wave.fps)
+                elseif spr.clips.idle then
+                    start("idle", rnd(range(el.pause, 1.5)))
+                end
+                a.walk_left = rnd(range(el.walk, 3))
+            end
+            if a.x < -spr.w - 2 or a.x > W + 2 or a.y < -spr.h - 2 or a.y > H + 2 then return false end
+        elseif a.tc >= a.dur then
+            start("walk")
+            c = spr.clips.walk
+        end
+        local k = math.floor(a.tc * c.fps)
+        if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
+        return true, a.x, a.y, c.start + k, a.variant
+    end
+    return a
+end
+
 -- peeker: rises from an edge (or from behind a decor piece), lingers (waves/dances/talks), sinks back
 function spawn.peeker(el, spr)
     local a = { el = el, spr = spr }
@@ -360,6 +429,7 @@ local function try_spawn(el, now)
     local spr = sprite_of(el)
     if not spr or not spawn[el.type] then return end
     local a = spawn[el.type](el, spr)
+    if not a then st.next = now + 5 return end
     a.id = take_id(); st.active = st.active + 1
     actors[#actors + 1] = a
     local lo, hi = range(el.every, 30)

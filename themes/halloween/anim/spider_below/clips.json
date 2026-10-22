@@ -1,0 +1,26 @@
+{
+ "view": "below",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 16,
+   "fps": 24,
+   "loop": true,
+   "stride": 0.2307692251261876
+  },
+  "wave": {
+   "files": "wave_*.png",
+   "count": 56,
+   "fps": 24,
+   "loop": false,
+   "stride": 0.0
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 32,
+   "fps": 24,
+   "loop": true,
+   "stride": 0.0
+  }
+ }
+}
