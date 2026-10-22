@@ -30,6 +30,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import themes
+
 # ─────────────────────────────────────────────
 # Paths / constants
 # ─────────────────────────────────────────────
@@ -256,6 +258,43 @@ def render_page(cfg: dict, msg: str = "") -> str:
     screensaver_start_hhmm = str(cfg.get("screensaver_start_hhmm", "17:00") or "17:00")
     screensaver_end_hhmm = str(cfg.get("screensaver_end_hhmm", "09:00") or "09:00")
 
+    # Seasonal themes + watermark
+    themes_enabled = bool(cfg.get("themes_enabled", True))
+    disabled_types = {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])}
+    event_types = []
+    for ev in themes.load_events():
+        t = str(ev.get("type", ev.get("id", ""))).lower()
+        if t and t not in event_types:
+            event_types.append(t)
+    type_boxes_html = "\n".join(
+        f'<label class="check"><input type="checkbox" name="theme_type_on" value="{esc(t)}" '
+        f'{"" if t in disabled_types else "checked"}> {esc(t)}</label>'
+        for t in event_types
+    )
+    theme_names = sorted(p.parent.name for p in themes.THEMES_DIR.glob("*/theme.json"))
+    cur_force = str(cfg.get("themes_force") or "")
+    force_opts_html = '<option value="">(follow calendar)</option>' + "".join(
+        f'<option value="{esc(n)}" {"selected" if n == cur_force else ""}>{esc(n)}</option>' for n in theme_names
+    )
+    fi = cfg.get("themes_force_intensity")
+    force_intensity = "" if fi is None else fi
+    try:
+        active = themes.pick_theme(cfg, themes.today_for(cfg))
+    except Exception:
+        active = None
+    active_txt = f"{active[0]} (intensity {active[1]:.2f})" if active else "none"
+    watermark_enabled = bool(cfg.get("watermark_enabled", True))
+    wm_pos = str(cfg.get("watermark_position", "top-right"))
+    wm_pos_opts_html = "".join(
+        f'<option {"selected" if v == wm_pos else ""}>{v}</option>'
+        for v in ("top-right", "top-left", "bottom-right", "bottom-left")
+    )
+    wm_style = str(cfg.get("watermark_style", "white"))
+    wm_style_opts_html = "".join(
+        f'<option value="{v}" {"selected" if v == wm_style else ""}>{label}</option>'
+        for v, label in (("white", "white (TV logo)"), ("original", "original colours"))
+    )
+
     return f"""<!doctype html>
 <html>
 <head>
@@ -266,6 +305,8 @@ body {{ font-family: sans-serif; margin: 16px; }}
 h1 {{ font-size: 20px; }}
 button {{ padding: 12px; font-size: 16px; margin: 4px 0; width: 100%; }}
 select, input {{ width: 100%; padding: 6px; font-size: 14px; }}
+label.check {{ display: inline-block; margin-right: 14px; }}
+label.check input {{ width: auto; }}
 fieldset {{ margin: 12px 0; }}
 .ok {{ color: #060; }}
 .small {{ font-size: 12px; opacity: 0.8; }}
@@ -391,6 +432,59 @@ a.buttonlink {{
 <select name="color_preset">
 {preset_opts_html}
 </select>
+</fieldset>
+
+<fieldset>
+<legend>Seasonal themes</legend>
+<div class="small">Active now: <b>{esc(active_txt)}</b>. Calendar: themes/events.json.</div>
+
+<label>Themes</label>
+<select name="themes_enabled">
+  <option value="1" {"selected" if themes_enabled else ""}>ON</option>
+  <option value="0" {"selected" if not themes_enabled else ""}>OFF (all)</option>
+</select>
+
+<label>Event types shown</label>
+<div>{type_boxes_html or '<span class="small">(no events)</span>'}</div>
+
+<label>Preview theme (ignores date)</label>
+<select name="themes_force">
+{force_opts_html}
+</select>
+
+<label>Preview intensity 0..1 (empty = full / prime day)</label>
+<input name="themes_force_intensity" value="{esc(force_intensity)}">
+
+<label>Pretend date (empty = today)</label>
+<input type="date" name="themes_date_override" value="{esc(cfg.get("themes_date_override") or "")}">
+</fieldset>
+
+<fieldset>
+<legend>Watermark</legend>
+<label>Watermark</label>
+<select name="watermark_enabled">
+  <option value="1" {"selected" if watermark_enabled else ""}>ON</option>
+  <option value="0" {"selected" if not watermark_enabled else ""}>OFF</option>
+</select>
+
+<label>Logo image (transparent PNG)</label>
+<input name="watermark_image" value="{esc(cfg.get("watermark_image", ""))}">
+
+<label>Position</label>
+<select name="watermark_position">
+{wm_pos_opts_html}
+</select>
+
+<label>Style</label>
+<select name="watermark_style">
+{wm_style_opts_html}
+</select>
+
+<label>Opacity 0..1</label>
+<input name="watermark_opacity" value="{esc(cfg.get("watermark_opacity", 0.6))}">
+
+<label>Height (fraction of screen)</label>
+<input name="watermark_height" value="{esc(cfg.get("watermark_height", 0.08))}">
 </fieldset>
 
 <fieldset>
@@ -743,6 +837,27 @@ class Handler(BaseHTTPRequestHandler):
         # default subtitle mode (0/1)
         subdef = str(get("subtitle_default_on", str)).strip()
         cfg["subtitle_default_on"] = (subdef == "1")
+
+        # seasonal themes: unchecked type boxes are simply absent from the POST
+        cfg["themes_enabled"] = (str(get("themes_enabled", str) or "1").strip() == "1")
+        types_on = {t.lower() for t in data.get("theme_type_on", [])}
+        all_types = {str(ev.get("type", ev.get("id", ""))).lower() for ev in themes.load_events()}
+        cfg["themes_disabled_types"] = sorted(all_types - types_on)
+        cfg["themes_force"] = (data.get("themes_force", [""])[0] or "").strip()
+        fi_raw = (data.get("themes_force_intensity", [""])[0] or "").strip()
+        try:
+            cfg["themes_force_intensity"] = max(0.0, min(1.0, float(fi_raw))) if fi_raw else None
+        except ValueError:
+            pass
+        cfg["themes_date_override"] = (data.get("themes_date_override", [""])[0] or "").strip()
+
+        # watermark
+        cfg["watermark_enabled"] = (str(get("watermark_enabled", str) or "1").strip() == "1")
+        cfg["watermark_image"] = get("watermark_image")
+        cfg["watermark_position"] = get("watermark_position")
+        cfg["watermark_style"] = get("watermark_style")
+        cfg["watermark_opacity"] = get("watermark_opacity", float)
+        cfg["watermark_height"] = get("watermark_height", float)
 
         save_config(cfg)
         notify_config_changed()

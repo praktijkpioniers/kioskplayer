@@ -1,0 +1,74 @@
+{
+  "_doc": [
+    "Sprites: height is a fraction of screen height; frames animate at fps; spin = pre-rendered rotation steps.",
+    "Elements: min/max = intensity range where it appears (1.0 = Halloween itself); video_min = from which",
+    "intensity it also shows over a playing video (default never). count/max_active/every scale with intensity.",
+    "Types: decor (static, anchored), particles (falling), flyer, walker, dropper (spider on a thread),",
+    "peeker (rises from an edge or from behind decor; say = speech bubble from 'shouts'), joke (banner from 'jokes')."
+  ],
+  "sprites": {
+    "pumpkin":   {"frames": ["pumpkin1.png", "pumpkin2.png"], "height": 0.13, "fps": 3},
+    "leaf":      {"frames": ["leaf_orange.png", "leaf_red.png", "leaf_yellow.png"], "height": 0.035, "spin": 8},
+    "cobweb":    {"file": "cobweb.png", "height": 0.22, "opacity": 0.85},
+    "tombstone": {"file": "tombstone.png", "height": 0.15},
+    "bat":       {"frames": ["bat1.png", "bat2.png"], "height": 0.05, "fps": 8},
+    "spider":    {"frames": ["spider1.png", "spider2.png"], "height": 0.06, "fps": 6},
+    "bigspider": {"frames": ["spider1.png", "spider2.png"], "height": 0.16, "fps": 8},
+    "ghost":     {"file": "ghost.png", "height": 0.14, "opacity": 0.8},
+    "witch":     {"file": "witch.png", "height": 0.10},
+    "skeleton":  {"frames": ["skeleton1.png", "skeleton2.png"], "height": 0.30, "fps": 3},
+    "zombie":    {"frames": ["zombie1.png", "zombie2.png"], "height": 0.28, "fps": 2}
+  },
+  "elements": [
+    {"type": "decor", "sprite": "pumpkin", "anchor": "bottom-left", "count": [1, 2], "video_min": 0.0,
+     "places": [[0.01, 0.0], [0.07, 0.0]]},
+    {"type": "decor", "sprite": "pumpkin", "anchor": "bottom-right", "min": 0.2, "count": [1, 2], "video_min": 0.0,
+     "places": [[0.01, 0.0, true], [0.065, 0.0]]},
+    {"type": "particles", "sprite": "leaf", "count": [3, 14], "max": 0.99, "speed": [0.05, 0.1], "sway": 0.03,
+     "video_min": 0.0, "video_share": 0.3},
+    {"type": "decor", "sprite": "cobweb", "anchor": "top-left", "min": 0.15, "video_min": 0.3, "places": [[0, 0]]},
+    {"type": "decor", "sprite": "cobweb", "anchor": "top-right", "min": 0.5, "video_min": 0.7, "places": [[0, 0, true]]},
+    {"type": "decor", "sprite": "tombstone", "anchor": "bottom-left", "min": 0.35, "count": [1, 2],
+     "places": [[0.30, 0.0], [0.62, 0.0]]},
+    {"type": "flyer", "sprite": "bat", "min": 0.25, "every": [25, 60], "max_active": [1, 4], "speed": [0.12, 0.22],
+     "y": [0.05, 0.35], "amp": 0.04, "video_min": 0.6},
+    {"type": "dropper", "sprite": "spider", "min": 0.45, "every": [30, 70], "depth": [0.15, 0.45], "hold": 4,
+     "video_min": 0.7},
+    {"type": "flyer", "sprite": "ghost", "min": 0.6, "every": [40, 90], "speed": [0.05, 0.08], "y": [0.1, 0.4],
+     "amp": 0.03, "video_min": 1.0},
+
+    {"type": "peeker", "sprite": "skeleton", "min": 1.0, "from": "decor", "every": [8, 20], "max_active": 2,
+     "reveal": [0.5, 0.8], "hold": 5, "dance": true, "say": true, "video_min": 1.0},
+    {"type": "peeker", "sprite": "zombie", "min": 1.0, "edge": "bottom", "every": [10, 25], "max_active": 2,
+     "reveal": [0.4, 0.7], "hold": 4, "say": true, "video_min": 1.0},
+    {"type": "peeker", "sprite": "zombie", "min": 1.0, "edge": "left", "every": [20, 40], "reveal": [0.4, 0.6],
+     "hold": 3, "video_min": 1.0},
+    {"type": "peeker", "sprite": "skeleton", "min": 1.0, "edge": "right", "every": [20, 40], "reveal": [0.4, 0.6],
+     "hold": 3, "say": true, "video_min": 1.0},
+    {"type": "walker", "sprite": "bigspider", "min": 1.0, "edge": "bottom", "every": [20, 45], "speed": [0.08, 0.14],
+     "wobble": 0.004, "video_min": 1.0},
+    {"type": "flyer", "sprite": "witch", "min": 1.0, "every": [30, 60], "speed": [0.18, 0.25], "y": [0.05, 0.25],
+     "amp": 0.05, "video_min": 1.0},
+    {"type": "joke", "min": 0.5, "every": [60, 150], "show": 9}
+  ],
+  "shouts": [
+    "Boe!",
+    "Hallo daar!",
+    "Ik bot er even op!",
+    "Doodmoe...",
+    "Hersens? Nee, dank je",
+    "Mooi museum hè?",
+    "Wie stoort mijn rust?",
+    "Hihihi!",
+    "Oeeeh!",
+    "Ik zit hier al 150 jaar"
+  ],
+  "jokes": [
+    "Waarom vechten skeletten nooit? Ze hebben het lef niet!",
+    "Wat drinkt een spook? Boe-ttermelk!",
+    "Waarom kan een spook niet liegen? Je kijkt er dwars doorheen!",
+    "De Waterlinie hield vijanden tegen. Zombies kunnen gelukkig niet zwemmen...",
+    "Ik ben niet eng, ik ben gewoon historisch!",
+    "Fijne Halloween vanuit het fort!"
+  ]
+}

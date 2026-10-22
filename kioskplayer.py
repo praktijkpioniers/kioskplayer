@@ -46,6 +46,8 @@ CONTROL_MAGIC = b"CONFIG_CHANGED\n"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+from themes import ENGINE_LUA, ThemeController
+
 # GPIO optional (PC dev mode)
 try:
     from gpiozero import Button as GpioButton, LED as GpioLED  # type: ignore
@@ -157,6 +159,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
     "subtitle_remember_s": 120.0,  # remember selection for 2 minutes
     "subtitle_default_on": False,
+
+    # Seasonal themes (calendar in themes/events.json, artwork in themes/<theme>/)
+    "themes_enabled": True,
+    "themes_disabled_types": [],       # e.g. ["halloween"] to skip just that one
+    "themes_force": "",                # preview: theme name to show regardless of date
+    "themes_force_intensity": None,    # preview strength 0..1 (None = 1.0, prime day)
+    "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
+
+    # TV-style watermark
+    "watermark_enabled": True,
+    "watermark_image": "themes/watermark/default.png",
+    "watermark_position": "top-right",  # top-left | top-right | bottom-left | bottom-right
+    "watermark_style": "white",         # white (TV-logo silhouette) | original (logo colours)
+    "watermark_height": 0.08,           # fraction of screen height
+    "watermark_opacity": 0.6,
+    "watermark_margin": 0.025,
 }
 
 
@@ -327,6 +345,8 @@ class MpvIpc:
         self._stop_reader = False
         self._replies: dict[int, dict[str, Any]] = {}
         self._reply_cv = threading.Condition()
+        # The theme controller talks to mpv from its own thread; keep requests whole.
+        self._send_lock = threading.Lock()
 
 
     def connect(self, timeout_s: float = 5.0) -> None:
@@ -366,10 +386,11 @@ class MpvIpc:
         if self._sock is None:
             raise RuntimeError("mpv IPC not connected")
 
-        req_id = self._next_id
-        self._next_id += 1
-        req = {"command": list(args), "request_id": req_id}
-        self._sock.sendall((json.dumps(req) + "\n").encode("utf-8"))
+        with self._send_lock:
+            req_id = self._next_id
+            self._next_id += 1
+            req = {"command": list(args), "request_id": req_id}
+            self._sock.sendall((json.dumps(req) + "\n").encode("utf-8"))
 
         deadline = time.time() + max(0.05, float(timeout_s))
         with self._reply_cv:
@@ -424,11 +445,12 @@ class MpvIpc:
     def command_reply(self, *args: Any) -> dict[str, Any]:
         if self._sock is None:
             raise RuntimeError("mpv IPC not connected")
-        req_id = self._next_id
-        self._next_id += 1
-        req = {"command": list(args), "request_id": req_id}
-        data = (json.dumps(req) + "\n").encode("utf-8")
-        self._sock.sendall(data)
+        with self._send_lock:
+            req_id = self._next_id
+            self._next_id += 1
+            req = {"command": list(args), "request_id": req_id}
+            data = (json.dumps(req) + "\n").encode("utf-8")
+            self._sock.sendall(data)
         return {"request_id": req_id}
 
     def set_property(self, name: str, value: Any) -> None:
@@ -513,6 +535,8 @@ class MpvRenderer:
             "--loop-file=no",
             f"--log-file={str(MPV_LOG_PATH)}",
         ]
+        if ENGINE_LUA.exists():
+            args.append(f"--script={ENGINE_LUA}")
 
         log(f"Starting mpv: {' '.join(args)}")
         self.proc = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -750,6 +774,13 @@ class App:
 
 
         self.renderer = MpvRenderer(cfg)
+
+        self.themes = ThemeController(
+            send=lambda *a: self.renderer.ipc.command(*a),
+            get_prop=lambda name: self.renderer.ipc.get_property(name),
+            log=log,
+        )
+        self.themes.configure(cfg)
 
         self.state = "IDLE"  # SLEEP | IDLE | PASSKEY | MENU | PLAYING
         self.last_activity = time.time()
@@ -1222,12 +1253,18 @@ class App:
 
 
 
+    THEME_MODE_FOR_STATE = {"IDLE": "idle", "PLAYING": "video"}  # others (SLEEP/MENU/PASSKEY): hidden
+
     def _set_state(self, st: str) -> None:
         log(f"STATE {self.state} -> {st}")
         self.state = st
         self.last_activity = self._now()
         if st in ("IDLE", "SLEEP"):
             self.idle_since = self._now()
+        try:
+            self.themes.set_mode(self.THEME_MODE_FOR_STATE.get(st, "hidden"))
+        except Exception as e:
+            log(f"themes set_mode failed: {e!r}")
 
     def _event_ok(self, t: float, want_kind: str) -> bool:
         if (t - self._last_raw_event_t) < self._debounce_s:
@@ -1599,6 +1636,7 @@ class App:
             # restart mpv so the rest of the app can render again
             try:
                 self.renderer.start()
+                self.themes.reset()
                 self.renderer.load_idle(self._bg_path(), force=True)
             except Exception as e:
                 log(f"KILL_MPV restart failed: {e!r}")
@@ -2006,6 +2044,8 @@ class App:
         # UI background may have changed
         self.renderer.load_idle(self._bg_path(), force=True)
 
+        self.themes.configure(new_cfg)
+
         # stay in current state; do not auto-play
 
 
@@ -2028,6 +2068,7 @@ class App:
         self._merge_subtitle_preferences_startup()
 
         self.renderer.start()
+        self.themes.reset()
         self.renderer.load_idle(self._bg_path(), force=True)
         self.enter_idle()
 
@@ -2104,6 +2145,9 @@ class App:
                     and (now - self._sleep_soft_started_t) >= float(self.powersave_after_s)
                 ):
                     self._enter_hardware_powersave()
+
+                if not self._mpv_frozen and not self._mpv_killed:
+                    self.themes.tick(now)
 
                 if self.state == "PASSKEY":
                     t_last = self.passkey_last_input_t or self.passkey_started_t or now
