@@ -14,6 +14,7 @@ local utils = require "mp.utils"
 local msg = require "mp.msg"
 
 local FPS = 30
+local DRAW_HZ = 15      -- default redraw rate of moving actors (each overlay-add costs a full OSD redraw)
 local WM_ID = 63
 local DECOR_IDS = { first = 40, last = 62 }
 local ACTOR_IDS = { first = 0, last = 39 }
@@ -268,7 +269,6 @@ function spawn.dropper(el, spr)
             if a.y < -spr.h then return false end
         end
         local sway = math.sin(t * 1.3) * 0.004 * W
-        a.tx, a.ty = a.x + spr.w / 2 + sway, a.y
         return true, a.x + sway, a.y, math.floor(t * math.max(spr.fps, 1)), false
     end
     return a
@@ -340,6 +340,96 @@ function spawn.crawler(el, spr)
     return a
 end
 
+-- performer: a baked character acting out a little scene from its clips.
+--   enter: "rise" (out of the ground at the bottom edge, or from behind a decor piece — decor is
+--          drawn on top, so it hides the legs) or "walk" (in from a side, then "turn_front")
+--   acts:  1..n clips from el.acts facing the viewer ("idle" loops for a while), saying a shout
+--   exit:  "sink" (rise played backwards) or "walk" ("turn_side", then off-screen)
+-- Clips are baked facing right; the mirror variant makes the whole scene face left.
+function spawn.performer(el, spr)
+    local C = spr.clips
+    if not (C and C.rise or C and C.walk) then return nil end
+    local a = { el = el, spr = spr }
+    local function pick(list, default)
+        local ok = {}
+        for _, n in ipairs(list or default) do
+            local clip = (n == "sink") and "rise" or n
+            if C[clip] then ok[#ok + 1] = n end
+        end
+        return ok[math.random(math.max(1, #ok))]
+    end
+    local enter = pick(el.enter, { "rise", "walk" })
+    local exit = pick(el.exit, { "sink", "walk" })
+    if not enter or not exit then return nil end
+
+    local behind = (enter == "rise" and el.from_decor ~= false and #decor > 0 and math.random() < (el.from_decor or 0.5))
+        and decor[math.random(#decor)] or nil
+    local ground = H + spr.h * (el.sink or 0.0)  -- feet line (sprite bottom)
+    a.mirror = math.random() < 0.5
+    if behind then
+        ground = behind.y + behind.spr.h * 0.92
+        a.x = behind.x + (behind.spr.w - spr.w) / 2
+    elseif enter == "walk" then
+        a.x = a.mirror and W or -spr.w
+        a.target = band_x(el, spr.w)
+    else
+        a.x = band_x(el, spr.w)
+    end
+    a.y = ground - spr.h
+
+    -- the scene as a list of steps
+    local steps = {}
+    if enter == "rise" then steps[#steps + 1] = { clip = "rise" }
+    else
+        steps[#steps + 1] = { clip = "walk", to = a.target }
+        if C.turn_front then steps[#steps + 1] = { clip = "turn_front" } end
+    end
+    local acts = el.acts or { "cheer", "taunt", "idle" }
+    for k = 1, math.floor(rnd(range(el.n_acts, 2)) + 0.5) do
+        local n = acts[math.random(#acts)]
+        if C[n] then
+            steps[#steps + 1] = { clip = n, act = true, dur = C[n].loop and rnd(range(el.idle, 2)) or nil }
+        end
+    end
+    if exit == "sink" and not (enter == "walk") then steps[#steps + 1] = { clip = "rise", reverse = true }
+    else
+        if C.turn_side then steps[#steps + 1] = { clip = "turn_side" } end
+        steps[#steps + 1] = { clip = "walk", off = true }
+    end
+    if el.say then a.joke = next_text("shouts") end
+
+    local walk = C.walk
+    local v = walk and walk.stride_px * walk.fps / walk.count * (el.speed or 1.0) or 0
+    local dir = a.mirror and -1 or 1
+    local si, tc = 1, 0
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        tc = tc + dt
+        local c = C[s.clip]
+        local done
+        if s.clip == "walk" then
+            a.x = a.x + dir * v * dt
+            if s.off then
+                if a.x < -spr.w - 2 or a.x > W + 2 then return false end
+            elseif (dir > 0 and a.x >= s.to) or (dir < 0 and a.x <= s.to) then
+                done = true
+            end
+        else
+            done = tc >= (s.dur or c.count / c.fps)
+        end
+        local k = math.floor(tc * c.fps)
+        if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
+        if s.reverse then k = c.count - 1 - k end
+        a.talking = a.joke and s.act
+        local frame = c.start + k
+        if done then si, tc = si + 1, 0 end
+        return true, a.x, a.y, frame, a.mirror
+    end
+    return a
+end
+
 -- peeker: rises from an edge (or from behind a decor piece), lingers (waves/dances/talks), sinks back
 function spawn.peeker(el, spr)
     local a = { el = el, spr = spr }
@@ -395,7 +485,6 @@ function spawn.peeker(el, spr)
         else
             x, y = a.x, a.hidden_y + (a.shown_y - a.hidden_y) * p - by
         end
-        a.bx, a.by = x, y
         return true, x, y, math.floor(t * math.max(spr.fps, 1)), mirror
     end
     return a
@@ -445,15 +534,16 @@ local banner = nil  -- { text, until_t }
 local function render_ass(now)
     local out = {}
     for _, a in ipairs(actors) do
-        if a.thread and a.ty then
+        if a.thread and a.sx then
+            local tx, ty = a.sx + a.spr.w / 2, a.sy
             out[#out + 1] = string.format(
                 "{\\an7\\pos(0,0)\\bord0\\shad0\\1c&HDDDDDD&\\1a&H60&\\p1}m %d 0 l %d 0 l %d %d l %d %d{\\p0}",
-                a.tx - 1, a.tx + 1, a.tx + 1, a.ty + 4, a.tx - 1, a.ty + 4)
+                tx - 1, tx + 1, tx + 1, ty + 4, tx - 1, ty + 4)
         end
-        if a.talking and a.joke and a.bx then
+        if a.talking and a.joke and a.sx then
             local fs = math.floor(H * 0.035)
-            local cx = clamp(a.bx + a.spr.w * 0.5, W * 0.15, W * 0.85)
-            local cy = math.max(fs * 2, a.by - fs * 0.6)
+            local cx = clamp(a.sx + a.spr.w * 0.5, W * 0.15, W * 0.85)
+            local cy = math.max(fs * 2, a.sy + a.spr.h * (a.el.say_y or 0) - fs * 0.6)
             out[#out + 1] = string.format(
                 "{\\an2\\pos(%d,%d)\\fs%d\\b1\\1c&H101010&\\3c&HFFFFFF&\\bord%d\\shad0\\4a&HFF&\\fnDejaVu Sans}%s",
                 cx, cy, fs, math.floor(fs * 0.45), ass_escape(a.joke))
@@ -474,8 +564,10 @@ local function render_ass(now)
             "{\\an8\\pos(%d,%d)\\q0\\fs%d\\b1\\1c&H00A5FF&\\3c&H000000&\\bord%d\\shad2\\fnDejaVu Sans}%s",
             W / 2, H * 0.12, fs, math.max(2, math.floor(fs * 0.08)), text)
     end
+    local data = table.concat(out, "\n")
+    if data == ass.data and ass.res_x == W and ass.res_y == H then return end  -- unchanged: skip OSD redraw
     ass.res_x, ass.res_y, ass.z = W, H, 5
-    ass.data = table.concat(out, "\n")
+    ass.data = data
     ass:update()
 end
 
@@ -518,7 +610,14 @@ local function tick()
     for _, a in ipairs(actors) do
         local alive, x, y, frame, mirror = a.update(dt, t)
         if alive and element_on(a.el) then
-            draw(a.id, a.spr, frame, mirror, x, y)
+            -- every overlay-add costs an OSD redraw, so slow actors (particles) redraw less often
+            local hz = a.el.hz or (a.el.type == "particles" and 12 or DRAW_HZ)
+            if not a.next_draw or now >= a.next_draw then
+                a.next_draw = (a.next_draw or now + rnd(0, 1 / hz)) + 1 / hz
+                if a.next_draw < now then a.next_draw = now + 1 / hz end
+                draw(a.id, a.spr, frame, mirror, x, y)
+                a.sx, a.sy = x, y
+            end
             keep[#keep + 1] = a
         else
             give_id(a.id)

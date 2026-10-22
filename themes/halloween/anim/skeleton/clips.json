@@ -1,0 +1,62 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "clips": {
+  "rise": {
+   "files": "rise_*.png",
+   "count": 44,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "cheer": {
+   "files": "cheer_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "taunt": {
+   "files": "taunt_*.png",
+   "count": 37,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "hop": {
+   "files": "hop_*.png",
+   "count": 15,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 26,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "walk": {
+   "files": "walk_*.png",
+   "count": 19,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.35397804544275446
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ }
+}

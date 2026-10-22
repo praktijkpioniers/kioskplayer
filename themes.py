@@ -331,6 +331,10 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
             for f in frames:
                 fh.write(_premultiplied_bgra(_variant(f, v), opacity))
     tmp.replace(out)
+    # drop atlases of older versions of this sprite (baked animations are ~100 MB each)
+    for old in CACHE_DIR.glob(f"{theme_dir.name}_{name}_*"):
+        if old.stem != out.stem:
+            old.unlink(missing_ok=True)
 
     meta = {
         "file": str(out),

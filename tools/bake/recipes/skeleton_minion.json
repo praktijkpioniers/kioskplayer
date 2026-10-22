@@ -1,0 +1,16 @@
+{
+ "_doc": "KayKit Skeletons (CC0, Kay Lousberg): git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0 tools/bake/models/kaykit-skeletons",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "hide": ["Icosphere"],
+ "outline": 0.008,
+ "clips": {
+  "rise":       {"action": "Spawn_Ground_Skeletons", "yaw": 15, "step": 2},
+  "cheer":      {"action": "Cheer", "yaw": 15, "step": 2},
+  "taunt":      {"action": "Taunt_Longer", "yaw": 15, "step": 2},
+  "hop":        {"action": "Jump_Full_Short", "yaw": 15, "step": 2},
+  "idle":       {"action": "Idle_B", "yaw": 15, "loop": true, "step": 2},
+  "walk":       {"action": "Walking_D_Skeletons", "yaw": 90, "loop": true, "stride": "auto", "step": 2},
+  "turn_front": {"action": "Idle", "yaw": [90, 15], "frames": 6},
+  "turn_side":  {"action": "Idle", "yaw": [15, 90], "frames": 6}
+ }
+}
