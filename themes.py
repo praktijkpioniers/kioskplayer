@@ -305,18 +305,24 @@ def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> lis
             rgb.putalpha(base.getchannel("A"))
             frames.append(rgb)
 
-    #   "sway": N → hanging things swinging gently, rotated about the top centre over N steps
+    #   "sway": N → hanging things swinging gently over N steps; "sway_top" (fraction of the height,
+    #   e.g. the twig a bat hangs from) stays put, the rest rotates about the middle of that line
     sway = int(sdef.get("sway", 0))
     if sway > 1 and frames:
         base = frames[0]
         amp = float(sdef.get("sway_deg", 7))
+        top = round(base.height * float(sdef.get("sway_top", 0)))
         pad = int(base.height * math.sin(math.radians(amp))) + 2
+        fixed = Image.new("RGBA", (base.width + 2 * pad, base.height), (0, 0, 0, 0))
+        fixed.paste(base.crop((0, 0, base.width, top)), (pad, 0))
+        hanging = Image.new("RGBA", fixed.size, (0, 0, 0, 0))
+        hanging.paste(base.crop((0, top, base.width, base.height)), (pad, top))
         frames = []
         for k in range(sway):
-            canvas = Image.new("RGBA", (base.width + 2 * pad, base.height), (0, 0, 0, 0))
-            canvas.paste(base, (pad, 0))
             a = amp * math.sin(2 * math.pi * k / sway)
-            frames.append(canvas.rotate(a, resample=Image.BICUBIC, center=(canvas.width / 2, 0)))
+            im = hanging.rotate(a, resample=Image.BICUBIC, center=(fixed.width / 2, top))
+            im.alpha_composite(fixed)
+            frames.append(im)
 
     # Optional pre-rendered rotation steps (overlay-add can't rotate): every frame × N angles.
     spin = int(sdef.get("spin", 0))

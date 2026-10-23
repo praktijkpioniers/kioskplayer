@@ -86,7 +86,8 @@
       "height": 0.11,
       "sway": 24,
       "sway_deg": 6,
-      "fps": 8
+      "fps": 8,
+      "sway_top": 0.28
     },
     "vampire": {
       "file": "vampire.png",
