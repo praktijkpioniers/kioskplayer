@@ -166,6 +166,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "themes_force": "",                # preview: theme name to show regardless of date
     "themes_force_intensity": None,    # preview strength 0..1 (None = 1.0, prime day)
     "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
+    "themes_text": False,              # characters may say shouts/jokes in speech balloons
 
     # TV-style watermark
     "watermark_enabled": True,

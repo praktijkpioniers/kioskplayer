@@ -81,7 +81,29 @@ end
 
 -- ── helpers ─────────────────────────────────────────────────────────────────
 
-local function intensity() return M and M.intensity or 0 end
+local next_text
+-- Preview overrides from the keyboard (test setups only: the kiosk runs mpv without keyboard input).
+local preview = { intensity = nil, text = nil, mode = nil }
+local real_mode = "hidden"
+
+local function intensity() return preview.intensity or (M and M.intensity) or 0 end
+local function text_on()
+    if preview.text ~= nil then return preview.text end
+    return M and M.text or false
+end
+
+-- What a talking character says: a shout, or (sometimes) a "question? punchline!" joke.
+local function pick_line(el)
+    if not (el.say and text_on()) then return nil end
+    local j = (math.random() < (el.joke_chance or 0.3)) and next_text("jokes") or nil
+    if j then
+        local q, a = j:match("^(.-%?)%s+(.+)$")
+        if q then return { text = q, punch = a } end
+        return { text = j }
+    end
+    local sh = next_text("shouts")
+    return sh and { text = sh } or nil
+end
 
 -- Is this element allowed right now (intensity + idle/video mode)?
 local function element_on(el)
@@ -107,7 +129,7 @@ local function sprite_of(el)
 end
 
 -- Draw texts from a shuffled deck so they alternate without quick repeats.
-local function next_text(list)
+function next_text(list)
     local texts = M and M[list] or {}
     if #texts == 0 then return nil end
     local d = decks[list]
@@ -128,9 +150,10 @@ local function ass_escape(s)
     return (s:gsub("\\", "\\\\"):gsub("{", "\\{"):gsub("}", "\\}"):gsub("\n", "\\N"))
 end
 
--- In video mode (below prime) keep x inside the left/right border bands.
+-- In video mode (below prime), or for elements with "band": true, keep x inside the
+-- left/right border bands.
 local function band_x(el, w)
-    if mode == "video" and intensity() < 1 then
+    if (el.band and intensity() < 1) or (mode == "video" and intensity() < 1) then
         local band = (el.video_band or 0.12) * W
         if math.random() < 0.5 then return rnd(0, math.max(1, band - w)) end
         return rnd(W - band, W - w)
@@ -396,7 +419,11 @@ function spawn.performer(el, spr)
         if C.turn_side then steps[#steps + 1] = { clip = "turn_side" } end
         steps[#steps + 1] = { clip = "walk", off = true }
     end
-    if el.say then a.joke = next_text("shouts") end
+    a.line = pick_line(el)
+    if a.line and a.line.punch and C.idle then
+        -- a joke needs time for the punchline: stand still after the first act
+        table.insert(steps, math.min(#steps + 1, (enter == "rise") and 3 or 4), { clip = "idle", act = true, dur = 7 })
+    end
 
     local walk = C.walk
     local v = walk and walk.stride_px * walk.fps / walk.count * (el.speed or 1.0) or 0
@@ -422,7 +449,8 @@ function spawn.performer(el, spr)
         local k = math.floor(tc * c.fps)
         if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
         if s.reverse then k = c.count - 1 - k end
-        a.talking = a.joke and s.act
+        a.talking = a.line and s.act
+        if a.talking and not a.say_t then a.say_t = t end
         local frame = c.start + k
         if done then si, tc = si + 1, 0 end
         return true, a.x, a.y, frame, a.mirror
@@ -462,7 +490,7 @@ function spawn.peeker(el, spr)
         a.mirror = (edge == "right") ~= (el.faces == "left")
     end
     a.t, a.tin, a.thold, a.tout = 0, el["in"] or 1.2, el.hold or 4, el.out or 0.8
-    if el.say then a.joke = next_text("shouts") end
+    a.line = pick_line(el)
 
     local function ease(p) return p * p * (3 - 2 * p) end
     function a.update(dt, t)
@@ -472,7 +500,8 @@ function spawn.peeker(el, spr)
         elseif a.t < a.tin + a.thold then p = 1
         elseif a.t < a.tin + a.thold + a.tout then p = 1 - ease((a.t - a.tin - a.thold) / a.tout)
         else return false end
-        a.talking = a.joke and p == 1
+        a.talking = a.line and p == 1
+        if a.talking and not a.say_t then a.say_t = t end
         local mirror = a.mirror
         local by = 0
         if el.dance and p == 1 then
@@ -529,10 +558,49 @@ end
 
 -- ── ASS layer: spider threads, speech bubbles, banner jokes ─────────────────
 
-local banner = nil  -- { text, until_t }
+local function wrap(text, n)
+    local lines, cur = {}, ""
+    for word in text:gmatch("%S+") do
+        if cur ~= "" and #cur + 1 + #word > n then lines[#lines + 1] = cur; cur = word
+        else cur = (cur == "") and word or (cur .. " " .. word) end
+    end
+    if cur ~= "" then lines[#lines + 1] = cur end
+    return lines
+end
+
+-- Speech balloon above (cx, tip_y): rounded box with a tail, outline and text in one ASS event pair.
+local function balloon(out, cx, tip_y, text)
+    local fs = math.floor(H * 0.03)
+    local lines = wrap(text, 22)
+    local longest = 0
+    for _, l in ipairs(lines) do longest = math.max(longest, #l) end
+    local pad, r, tail = fs * 0.7, fs * 0.8, fs * 1.1
+    local bw = longest * fs * 0.56 + 2 * pad
+    local bh = #lines * fs * 1.2 + 2 * pad
+    local x1 = clamp(cx - bw / 2, 8, W - bw - 8)
+    local y1 = math.max(8, tip_y - tail - bh)
+    local x2, y2 = x1 + bw, y1 + bh
+    local tx = clamp(cx, x1 + r + fs, x2 - r - fs)          -- where the tail leaves the box
+    local k = r * 0.45                                       -- bezier handle for the corners
+    local path = string.format(
+        "m %d %d l %d %d b %d %d %d %d %d %d l %d %d b %d %d %d %d %d %d " ..
+        "l %d %d l %d %d l %d %d l %d %d b %d %d %d %d %d %d l %d %d b %d %d %d %d %d %d",
+        x1 + r, y1, x2 - r, y1, x2 - k, y1, x2, y1 + k, x2, y1 + r,
+        x2, y2 - r, x2, y2 - k, x2 - k, y2, x2 - r, y2,
+        tx + fs * 0.5, y2, cx, math.min(tip_y, y2 + tail), tx - fs * 0.5, y2,
+        x1 + r, y2, x1 + k, y2, x1, y2 - k, x1, y2 - r,
+        x1, y1 + r, x1, y1 + k, x1 + k, y1, x1 + r, y1)
+    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord%d\\shad0\\1c&HFFFFFF&\\3c&H202020&\\p1}%s{\\p0}",
+        math.max(2, math.floor(fs * 0.12)), path)
+    for i = 1, #lines do lines[i] = ass_escape(lines[i]) end
+    out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\b1\\bord0\\shad0\\1c&H202020&\\fnDejaVu Sans}%s",
+        (x1 + x2) / 2, (y1 + y2) / 2, fs, table.concat(lines, "\\N"))
+end
 
 local function render_ass(now)
     local out = {}
+    local t = now - t0
+    local said = false
     for _, a in ipairs(actors) do
         if a.thread and a.sx then
             local tx, ty = a.sx + a.spr.w / 2, a.sy
@@ -540,53 +608,18 @@ local function render_ass(now)
                 "{\\an7\\pos(0,0)\\bord0\\shad0\\1c&HDDDDDD&\\1a&H60&\\p1}m %d 0 l %d 0 l %d %d l %d %d{\\p0}",
                 tx - 1, tx + 1, tx + 1, ty + 4, tx - 1, ty + 4)
         end
-        if a.talking and a.joke and a.sx then
-            local fs = math.floor(H * 0.035)
-            local cx = clamp(a.sx + a.spr.w * 0.5, W * 0.15, W * 0.85)
-            local cy = math.max(fs * 2, a.sy + a.spr.h * (a.el.say_y or 0) - fs * 0.6)
-            out[#out + 1] = string.format(
-                "{\\an2\\pos(%d,%d)\\fs%d\\b1\\1c&H101010&\\3c&HFFFFFF&\\bord%d\\shad0\\4a&HFF&\\fnDejaVu Sans}%s",
-                cx, cy, fs, math.floor(fs * 0.45), ass_escape(a.joke))
+        if a.talking and a.line and a.sx and text_on() and not said then
+            said = true  -- one balloon at a time keeps it readable
+            local text = a.line.text
+            if a.line.punch and a.say_t and t - a.say_t > (a.el.punchline or 3.5) then text = a.line.punch end
+            balloon(out, a.sx + a.spr.w * 0.5, a.sy + a.spr.h * (a.el.say_y or 0.05), text)
         end
-    end
-    if banner and now < banner.until_t then
-        -- "Question? Answer!" jokes: question first, punchline a few seconds later on the next line
-        local fs = math.floor(H * 0.042)
-        local text = banner.text
-        local q, a = text:match("^(.-%?)%s+(.+)$")
-        if q then
-            text = ass_escape(q)
-            if now >= banner.punch_t then text = text .. "\\N" .. ass_escape(a) end
-        else
-            text = ass_escape(text)
-        end
-        out[#out + 1] = string.format(
-            "{\\an8\\pos(%d,%d)\\q0\\fs%d\\b1\\1c&H00A5FF&\\3c&H000000&\\bord%d\\shad2\\fnDejaVu Sans}%s",
-            W / 2, H * 0.12, fs, math.max(2, math.floor(fs * 0.08)), text)
     end
     local data = table.concat(out, "\n")
     if data == ass.data and ass.res_x == W and ass.res_y == H then return end  -- unchanged: skip OSD redraw
     ass.res_x, ass.res_y, ass.z = W, H, 5
     ass.data = data
     ass:update()
-end
-
-local function tick_banner(now)
-    if not M or mode == "hidden" then banner = nil return end
-    for _, el in ipairs(M.elements) do
-        if el.type == "joke" and element_on(el) then
-            local st = elements[el]
-            if not st then st = { next = now + rnd(5, 15), active = 0 }; elements[el] = st end
-            if now >= st.next and (not banner or now > banner.until_t) then
-                local j = next_text("jokes")
-                if j then
-                    banner = { text = j, punch_t = now + (el.punchline or 3.5), until_t = now + (el.show or 8) }
-                end
-                local lo, hi = range(el.every, 60)
-                st.next = now + rnd(lo, hi)
-            end
-        end
-    end
 end
 
 -- ── main loop ───────────────────────────────────────────────────────────────
@@ -603,7 +636,7 @@ local function tick()
     tick_decor(t)
 
     for _, el in ipairs(M.elements) do
-        if el.type ~= "decor" and el.type ~= "joke" and element_on(el) then try_spawn(el, now) end
+        if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
     end
 
     local keep = {}
@@ -627,7 +660,6 @@ local function tick()
     end
     actors = keep
 
-    tick_banner(now)
     render_ass(now)
 end
 
@@ -635,7 +667,6 @@ local function clear_actors()
     for _, a in ipairs(actors) do hide(a.id) end
     actors = {}
     elements = {}
-    banner = nil
     reset_ids()
     ass.data = ""
     ass:update()
@@ -696,9 +727,41 @@ mp.register_script_message("theme-off", function()
 end)
 
 mp.register_script_message("theme-mode", function(m)
-    if m == mode then return end
-    mode = m
+    real_mode = m
+    local new = (m ~= "hidden" and preview.mode) or m
+    if new == mode then return end
+    mode = new
     refresh()
+end)
+
+-- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
+--   1..5 = intensity steps, 0 = back to the calendar, v = idle/video, t = speech balloons
+local LEVELS = { { 0.1, "early (2 weeks before)" }, { 0.35, "a week before" }, { 0.65, "a few days before" },
+                 { 0.9, "the day before" }, { 1.0, "Halloween day" } }
+local function preview_osd()
+    local i = intensity()
+    mp.osd_message(string.format("Theme preview: intensity %.2f%s · %s · balloons %s",
+        i, preview.intensity and "" or " (calendar)", mode, text_on() and "on" or "off"), 3)
+end
+for k, lv in ipairs(LEVELS) do
+    mp.add_forced_key_binding(tostring(k), "theme-preview-" .. k, function()
+        preview.intensity = lv[1]
+        refresh(); preview_osd()
+    end)
+end
+mp.add_forced_key_binding("0", "theme-preview-auto", function()
+    preview.intensity, preview.text, preview.mode = nil, nil, nil
+    mode = real_mode
+    refresh(); preview_osd()
+end)
+mp.add_forced_key_binding("v", "theme-preview-mode", function()
+    preview.mode = (mode == "video") and "idle" or "video"
+    mode = preview.mode
+    refresh(); preview_osd()
+end)
+mp.add_forced_key_binding("t", "theme-preview-text", function()
+    preview.text = not text_on()
+    preview_osd()
 end)
 
 mp.register_script_message("watermark", function(js)

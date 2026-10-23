@@ -350,7 +350,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     return meta
 
 
-def build_manifest(theme: str, intensity: float, screen_w: int, screen_h: int) -> Path:
+def build_manifest(theme: str, intensity: float, screen_w: int, screen_h: int, text: bool = False) -> Path:
     """Prepare all sprites of a theme and write the manifest the Lua engine loads."""
     theme_dir = THEMES_DIR / theme
     tdef = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
@@ -366,6 +366,7 @@ def build_manifest(theme: str, intensity: float, screen_w: int, screen_h: int) -
         "screen": [screen_w, screen_h],
         "sprites": sprites,
         "elements": tdef.get("elements") or [],
+        "text": bool(text),
         "jokes": tdef.get("jokes") or [],
         "shouts": tdef.get("shouts") or [],
     }
@@ -477,7 +478,8 @@ class ThemeController:
 
             # Theme
             pick = pick_theme(self.cfg, today_for(self.cfg))
-            key = (pick[0], round(pick[1], 2), w, h) if pick else None
+            text = bool(self.cfg.get("themes_text", False))
+            key = (pick[0], round(pick[1], 2), w, h, text) if pick else None
             if key == self._loaded_key:
                 return
             self._loaded_key = key
@@ -486,7 +488,7 @@ class ThemeController:
                 self.log("themes: no active theme")
                 return
             theme, inten = pick
-            manifest = build_manifest(theme, inten, w, h)
+            manifest = build_manifest(theme, inten, w, h, text)
             self.send("script-message", "theme-load", str(manifest))
             self.log(f"themes: loaded {theme} intensity={inten:.2f}")
         except Exception as e:

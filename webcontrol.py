@@ -444,6 +444,12 @@ a.buttonlink {{
   <option value="0" {"selected" if not themes_enabled else ""}>OFF (all)</option>
 </select>
 
+<label>Speech balloons (characters say a shout or a joke)</label>
+<select name="themes_text">
+  <option value="0" {"selected" if not cfg.get("themes_text") else ""}>OFF</option>
+  <option value="1" {"selected" if cfg.get("themes_text") else ""}>ON</option>
+</select>
+
 <label>Event types shown</label>
 <div>{type_boxes_html or '<span class="small">(no events)</span>'}</div>
 
@@ -850,6 +856,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             pass
         cfg["themes_date_override"] = (data.get("themes_date_override", [""])[0] or "").strip()
+        cfg["themes_text"] = (str(get("themes_text", str) or "0").strip() == "1")
 
         # watermark
         cfg["watermark_enabled"] = (str(get("watermark_enabled", str) or "1").strip() == "1")
