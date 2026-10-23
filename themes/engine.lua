@@ -84,7 +84,7 @@ end
 local next_text
 local demo
 -- Preview overrides from the keyboard (test setups only: the kiosk runs mpv without keyboard input).
-local preview = { level = nil, text = nil, mode = nil }
+local preview = { level = nil, text = nil, mode = nil, fast = false }
 local real_mode = "hidden"
 
 -- Levels: 0 off, 1 = now and then one decoration … 8 = full blown (the day itself), 9 = demo grid.
@@ -613,6 +613,52 @@ local function try_spawn(el, now)
     st.next = now + rnd(lo, hi) * f
 end
 
+-- ── orb weavers (weaver.lua): webs built over minutes, kept across refreshes ──
+
+local weaver = nil
+do
+    local dir = (debug.getinfo(1, "S").source or ""):match("^@(.*)/[^/]*$") or "."
+    local ok, mod = pcall(dofile, dir .. "/weaver.lua")
+    if ok then weaver = mod else msg.error("weaver.lua: " .. tostring(mod)) end
+end
+local webs = {}      -- not cleared by refresh: a video starting must not wipe a half-built web
+local web_next = {}  -- element name -> time the next web may start
+
+local function tick_webs(dt, now)
+    if not weaver then return end
+    local on = {}
+    for _, el in ipairs(M.elements) do
+        if el.type == "weaver" and element_on(el) then on[el.name or "weaver"] = el end
+    end
+    local keep, count = {}, {}
+    for _, w in ipairs(webs) do
+        local el = on[w.name]
+        if el and w.W == W and w.H == H and w:update(dt * (preview.fast and 8 or 1)) then
+            keep[#keep + 1] = w
+            count[w.name] = (count[w.name] or 0) + 1
+        elseif el then
+            web_next[w.name] = now + rnd(range(el.every, 120))
+        end
+    end
+    webs = keep
+    for name, el in pairs(on) do
+        web_next[name] = web_next[name] or now + rnd(range(el.delay, 3))
+        local want = math.floor(scaled(el, el.max_active, 1) + 0.5)
+        if (count[name] or 0) < want and now >= web_next[name] then
+            local used, free = {}, {}
+            for _, w in ipairs(webs) do used[w.corner] = true end
+            for _, c in ipairs(el.corners or { "top-left", "top-right" }) do
+                if not used[c] then free[#free + 1] = c end
+            end
+            if #free > 0 then
+                webs[#webs + 1] = weaver.new({ name = name, W = W, H = H, corner = free[math.random(#free)],
+                    speed = el.speed, size = el.size, stay = rnd(range(el.stay, 900)) })
+            end
+            web_next[name] = now + rnd(range(el.every, 120))
+        end
+    end
+end
+
 -- ── ASS layer: spider threads, speech bubbles, banner jokes ─────────────────
 
 -- Level 9: every sprite of the theme in a grid, animating through all its frames, with names.
@@ -689,6 +735,9 @@ local function render_ass(now)
     local out = {}
     local t = now - t0
     local said = false
+    if level() < DEMO then
+        for _, w in ipairs(webs) do w:render(now, out, DRAW_HZ) end
+    end
     for _, d in ipairs(demo) do
         out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\bord2\\shad0\\1c&HFFFFFF&\\3c&H202020&\\fnDejaVu Sans}%s",
             d.lx, d.ly, math.floor(H * 0.022), ass_escape(d.name))
@@ -731,6 +780,7 @@ local function tick()
         return
     end
     tick_decor(t)
+    tick_webs(dt, now)
 
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
@@ -854,6 +904,7 @@ end)
 
 mp.register_script_message("theme-off", function()
     M = nil
+    webs, web_next = {}, {}
     refresh()
 end)
 
@@ -866,7 +917,8 @@ mp.register_script_message("theme-mode", function(m)
 end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
---   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons
+--   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
+--   f = web building ×8, w = start a new web
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -890,6 +942,13 @@ mp.add_forced_key_binding("v", "theme-preview-mode", function()
     preview.mode = (mode == "video") and "idle" or "video"
     mode = preview.mode
     refresh(); preview_osd()
+end)
+mp.add_forced_key_binding("f", "theme-preview-fast", function()
+    preview.fast = not preview.fast
+    mp.osd_message("Web building " .. (preview.fast and "×8" or "normal speed"), 2)
+end)
+mp.add_forced_key_binding("w", "theme-preview-web", function()
+    webs, web_next = {}, {}   -- start over with a fresh web
 end)
 mp.add_forced_key_binding("t", "theme-preview-text", function()
     preview.text = not text_on()

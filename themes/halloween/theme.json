@@ -119,16 +119,6 @@
               0.0
             ]
           ]
-        },
-        {
-          "sprite": "cobweb",
-          "anchor": "top-left",
-          "places": [
-            [
-              -0.015,
-              -0.03
-            ]
-          ]
         }
       ]
     },
@@ -161,16 +151,29 @@
       ]
     },
     {
-      "type": "decor",
-      "sprite": "cobweb",
-      "anchor": "top-left",
-      "min": 3,
-      "video_min": 4,
-      "places": [
-        [
-          -0.015,
-          -0.03
-        ]
+      "type": "weaver",
+      "name": "weaver",
+      "min": 1,
+      "video_min": 1,
+      "corners": [
+        "top-left",
+        "top-right"
+      ],
+      "max_active": [
+        1,
+        2
+      ],
+      "delay": [
+        5,
+        20
+      ],
+      "every": [
+        120,
+        600
+      ],
+      "stay": [
+        900,
+        2400
       ]
     },
     {
