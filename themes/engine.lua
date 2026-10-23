@@ -791,11 +791,41 @@ local function update_dims()
     if w > 0 and h > 0 then W, H = w, h end
 end
 
+-- Subtitles are always drawn below overlay-add bitmaps (mpv's fixed order), so while a video
+-- plays with decorations standing on the bottom edge, lift the subtitles just above them.
+-- Only static decorations count (decor, visitors), so the subtitles don't jump around.
+local sub_pos0 = mp.get_property_number("sub-pos", 100)
+local function update_sub_pos()
+    local lift = 0
+    if M and mode == "video" and level() < DEMO and H > 0 then
+        for _, d in ipairs(decor) do
+            if d.el.lift_subs ~= false and d.y + d.spr.h > H * 0.8 then lift = math.max(lift, H - d.y) end
+        end
+        -- visitors come and go; reserve their room for as long as the element is on
+        for _, el in ipairs(M.elements or {}) do
+            if el.type == "visitor" and element_on(el) and el.lift_subs ~= false then
+                for _, c in ipairs(el.cast or {}) do
+                    local spr = M.sprites[c.sprite]
+                    if spr and (c.anchor or "bottom-right"):find("bottom") then
+                        for _, pl in ipairs(c.places or { { 0, 0 } }) do
+                            lift = math.max(lift, spr.h + (pl[2] or 0) * H)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local pos = sub_pos0
+    if lift > 0 then pos = math.max(50, sub_pos0 - lift / H * 100 - 1) end
+    if mp.get_property_number("sub-pos", 100) ~= pos then mp.set_property_number("sub-pos", pos) end
+end
+
 local function refresh()
     update_dims()
     clear_actors()
     build_decor()
     if M and mode ~= "hidden" and level() >= DEMO then build_demo() end
+    update_sub_pos()
     draw_watermark()
     local run = (M ~= nil) and mode ~= "hidden"
     if run and not timer then
