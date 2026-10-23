@@ -16,12 +16,13 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 import threading
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 try:
-    from PIL import Image, ImageChops  # type: ignore
+    from PIL import Image, ImageChops, ImageEnhance  # type: ignore
 except Exception:
     Image = None
     ImageChops = None
@@ -248,6 +249,29 @@ def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> lis
         if sdef.get("style") == "white":
             im = _white_with_shadow(im)
         frames.append(im)
+
+    # Cheap motion from a single drawing (image generation is poor at pose variants):
+    #   "flap": N  → wing beat, the frame squashed vertically around its centre over N steps
+    #   "flicker": N → candle light, brightness wobbling over N steps
+    flap = int(sdef.get("flap", 0))
+    if flap > 1 and frames:
+        base = frames[0]
+        frames = []
+        for k in range(flap):
+            s = 0.55 + 0.45 * (0.5 + 0.5 * math.cos(2 * math.pi * k / flap))
+            h = max(1, round(base.height * s))
+            canvas = Image.new("RGBA", base.size, (0, 0, 0, 0))
+            canvas.paste(base.resize((base.width, h), Image.LANCZOS), (0, (base.height - h) // 2))
+            frames.append(canvas)
+    flicker = int(sdef.get("flicker", 0))
+    if flicker > 1 and frames:
+        base = frames[0]
+        frames = []
+        for k in range(flicker):
+            f = 1.0 + 0.12 * math.sin(2 * math.pi * k / flicker) + 0.05 * math.sin(6 * math.pi * k / flicker)
+            rgb = ImageEnhance.Brightness(base.convert("RGB")).enhance(f).convert("RGBA")
+            rgb.putalpha(base.getchannel("A"))
+            frames.append(rgb)
 
     # Optional pre-rendered rotation steps (overlay-add can't rotate): every frame × N angles.
     spin = int(sdef.get("spin", 0))

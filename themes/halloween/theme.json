@@ -11,12 +11,10 @@
   ],
   "sprites": {
     "pumpkin": {
-      "frames": [
-        "pumpkin1.png",
-        "pumpkin2.png"
-      ],
-      "height": 0.13,
-      "fps": 3
+      "file": "pumpkin.png",
+      "height": 0.12,
+      "flicker": 8,
+      "fps": 5
     },
     "leaf": {
       "frames": [
@@ -30,44 +28,34 @@
     "cobweb": {
       "file": "cobweb.png",
       "height": 0.22,
-      "opacity": 0.85
+      "opacity": 0.75
     },
     "tombstone": {
       "file": "tombstone.png",
-      "height": 0.15
+      "height": 0.14
     },
     "bat": {
-      "frames": [
-        "bat1.png",
-        "bat2.png"
-      ],
-      "height": 0.05,
-      "fps": 8
+      "file": "bat.png",
+      "height": 0.055,
+      "flap": 6,
+      "fps": 12
     },
     "spider": {
-      "frames": [
-        "spider1.png",
-        "spider2.png"
-      ],
-      "height": 0.06,
-      "fps": 6
+      "file": "spider.png",
+      "height": 0.05
     },
     "ghost": {
       "file": "ghost.png",
-      "height": 0.14,
-      "opacity": 0.8
+      "height": 0.13,
+      "opacity": 0.85
     },
     "witch": {
       "file": "witch.png",
-      "height": 0.1
+      "height": 0.13
     },
     "zombie": {
-      "frames": [
-        "zombie1.png",
-        "zombie2.png"
-      ],
-      "height": 0.28,
-      "fps": 2
+      "file": "zombie.png",
+      "height": 0.26
     },
     "spider3d": {
       "anim": "anim/spider_below",
@@ -77,6 +65,12 @@
     "skeleton3d": {
       "anim": "anim/skeleton",
       "height": 0.3
+    },
+    "pumpkin_group": {
+      "file": "pumpkin_group.png",
+      "height": 0.16,
+      "flicker": 8,
+      "fps": 5
     }
   },
   "elements": [
@@ -114,8 +108,8 @@
       "video_min": 0.3,
       "places": [
         [
-          0,
-          0
+          -0.015,
+          -0.03
         ]
       ]
     },
@@ -199,33 +193,15 @@
     },
     {
       "type": "decor",
-      "sprite": "pumpkin",
+      "sprite": "pumpkin_group",
       "anchor": "bottom-left",
       "min": 1.0,
-      "count": 2,
+      "count": 1,
       "video_min": 1.0,
       "places": [
         [
           0.01,
           0.0
-        ],
-        [
-          0.07,
-          0.0
-        ]
-      ]
-    },
-    {
-      "type": "decor",
-      "sprite": "cobweb",
-      "anchor": "top-right",
-      "min": 1.0,
-      "video_min": 1.0,
-      "places": [
-        [
-          0,
-          0,
-          true
         ]
       ]
     },
