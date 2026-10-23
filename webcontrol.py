@@ -276,13 +276,21 @@ def render_page(cfg: dict, msg: str = "") -> str:
     force_opts_html = '<option value="">(follow calendar)</option>' + "".join(
         f'<option value="{esc(n)}" {"selected" if n == cur_force else ""}>{esc(n)}</option>' for n in theme_names
     )
-    fi = cfg.get("themes_force_intensity")
-    force_intensity = "" if fi is None else fi
+    cur_level = str(cfg.get("themes_level", "auto") or "auto")
+    level_opts_html = f'<option value="auto" {"selected" if cur_level == "auto" else ""}>Auto (follows the calendar)</option>' + "".join(
+        f'<option value="{n}" {"selected" if cur_level == str(n) else ""}>{n}: {esc(txt)}</option>'
+        for n, txt in themes.LEVELS.items()
+    )
+    cur_max = int(cfg.get("themes_max_level", themes.PRIME_LEVEL) or themes.PRIME_LEVEL)
+    max_opts_html = "".join(
+        f'<option value="{n}" {"selected" if cur_max == n else ""}>{n}: {esc(themes.LEVELS[n])}</option>'
+        for n in range(1, themes.PRIME_LEVEL + 1)
+    )
     try:
         active = themes.pick_theme(cfg, themes.today_for(cfg))
     except Exception:
         active = None
-    active_txt = f"{active[0]} (intensity {active[1]:.2f})" if active else "none"
+    active_txt = f"{active[0]} (level {active[1]}: {themes.LEVELS.get(active[1], '')})" if active else "none"
     watermark_enabled = bool(cfg.get("watermark_enabled", True))
     wm_pos = str(cfg.get("watermark_position", "top-right"))
     wm_pos_opts_html = "".join(
@@ -458,8 +466,15 @@ a.buttonlink {{
 {force_opts_html}
 </select>
 
-<label>Preview intensity 0..1 (empty = full / prime day)</label>
-<input name="themes_force_intensity" value="{esc(force_intensity)}">
+<label>Level</label>
+<select name="themes_level">
+{level_opts_html}
+</select>
+
+<label>Maximum level for Auto (turn it down if it is too much)</label>
+<select name="themes_max_level">
+{max_opts_html}
+</select>
 
 <label>Pretend date (empty = today)</label>
 <input type="date" name="themes_date_override" value="{esc(cfg.get("themes_date_override") or "")}">
@@ -850,11 +865,12 @@ class Handler(BaseHTTPRequestHandler):
         all_types = {str(ev.get("type", ev.get("id", ""))).lower() for ev in themes.load_events()}
         cfg["themes_disabled_types"] = sorted(all_types - types_on)
         cfg["themes_force"] = (data.get("themes_force", [""])[0] or "").strip()
-        fi_raw = (data.get("themes_force_intensity", [""])[0] or "").strip()
-        try:
-            cfg["themes_force_intensity"] = max(0.0, min(1.0, float(fi_raw))) if fi_raw else None
-        except ValueError:
-            pass
+        lvl_raw = (data.get("themes_level", ["auto"])[0] or "auto").strip()
+        cfg["themes_level"] = lvl_raw if lvl_raw == "auto" else max(0, min(themes.DEMO_LEVEL, int(lvl_raw))) if lvl_raw.isdigit() else "auto"
+        max_raw = (data.get("themes_max_level", [""])[0] or "").strip()
+        if max_raw.isdigit():
+            cfg["themes_max_level"] = max(1, min(themes.PRIME_LEVEL, int(max_raw)))
+        cfg.pop("themes_force_intensity", None)
         cfg["themes_date_override"] = (data.get("themes_date_override", [""])[0] or "").strip()
         cfg["themes_text"] = (str(get("themes_text", str) or "0").strip() == "1")
 

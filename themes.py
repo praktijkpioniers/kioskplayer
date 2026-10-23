@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # themes.py — seasonal theme calendar + sprite preparation for the mpv theme engine (themes/engine.lua)
 #
-# Python decides *which* theme is active and *how strong* (intensity 0..1, 1.0 = prime day).
+# Python decides *which* theme is active and *how strong*: a level 0..9 (see LEVELS).
 # The Lua script inside mpv does all drawing/animation; we only send it script-messages.
 #
 #   themes/events.json        calendar: when each event runs, its prime day(s), lead-in ramp
-#   themes/<theme>/theme.json sprites + elements (what to draw, from which intensity on)
+#   themes/<theme>/theme.json sprites + elements (what to draw, from which level on)
 #   themes/<theme>/*.png      artwork (transparent PNG)
 #
 # Sprites are converted once to premultiplied BGRA atlases (what mpv overlay-add wants),
@@ -97,11 +97,28 @@ def event_window(ev: dict[str, Any], year: int) -> tuple[dt.date, dt.date, dt.da
     return start, prime_first, prime_last, end
 
 
-def event_intensity(ev: dict[str, Any], today: dt.date) -> Optional[float]:
+PRIME_LEVEL = 8
+DEMO_LEVEL = 9
+LEVELS = {
+    0: "off",
+    1: "now and then a single decoration",
+    2: "mostly one decoration, sometimes two",
+    3: "a few decorations, a rare creepy-crawly",
+    4: "decorations, some movement",
+    5: "busier, crawling spiders",
+    6: "busy, bats and ghosts",
+    7: "nearly there (the day before)",
+    8: "full blown (the day itself)",
+    9: "demo: all artwork in a grid",
+}
+
+
+def event_level(ev: dict[str, Any], today: dt.date) -> Optional[int]:
     """
-    None when the event is not running. Prime day(s) → 1.0.
-    Lead-in ramps from lead_min to lead_max, non-linear: (progress ** curve), so the first days stay
-    light and it builds up faster near the prime day. After the prime day it fades out the same way.
+    None when the event is not running. Prime day(s) → PRIME_LEVEL (8).
+    The run-up climbs from lead_min to lead_max (levels, default 1..7), non-linear:
+    progress ** curve, so the first days stay light and it builds up faster near the prime day.
+    After the prime day it fades out the same way.
     """
     # Events can wrap into the next year (e.g. new year), so check last year's occurrence too.
     for year in (today.year, today.year - 1):
@@ -109,18 +126,32 @@ def event_intensity(ev: dict[str, Any], today: dt.date) -> Optional[float]:
         if not (start <= today <= end):
             continue
         if p1 <= today <= p2:
-            return 1.0
-        lo = float(ev.get("lead_min", 0.1))
-        hi = float(ev.get("lead_max", 0.7))
+            return PRIME_LEVEL
+        lo = float(ev.get("lead_min", 1))
+        hi = float(ev.get("lead_max", PRIME_LEVEL - 1))
         curve = float(ev.get("curve", 2.0))
+        # progress 0 on the first day of the run-up .. 1 on the day before the prime day
+        # (mirrored after it: 1 on the day after .. 0 on the last day)
         if today < p1:
-            span = (p1 - start).days
-            progress = 1.0 - (p1 - today).days / span if span > 0 else 1.0
+            span = (p1 - start).days - 1
+            progress = (today - start).days / span if span > 0 else 1.0
         else:
-            span = (end - p2).days
-            progress = 1.0 - (today - p2).days / span if span > 0 else 1.0
-        return lo + (hi - lo) * max(0.0, min(1.0, progress)) ** curve
+            span = (end - p2).days - 1
+            progress = (end - today).days / span if span > 0 else 1.0
+        return max(1, min(PRIME_LEVEL - 1, round(lo + (hi - lo) * max(0.0, min(1.0, progress)) ** curve)))
     return None
+
+
+def configured_level(cfg: dict[str, Any], calendar_level: int) -> int:
+    """themes_level "auto" follows the calendar, capped by themes_max_level; a number fixes it."""
+    want = cfg.get("themes_level", "auto")
+    if want in (None, "", "auto"):
+        cap = int(cfg.get("themes_max_level", PRIME_LEVEL) or PRIME_LEVEL)
+        return max(0, min(calendar_level, cap))
+    try:
+        return max(0, min(DEMO_LEVEL, int(want)))
+    except (TypeError, ValueError):
+        return calendar_level
 
 
 def load_events() -> list[dict[str, Any]]:
@@ -132,35 +163,36 @@ def load_events() -> list[dict[str, Any]]:
 
 
 def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, float]]:
-    """(theme_name, intensity) for today, honouring config switches, or None."""
+    """(theme_name, level) for today, honouring config switches, or None."""
     force = str(cfg.get("themes_force") or "").strip()
     if force:
-        fi = cfg.get("themes_force_intensity")
-        return force, float(fi) if fi is not None else 1.0
+        lvl = configured_level(cfg, PRIME_LEVEL)
+        return (force, lvl) if lvl > 0 else None
 
     if not bool(cfg.get("themes_enabled", True)):
         return None
     disabled = {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])}
 
-    best: Optional[tuple[int, float, str]] = None
+    best: Optional[tuple[int, int, int, str]] = None
     for ev in load_events():
         if str(ev.get("type", ev.get("id", ""))).lower() in disabled:
             continue
         if not (THEMES_DIR / str(ev.get("theme", ev.get("id"))) / "theme.json").exists():
             continue
         try:
-            inten = event_intensity(ev, today)
+            lvl = event_level(ev, today)
         except Exception:
             continue
-        if inten is None:
+        if lvl is None:
             continue
-        # Overlaps: a prime day always wins, then higher priority, then higher intensity.
-        key = (int(inten >= 1.0), int(ev.get("priority", 0)), inten, str(ev.get("theme", ev.get("id"))))
+        # Overlaps: a prime day always wins, then higher priority, then higher level.
+        key = (int(lvl >= PRIME_LEVEL), int(ev.get("priority", 0)), lvl, str(ev.get("theme", ev.get("id"))))
         if best is None or key > best:
             best = key
     if best is None:
         return None
-    return best[3], best[2]
+    lvl = configured_level(cfg, best[2])
+    return (best[3], lvl) if lvl > 0 else None
 
 
 def today_for(cfg: dict[str, Any]) -> dt.date:
@@ -374,7 +406,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     return meta
 
 
-def build_manifest(theme: str, intensity: float, screen_w: int, screen_h: int, text: bool = False) -> Path:
+def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: bool = False) -> Path:
     """Prepare all sprites of a theme and write the manifest the Lua engine loads."""
     theme_dir = THEMES_DIR / theme
     tdef = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
@@ -386,7 +418,7 @@ def build_manifest(theme: str, intensity: float, screen_w: int, screen_h: int, t
             print(f"[themes] sprite {theme}/{name} failed: {e!r}")
     manifest = {
         "theme": theme,
-        "intensity": round(float(intensity), 3),
+        "level": int(level),
         "screen": [screen_w, screen_h],
         "sprites": sprites,
         "elements": tdef.get("elements") or [],
@@ -425,7 +457,7 @@ def build_watermark(cfg: dict[str, Any], screen_h: int) -> Optional[dict[str, An
 
 class ThemeController:
     """
-    Keeps the Lua engine in sync: active theme + intensity (re-checked every minute),
+    Keeps the Lua engine in sync: active theme + level (re-checked every minute),
     display mode (idle / video / hidden) and the watermark.
     `send` is a callable taking mpv command args (fire-and-forget).
     """
@@ -503,7 +535,7 @@ class ThemeController:
             # Theme
             pick = pick_theme(self.cfg, today_for(self.cfg))
             text = bool(self.cfg.get("themes_text", False))
-            key = (pick[0], round(pick[1], 2), w, h, text) if pick else None
+            key = (pick[0], pick[1], w, h, text) if pick else None
             if key == self._loaded_key:
                 return
             self._loaded_key = key
@@ -511,10 +543,10 @@ class ThemeController:
                 self.send("script-message", "theme-off")
                 self.log("themes: no active theme")
                 return
-            theme, inten = pick
-            manifest = build_manifest(theme, inten, w, h, text)
+            theme, level = pick
+            manifest = build_manifest(theme, level, w, h, text)
             self.send("script-message", "theme-load", str(manifest))
-            self.log(f"themes: loaded {theme} intensity={inten:.2f}")
+            self.log(f"themes: loaded {theme} level={level}")
         except Exception as e:
             self.log(f"themes: refresh failed: {e!r}")
         finally:
@@ -529,4 +561,4 @@ if __name__ == "__main__":
     for n in range(days):
         d = start + dt.timedelta(days=n)
         p = pick_theme({}, d)
-        print(d.isoformat(), d.strftime("%a"), f"{p[0]:<12} {p[1]:.2f} " + "#" * round(p[1] * 30) if p else "-")
+        print(d.isoformat(), d.strftime("%a"), f"{p[0]:<12} {p[1]} " + "#" * (p[1] * 4) if p else "-")

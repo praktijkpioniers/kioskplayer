@@ -1,7 +1,7 @@
 -- engine.lua — seasonal theme + watermark renderer, runs inside mpv (--script=themes/engine.lua)
 --
 -- Driven by kioskplayer (themes.py) through script-messages:
---   theme-load <manifest.json>   load sprites/elements/jokes + intensity (0..1, 1 = prime day)
+--   theme-load <manifest.json>   load sprites/elements/jokes + level (0..9, 8 = prime day, 9 = demo)
 --   theme-off                    remove theme
 --   theme-mode idle|video|hidden where we are: idle screen, playing video (subtle), or nothing
 --   watermark <json>|""          watermark sprite meta (+position, margin) or "" to remove
@@ -82,11 +82,14 @@ end
 -- ── helpers ─────────────────────────────────────────────────────────────────
 
 local next_text
+local demo
 -- Preview overrides from the keyboard (test setups only: the kiosk runs mpv without keyboard input).
-local preview = { intensity = nil, text = nil, mode = nil }
+local preview = { level = nil, text = nil, mode = nil }
 local real_mode = "hidden"
 
-local function intensity() return preview.intensity or (M and M.intensity) or 0 end
+-- Levels: 0 off, 1 = now and then one decoration … 8 = full blown (the day itself), 9 = demo grid.
+local PRIME, DEMO = 8, 9
+local function level() return preview.level or (M and M.level) or 0 end
 local function text_on()
     if preview.text ~= nil then return preview.text end
     return M and M.text or false
@@ -105,21 +108,27 @@ local function pick_line(el)
     return sh and { text = sh } or nil
 end
 
--- Is this element allowed right now (intensity + idle/video mode)?
+-- Is this element allowed right now (level + idle/video mode)?
 local function element_on(el)
-    local i = intensity()
-    if i < (el.min or 0) then return false end
-    if el.max and i > el.max then return false end
-    if mode == "video" and i < (el.video_min or 2) then return false end
+    local lv = level()
+    if lv >= DEMO then return false end
+    if lv < (el.min or 1) then return false end
+    if el.max and lv > el.max then return false end
+    if mode == "video" and lv < (el.video_min or 99) then return false end
     return true
 end
 
--- count / interval scale with intensity between the element's min and 1.0
+-- How far the element has grown: 0 at its min level, 1 at its "full" level (default PRIME).
+local function growth(el)
+    local m, f = el.min or 1, el.full or PRIME
+    if f <= m then return 1 end
+    return clamp((level() - m) / (f - m), 0, 1)
+end
+
+-- count / interval scale with the level between the element's min and full level
 local function scaled(el, v, default)
     local lo, hi = range(v, default)
-    local m = el.min or 0
-    local p = (m >= 1) and 1 or clamp((intensity() - m) / (1 - m), 0, 1)
-    return lo + (hi - lo) * p
+    return lo + (hi - lo) * growth(el)
 end
 
 local function sprite_of(el)
@@ -153,7 +162,7 @@ end
 -- In video mode (below prime), or for elements with "band": true, keep x inside the
 -- left/right border bands.
 local function band_x(el, w)
-    if (el.band and intensity() < 1) or (mode == "video" and intensity() < 1) then
+    if (el.band or mode == "video") and level() < PRIME then
         local band = (el.video_band or 0.12) * W
         if math.random() < 0.5 then return rnd(0, math.max(1, band - w)) end
         return rnd(W - band, W - w)
@@ -256,7 +265,7 @@ function spawn.flyer(el, spr)
     a.dir = ltr and 1 or -1
     a.x = ltr and -spr.w or W
     local ylo, yhi = range(el.y, 0.15)
-    if mode == "video" and intensity() < 1 then ylo, yhi = 0.0, 0.08 end
+    if mode == "video" and level() < PRIME then ylo, yhi = 0.0, 0.08 end
     a.y0 = rnd(ylo, yhi) * H
     a.v = rnd(range(el.speed, 0.15)) * W
     a.amp = (el.amp or 0.04) * H
@@ -275,7 +284,7 @@ function spawn.dropper(el, spr)
     local a = { el = el, spr = spr, thread = true }
     a.x = band_x(el, spr.w)
     local dlo, dhi = range(el.depth, 0.3)
-    if mode == "video" and intensity() < 1 then dlo, dhi = 0.08, 0.18 end
+    if mode == "video" and level() < PRIME then dlo, dhi = 0.08, 0.18 end
     a.depth = rnd(dlo, dhi) * H
     a.y = -spr.h
     a.v = (el.speed or 0.12) * H
@@ -315,7 +324,7 @@ function spawn.crawler(el, spr)
 
     if dx ~= 0 then
         local ylo, yhi = range(el.y, 0.5)
-        if mode == "video" and intensity() < 1 then ylo, yhi = 0.86, 0.92 end
+        if mode == "video" and level() < PRIME then ylo, yhi = 0.86, 0.92 end
         a.x = (dx > 0) and -spr.w or W
         a.y = rnd(ylo, yhi) * H - spr.h / 2
     else
@@ -458,6 +467,54 @@ function spawn.performer(el, spr)
     return a
 end
 
+-- visitor: a decoration that comes and goes (low levels: "now and then a pumpkin").
+-- el.cast = list of { sprite, anchor, places } like decor; one entry is picked per visit.
+-- It slides in from its corner/edge, stays el.stay seconds, slides out again. Two visitors
+-- never take the same place.
+local busy_places = {}  -- "anchor:k" -> true while taken
+
+function spawn.visitor(el, _)
+    local options = {}
+    for _, c in ipairs(el.cast or {}) do
+        local spr = M.sprites[c.sprite]
+        if spr then
+            for k, pl in ipairs(c.places or { { 0.02, 0 } }) do
+                local key = (c.anchor or "bottom-right") .. ":" .. k
+                if not busy_places[key] then options[#options + 1] = { c = c, spr = spr, pl = pl, key = key } end
+            end
+        end
+    end
+    if #options == 0 then return nil end
+    local o = options[math.random(#options)]
+    local spr, anchor = o.spr, o.c.anchor or "bottom-right"
+    local fx = ANCHORS[anchor] or ANCHORS["bottom-right"]
+    local x, y = fx(spr, o.pl[1], o.pl[2])
+    local hx, hy = x, y
+    if anchor:find("bottom") then hy = H + 2
+    else
+        hy = -spr.h - 2
+        hx = anchor:find("left") and (-spr.w - 2) or (W + 2)
+    end
+    busy_places[o.key] = true
+    local a = { el = el, spr = spr, key = o.key, mirror = o.pl[3] == true, phase = rnd(0, 6.28) }
+    local tin, tout = el["in"] or 1.5, el.out or 1.5
+    local stay = rnd(range(el.stay, 60))
+    local tt = 0
+    local function ease(p) return p * p * (3 - 2 * p) end
+    function a.update(dt, t)
+        tt = tt + dt
+        local p
+        if tt < tin then p = ease(tt / tin)
+        elseif tt < tin + stay then p = 1
+        elseif tt < tin + stay + tout then p = 1 - ease((tt - tin - stay) / tout)
+        else busy_places[a.key] = nil return false end
+        local frame = spr.fps > 0 and math.floor((t + a.phase) * spr.fps) or 0
+        return true, hx + (x - hx) * p, hy + (y - hy) * p, frame, a.mirror
+    end
+    a.release = function() busy_places[a.key] = nil end
+    return a
+end
+
 -- peeker: rises from an edge (or from behind a decor piece), lingers (waves/dances/talks), sinks back
 function spawn.peeker(el, spr)
     local a = { el = el, spr = spr }
@@ -528,7 +585,7 @@ local function try_spawn(el, now)
     end
     if el.type == "particles" then
         local want = math.floor(scaled(el, el.count, 5) + 0.5)
-        if mode == "video" and intensity() < 1 then want = math.ceil(want * (el.video_share or 0.4)) end
+        if mode == "video" and level() < PRIME then want = math.ceil(want * (el.video_share or 0.4)) end
         while st.active < want and #free_ids > 0 do
             local spr = sprite_of(el)
             if not spr then return end
@@ -544,19 +601,50 @@ local function try_spawn(el, now)
         st.next = now + 1
         return
     end
-    local spr = sprite_of(el)
+    local spr = el.cast and {} or sprite_of(el)   -- visitors pick their own sprite
     if not spr or not spawn[el.type] then return end
     local a = spawn[el.type](el, spr)
     if not a then st.next = now + 5 return end
     a.id = take_id(); st.active = st.active + 1
     actors[#actors + 1] = a
     local lo, hi = range(el.every, 30)
-    -- higher intensity → shorter pauses (down to a third at prime)
-    local f = 1 - 0.66 * clamp((intensity() - (el.min or 0)) / math.max(0.01, 1 - (el.min or 0)), 0, 1)
+    -- higher level → shorter pauses (down to a third at the element's full level)
+    local f = 1 - 0.66 * growth(el)
     st.next = now + rnd(lo, hi) * f
 end
 
 -- ── ASS layer: spider threads, speech bubbles, banner jokes ─────────────────
+
+-- Level 9: every sprite of the theme in a grid, animating through all its frames, with names.
+demo = {}
+local function build_demo()
+    local names = {}
+    for name in pairs(M.sprites) do names[#names + 1] = name end
+    table.sort(names)
+    local n = #names
+    if n == 0 then return end
+    local cols = math.max(1, math.ceil(math.sqrt(n * W / H)))
+    local rows = math.ceil(n / cols)
+    local cw, ch = W / cols, H / rows
+    for k, name in ipairs(names) do
+        local spr = M.sprites[name]
+        local c, r = (k - 1) % cols, math.floor((k - 1) / cols)
+        demo[#demo + 1] = {
+            id = ACTOR_IDS.first + k - 1, spr = spr, name = name,
+            x = c * cw + (cw - spr.w) / 2, y = r * ch + (ch * 0.85 - spr.h) / 2,
+            lx = c * cw + cw / 2, ly = r * ch + ch * 0.92,
+        }
+    end
+end
+
+local function tick_demo(t)
+    for _, d in ipairs(demo) do
+        local spr = d.spr
+        local fps = spr.fps > 0 and spr.fps or 8
+        if spr.clips then for _, c in pairs(spr.clips) do fps = c.fps break end end
+        draw(d.id, spr, math.floor(t * fps) % spr.frames, false, d.x, d.y)
+    end
+end
 
 local function wrap(text, n)
     local lines, cur = {}, ""
@@ -601,6 +689,10 @@ local function render_ass(now)
     local out = {}
     local t = now - t0
     local said = false
+    for _, d in ipairs(demo) do
+        out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\bord2\\shad0\\1c&HFFFFFF&\\3c&H202020&\\fnDejaVu Sans}%s",
+            d.lx, d.ly, math.floor(H * 0.022), ass_escape(d.name))
+    end
     for _, a in ipairs(actors) do
         if a.thread and a.sx then
             local tx, ty = a.sx + a.spr.w / 2, a.sy
@@ -633,6 +725,11 @@ local function tick()
     local t = now - t0
     if not M or mode == "hidden" then return end
 
+    if level() >= DEMO then
+        tick_demo(t)
+        render_ass(now)
+        return
+    end
     tick_decor(t)
 
     for _, el in ipairs(M.elements) do
@@ -653,6 +750,7 @@ local function tick()
             end
             keep[#keep + 1] = a
         else
+            if a.release then a.release() end
             give_id(a.id)
             local st = elements[a.el]
             if st then st.active = st.active - 1 end
@@ -665,7 +763,9 @@ end
 
 local function clear_actors()
     for _, a in ipairs(actors) do hide(a.id) end
-    actors = {}
+    for _, d in ipairs(demo) do hide(d.id) end
+    actors, demo = {}, {}
+    busy_places = {}
     elements = {}
     reset_ids()
     ass.data = ""
@@ -695,6 +795,7 @@ local function refresh()
     update_dims()
     clear_actors()
     build_decor()
+    if M and mode ~= "hidden" and level() >= DEMO then build_demo() end
     draw_watermark()
     local run = (M ~= nil) and mode ~= "hidden"
     if run and not timer then
@@ -717,7 +818,7 @@ mp.register_script_message("theme-load", function(path)
         s.spin = s.spin or 0
     end
     M = data
-    msg.info(string.format("theme %s intensity %.2f, %d elements", M.theme, M.intensity, #(M.elements or {})))
+    msg.info(string.format("theme %s level %d, %d elements", M.theme, M.level or 0, #(M.elements or {})))
     refresh()
 end)
 
@@ -735,22 +836,23 @@ mp.register_script_message("theme-mode", function(m)
 end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
---   1..5 = intensity steps, 0 = back to the calendar, v = idle/video, t = speech balloons
-local LEVELS = { { 0.1, "early (2 weeks before)" }, { 0.35, "a week before" }, { 0.65, "a few days before" },
-                 { 0.9, "the day before" }, { 1.0, "Halloween day" } }
+--   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons
+local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
+    "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
+    "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
 local function preview_osd()
-    local i = intensity()
-    mp.osd_message(string.format("Theme preview: intensity %.2f%s · %s · balloons %s",
-        i, preview.intensity and "" or " (calendar)", mode, text_on() and "on" or "off"), 3)
+    local lv = level()
+    mp.osd_message(string.format("Theme level %d%s: %s · %s · balloons %s", lv,
+        preview.level and "" or " (calendar)", LEVEL_NAMES[lv] or "off", mode, text_on() and "on" or "off"), 3)
 end
-for k, lv in ipairs(LEVELS) do
+for k = 1, 9 do
     mp.add_forced_key_binding(tostring(k), "theme-preview-" .. k, function()
-        preview.intensity = lv[1]
+        preview.level = k
         refresh(); preview_osd()
     end)
 end
 mp.add_forced_key_binding("0", "theme-preview-auto", function()
-    preview.intensity, preview.text, preview.mode = nil, nil, nil
+    preview.level, preview.text, preview.mode = nil, nil, nil
     mode = real_mode
     refresh(); preview_osd()
 end)

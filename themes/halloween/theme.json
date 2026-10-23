@@ -1,13 +1,15 @@
 {
   "_doc": [
     "Sprites: height is a fraction of screen height; frames animate at fps; spin = pre-rendered rotation steps;",
-    "anim = folder of baked clips (tools/bake), directions = 4 rotated variants instead of a mirror.",
-    "Elements: min/max = intensity range where it appears (1.0 = Halloween itself, the run-up is ~0.1..0.75);",
-    "video_min = from which intensity it also shows over a playing video (default never).",
-    "count/max_active/every scale with intensity. band = keep to the left/right screen edges (below prime).",
-    "hz = redraw rate (default 15, particles 12). say = speech balloon (only when themes_text is on).",
-    "Types: decor, particles, flyer, walker, dropper (spider on a thread), crawler (baked walker),",
-    "performer (baked character scene), peeker (rises from an edge or from behind decor)."
+    "anim = folder of baked clips (tools/bake), directions = 4 rotated variants instead of a mirror;",
+    "flap / flicker = fake wing beat / candle light from a single drawing.",
+    "Elements: min/max = level range where it appears: 1 = now and then one decoration … 7 = the day before,",
+    "8 = the day itself (9 = demo grid of all sprites). count/max_active/every grow from min to 'full' (default 8).",
+    "video_min = from which level it also shows over a playing video (default never).",
+    "band = keep to the left/right screen edges (below 8). hz = redraw rate (default 15, particles 12).",
+    "say = speech balloon (only when themes_text is on).",
+    "Types: decor (always there), visitor (comes and goes: cast of sprite+anchor+places), particles, flyer, walker,",
+    "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker."
   ],
   "sprites": {
     "pumpkin": {
@@ -75,14 +77,72 @@
   },
   "elements": [
     {
+      "type": "visitor",
+      "min": 1,
+      "max": 2,
+      "full": 2,
+      "every": [
+        90,
+        150
+      ],
+      "max_active": [
+        1,
+        2
+      ],
+      "stay": [
+        45,
+        120
+      ],
+      "video_min": 1,
+      "cast": [
+        {
+          "sprite": "pumpkin",
+          "anchor": "bottom-right",
+          "places": [
+            [
+              0.01,
+              0.0,
+              true
+            ],
+            [
+              0.065,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "pumpkin_group",
+          "anchor": "bottom-right",
+          "places": [
+            [
+              0.01,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "cobweb",
+          "anchor": "top-left",
+          "places": [
+            [
+              -0.015,
+              -0.03
+            ]
+          ]
+        }
+      ]
+    },
+    {
       "type": "decor",
       "sprite": "pumpkin",
       "anchor": "bottom-right",
+      "min": 3,
+      "full": 6,
       "count": [
         1,
         3
       ],
-      "video_min": 0.0,
+      "video_min": 3,
       "places": [
         [
           0.01,
@@ -104,8 +164,8 @@
       "type": "decor",
       "sprite": "cobweb",
       "anchor": "top-left",
-      "min": 0.15,
-      "video_min": 0.3,
+      "min": 3,
+      "video_min": 4,
       "places": [
         [
           -0.015,
@@ -116,11 +176,11 @@
     {
       "type": "dropper",
       "sprite": "spider",
-      "min": 0.25,
+      "min": 3,
       "band": true,
       "every": [
-        90,
-        200
+        100,
+        220
       ],
       "max_active": 1,
       "depth": [
@@ -128,16 +188,18 @@
         0.4
       ],
       "hold": 5,
-      "video_min": 0.5
+      "video_min": 5
     },
     {
       "type": "particles",
       "sprite": "leaf",
+      "min": 4,
+      "max": 7,
+      "full": 7,
       "count": [
         1,
         4
       ],
-      "max": 0.99,
       "speed": [
         0.04,
         0.08
@@ -149,12 +211,12 @@
     {
       "type": "crawler",
       "sprite": "spider3d",
-      "min": 0.5,
-      "max": 0.99,
+      "min": 5,
+      "max": 7,
       "band": true,
       "every": [
-        120,
-        240
+        100,
+        200
       ],
       "max_active": 1,
       "directions": [
@@ -170,15 +232,16 @@
         3
       ],
       "wave_chance": 0.5,
-      "video_min": 0.7
+      "video_min": 6
     },
     {
       "type": "flyer",
       "sprite": "bat",
-      "min": 0.6,
+      "min": 6,
+      "max": 7,
       "every": [
-        90,
-        180
+        70,
+        150
       ],
       "max_active": 1,
       "speed": [
@@ -192,12 +255,31 @@
       "amp": 0.04
     },
     {
+      "type": "flyer",
+      "sprite": "ghost",
+      "min": 6,
+      "max": 7,
+      "every": [
+        120,
+        240
+      ],
+      "speed": [
+        0.05,
+        0.08
+      ],
+      "y": [
+        0.1,
+        0.4
+      ],
+      "amp": 0.03
+    },
+    {
       "type": "decor",
       "sprite": "pumpkin_group",
       "anchor": "bottom-left",
-      "min": 1.0,
+      "min": 7,
       "count": 1,
-      "video_min": 1.0,
+      "video_min": 8,
       "places": [
         [
           0.01,
@@ -206,10 +288,26 @@
       ]
     },
     {
+      "type": "peeker",
+      "sprite": "zombie",
+      "min": 7,
+      "max": 7,
+      "edge": "bottom",
+      "every": [
+        90,
+        180
+      ],
+      "reveal": [
+        0.3,
+        0.5
+      ],
+      "hold": 3
+    },
+    {
       "type": "decor",
       "sprite": "tombstone",
       "anchor": "bottom-left",
-      "min": 1.0,
+      "min": 8,
       "count": 2,
       "places": [
         [
@@ -225,7 +323,7 @@
     {
       "type": "particles",
       "sprite": "leaf",
-      "min": 1.0,
+      "min": 8,
       "count": 8,
       "speed": [
         0.05,
@@ -237,7 +335,7 @@
     {
       "type": "flyer",
       "sprite": "bat",
-      "min": 1.0,
+      "min": 8,
       "every": [
         15,
         40
@@ -252,12 +350,12 @@
         0.35
       ],
       "amp": 0.04,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "dropper",
       "sprite": "spider",
-      "min": 1.0,
+      "min": 8,
       "every": [
         20,
         50
@@ -268,12 +366,12 @@
         0.45
       ],
       "hold": 4,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "flyer",
       "sprite": "ghost",
-      "min": 1.0,
+      "min": 8,
       "every": [
         30,
         70
@@ -287,12 +385,12 @@
         0.4
       ],
       "amp": 0.03,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "performer",
       "sprite": "skeleton3d",
-      "min": 1.0,
+      "min": 8,
       "every": [
         6,
         15
@@ -323,12 +421,12 @@
       ],
       "say": true,
       "joke_chance": 0.3,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "peeker",
       "sprite": "zombie",
-      "min": 1.0,
+      "min": 8,
       "edge": "bottom",
       "every": [
         15,
@@ -341,12 +439,12 @@
       ],
       "hold": 4,
       "say": true,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "peeker",
       "sprite": "zombie",
-      "min": 1.0,
+      "min": 8,
       "edge": "left",
       "every": [
         25,
@@ -357,12 +455,12 @@
         0.6
       ],
       "hold": 3,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "crawler",
       "sprite": "spider3d",
-      "min": 1.0,
+      "min": 8,
       "every": [
         15,
         35
@@ -387,12 +485,12 @@
         2.5
       ],
       "wave_chance": 0.5,
-      "video_min": 1.0
+      "video_min": 8
     },
     {
       "type": "flyer",
       "sprite": "witch",
-      "min": 1.0,
+      "min": 8,
       "every": [
         40,
         80
@@ -406,7 +504,7 @@
         0.25
       ],
       "amp": 0.05,
-      "video_min": 1.0
+      "video_min": 8
     }
   ],
   "shouts": [

@@ -3,7 +3,7 @@
     "Seasonal event calendar. Dates: 'MM-DD', {'month':11,'weekday':'thu','nth':4,'offset':1}, {'easter':-47},",
     "or {'years': {'2026': '11-14'}, 'default': <spec>} for dates that differ per year.",
     "date = (first) prime day; prime_days = how many prime days; start/end or lead_days/after_days = run-up/fade-out.",
-    "Lead-in intensity ramps lead_min → lead_max as progress**curve (higher curve = stays light longer).",
+    "The run-up climbs from level lead_min to lead_max (default 1..7) as progress**curve; prime day(s) = level 8.",
     "type is what players can switch off (config themes_disabled_types). Events whose theme folder has no theme.json are skipped."
   ],
   "events": [
@@ -14,18 +14,27 @@
       "date": "10-31",
       "lead_days": 14,
       "after_days": 0,
-      "lead_min": 0.1,
-      "lead_max": 0.75,
+      "lead_min": 1,
+      "lead_max": 7,
       "curve": 2.2
     },
     {
       "id": "sinterklaas",
       "type": "sinterklaas",
       "theme": "sinterklaas",
-      "start": {"years": {"2026": "11-14"}, "default": {"month": 11, "weekday": "sat", "nth": 2}},
+      "start": {
+        "years": {
+          "2026": "11-14"
+        },
+        "default": {
+          "month": 11,
+          "weekday": "sat",
+          "nth": 2
+        }
+      },
       "date": "12-05",
-      "lead_min": 0.2,
-      "lead_max": 0.7,
+      "lead_min": 1,
+      "lead_max": 7,
       "curve": 1.5,
       "priority": 1
     },
@@ -37,8 +46,8 @@
       "date": "12-24",
       "prime_days": 3,
       "end": "12-31",
-      "lead_min": 0.2,
-      "lead_max": 0.7,
+      "lead_min": 1,
+      "lead_max": 7,
       "curve": 1.5
     }
   ]

@@ -164,7 +164,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "themes_enabled": True,
     "themes_disabled_types": [],       # e.g. ["halloween"] to skip just that one
     "themes_force": "",                # preview: theme name to show regardless of date
-    "themes_force_intensity": None,    # preview strength 0..1 (None = 1.0, prime day)
+    "themes_level": "auto",            # "auto" = follow the calendar, or a fixed level 0..9 (9 = demo grid)
+    "themes_max_level": 8,             # cap for "auto" (8 = full blown on the day itself)
     "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
     "themes_text": False,              # characters may say shouts/jokes in speech balloons
 
