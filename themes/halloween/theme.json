@@ -27,11 +27,6 @@
       "height": 0.035,
       "spin": 8
     },
-    "cobweb": {
-      "file": "cobweb.png",
-      "height": 0.22,
-      "opacity": 0.75
-    },
     "tombstone": {
       "file": "tombstone.png",
       "height": 0.14
@@ -73,6 +68,45 @@
       "height": 0.16,
       "flicker": 8,
       "fps": 5
+    },
+    "pumpkin_group2": {
+      "file": "pumpkin_group_2.png",
+      "height": 0.16,
+      "flicker": 8,
+      "fps": 5
+    },
+    "pumpkin_group3": {
+      "file": "pumpkin_group_3.png",
+      "height": 0.16,
+      "flicker": 8,
+      "fps": 5
+    },
+    "bat_hanging": {
+      "file": "bat_hanging.png",
+      "height": 0.11,
+      "sway": 24,
+      "sway_deg": 6,
+      "fps": 8
+    },
+    "vampire": {
+      "file": "vampire.png",
+      "height": 0.26
+    },
+    "mummy": {
+      "file": "mummy.png",
+      "height": 0.26
+    },
+    "black_cat": {
+      "file": "black_cat.png",
+      "height": 0.11
+    },
+    "raven": {
+      "file": "raven.png",
+      "height": 0.09
+    },
+    "owl": {
+      "file": "owl.png",
+      "height": 0.12
     }
   },
   "elements": [
@@ -111,11 +145,25 @@
           ]
         },
         {
-          "sprite": "pumpkin_group",
+          "sprites": [
+            "pumpkin_group",
+            "pumpkin_group2",
+            "pumpkin_group3"
+          ],
           "anchor": "bottom-right",
           "places": [
             [
               0.01,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "black_cat",
+          "anchor": "bottom-left",
+          "places": [
+            [
+              0.015,
               0.0
             ]
           ]
@@ -148,6 +196,87 @@
           0.0,
           true
         ]
+      ]
+    },
+    {
+      "type": "visitor",
+      "name": "creatures",
+      "min": 3,
+      "max": 7,
+      "full": 7,
+      "every": [
+        80,
+        160
+      ],
+      "max_active": [
+        1,
+        2
+      ],
+      "stay": [
+        40,
+        100
+      ],
+      "video_min": 4,
+      "cast": [
+        {
+          "sprite": "bat_hanging",
+          "anchor": "top-left",
+          "from": "top",
+          "places": [
+            [
+              0.3,
+              0.0
+            ],
+            [
+              0.42,
+              0.0
+            ],
+            [
+              0.55,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "owl",
+          "anchor": "top-left",
+          "places": [
+            [
+              0.0,
+              0.32
+            ]
+          ]
+        },
+        {
+          "sprite": "black_cat",
+          "anchor": "bottom-left",
+          "places": [
+            [
+              0.015,
+              0.0,
+              true
+            ],
+            [
+              0.13,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "raven",
+          "anchor": "bottom-left",
+          "places": [
+            [
+              0.02,
+              0.0
+            ],
+            [
+              0.14,
+              0.0,
+              true
+            ]
+          ]
+        }
       ]
     },
     {
@@ -278,7 +407,6 @@
     },
     {
       "type": "decor",
-      "sprite": "pumpkin_group",
       "anchor": "bottom-left",
       "min": 7,
       "count": 1,
@@ -288,11 +416,15 @@
           0.01,
           0.0
         ]
+      ],
+      "sprites": [
+        "pumpkin_group",
+        "pumpkin_group2",
+        "pumpkin_group3"
       ]
     },
     {
       "type": "peeker",
-      "sprite": "zombie",
       "min": 7,
       "max": 7,
       "edge": "bottom",
@@ -304,7 +436,12 @@
         0.3,
         0.5
       ],
-      "hold": 3
+      "hold": 3,
+      "sprites": [
+        "zombie",
+        "vampire",
+        "mummy"
+      ]
     },
     {
       "type": "decor",
@@ -428,7 +565,6 @@
     },
     {
       "type": "peeker",
-      "sprite": "zombie",
       "min": 8,
       "edge": "bottom",
       "every": [
@@ -442,11 +578,15 @@
       ],
       "hold": 4,
       "say": true,
-      "video_min": 8
+      "video_min": 8,
+      "sprites": [
+        "zombie",
+        "vampire",
+        "mummy"
+      ]
     },
     {
       "type": "peeker",
-      "sprite": "zombie",
       "min": 8,
       "edge": "left",
       "every": [
@@ -458,7 +598,12 @@
         0.6
       ],
       "hold": 3,
-      "video_min": 8
+      "video_min": 8,
+      "sprites": [
+        "zombie",
+        "vampire",
+        "mummy"
+      ]
     },
     {
       "type": "crawler",
@@ -508,6 +653,82 @@
       ],
       "amp": 0.05,
       "video_min": 8
+    },
+    {
+      "type": "visitor",
+      "name": "creatures8",
+      "min": 8,
+      "every": [
+        15,
+        35
+      ],
+      "max_active": 3,
+      "stay": [
+        25,
+        60
+      ],
+      "video_min": 8,
+      "cast": [
+        {
+          "sprite": "bat_hanging",
+          "anchor": "top-left",
+          "from": "top",
+          "places": [
+            [
+              0.3,
+              0.0
+            ],
+            [
+              0.42,
+              0.0
+            ],
+            [
+              0.55,
+              0.0
+            ]
+          ]
+        },
+        {
+          "sprite": "owl",
+          "anchor": "top-left",
+          "places": [
+            [
+              0.0,
+              0.32
+            ]
+          ]
+        },
+        {
+          "sprite": "black_cat",
+          "anchor": "bottom-left",
+          "places": [
+            [
+              0.12,
+              0.0
+            ],
+            [
+              0.82,
+              0.0,
+              true
+            ]
+          ]
+        },
+        {
+          "sprite": "raven",
+          "anchor": "bottom-left",
+          "places": [
+            [
+              0.2,
+              0.0
+            ],
+            [
+              0.47,
+              0.0,
+              true
+            ]
+          ]
+        }
+      ]
     }
   ],
   "shouts": [

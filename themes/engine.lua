@@ -476,21 +476,23 @@ local busy_places = {}  -- "anchor:k" -> true while taken
 function spawn.visitor(el, _)
     local options = {}
     for _, c in ipairs(el.cast or {}) do
-        local spr = M.sprites[c.sprite]
-        if spr then
-            for k, pl in ipairs(c.places or { { 0.02, 0 } }) do
-                local key = (c.anchor or "bottom-right") .. ":" .. k
-                if not busy_places[key] then options[#options + 1] = { c = c, spr = spr, pl = pl, key = key } end
+        local names = c.sprites or { c.sprite }
+        if M.sprites[names[1]] then
+            for _, pl in ipairs(c.places or { { 0.02, 0 } }) do
+                local key = string.format("%s:%.3f:%.3f", c.anchor or "bottom-right", pl[1], pl[2])
+                if not busy_places[key] then options[#options + 1] = { c = c, names = names, pl = pl, key = key } end
             end
         end
     end
     if #options == 0 then return nil end
     local o = options[math.random(#options)]
-    local spr, anchor = o.spr, o.c.anchor or "bottom-right"
+    local spr = M.sprites[o.names[math.random(#o.names)]] or M.sprites[o.names[1]]
+    local anchor = o.c.anchor or "bottom-right"
     local fx = ANCHORS[anchor] or ANCHORS["bottom-right"]
     local x, y = fx(spr, o.pl[1], o.pl[2])
     local hx, hy = x, y
     if anchor:find("bottom") then hy = H + 2
+    elseif o.c.from == "top" then hy = -spr.h - 2      -- lowered from above (hanging things)
     else
         hy = -spr.h - 2
         hx = anchor:find("left") and (-spr.w - 2) or (W + 2)
@@ -856,10 +858,12 @@ local function update_sub_pos()
         for _, el in ipairs(M.elements or {}) do
             if el.type == "visitor" and element_on(el) and el.lift_subs ~= false then
                 for _, c in ipairs(el.cast or {}) do
-                    local spr = M.sprites[c.sprite]
-                    if spr and (c.anchor or "bottom-right"):find("bottom") then
-                        for _, pl in ipairs(c.places or { { 0, 0 } }) do
-                            lift = math.max(lift, spr.h + (pl[2] or 0) * H)
+                    for _, name in ipairs(c.sprites or { c.sprite }) do
+                        local spr = M.sprites[name]
+                        if spr and (c.anchor or "bottom-right"):find("bottom") and c.lift_subs ~= false then
+                            for _, pl in ipairs(c.places or { { 0, 0 } }) do
+                                lift = math.max(lift, spr.h + (pl[2] or 0) * H)
+                            end
                         end
                     end
                 end

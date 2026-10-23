@@ -305,6 +305,19 @@ def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> lis
             rgb.putalpha(base.getchannel("A"))
             frames.append(rgb)
 
+    #   "sway": N → hanging things swinging gently, rotated about the top centre over N steps
+    sway = int(sdef.get("sway", 0))
+    if sway > 1 and frames:
+        base = frames[0]
+        amp = float(sdef.get("sway_deg", 7))
+        pad = int(base.height * math.sin(math.radians(amp))) + 2
+        frames = []
+        for k in range(sway):
+            canvas = Image.new("RGBA", (base.width + 2 * pad, base.height), (0, 0, 0, 0))
+            canvas.paste(base, (pad, 0))
+            a = amp * math.sin(2 * math.pi * k / sway)
+            frames.append(canvas.rotate(a, resample=Image.BICUBIC, center=(canvas.width / 2, 0)))
+
     # Optional pre-rendered rotation steps (overlay-add can't rotate): every frame × N angles.
     spin = int(sdef.get("spin", 0))
     if spin > 1:
