@@ -3,7 +3,8 @@
 -- stay hairline-thin at any resolution. Loaded by engine.lua.
 --
 -- Construction, in corner coordinates (corner at 0,0, u along the top edge, v downwards):
---   1. drop from the ceiling on a dragline, pump a swing until it catches the side wall: the bridge
+--   1. drop from the ceiling on a dragline, pump a swing until it catches the side wall: the bridge;
+--      then sink from it and swing to the wall lower down, once or twice, so the edge is no straight line
 --   2. crawl along the walls, often trailing a line across the corner (inner frame)
 --   3. drop from the ceiling straight through the future hub onto the bridge: the first two spokes
 --   4. spokes: out along a built spoke, along the frame trailing silk, fasten, back along the new one
@@ -25,7 +26,7 @@ local function lerp(a, b, t) return a + (b - a) * t end
 local STYLE = {
     frame   = { bord = 0.5,  alpha = 0x60 },
     hub     = { bord = 0.42, alpha = 0x78 },
-    aux     = { bord = 0.36, alpha = 0xA8 },
+    aux     = { bord = 0.36, alpha = 0x90 },
     capture = { bord = 0.4,  alpha = 0x80 },
 }
 local KINDS = { "aux", "capture", "hub", "frame" }
@@ -49,6 +50,22 @@ local function ray_hit(ox, oy, dx, dy, poly)
     return best, bi, bs
 end
 
+-- distance from (x, y) to the nearest polygon edge; negative when outside (polygon is convex)
+local function edge_dist(x, y, poly)
+    local d = math.huge
+    local inside = true
+    for i = 1, #poly do
+        local a, b = poly[i], poly[i % #poly + 1]
+        local ex, ey = b[1] - a[1], b[2] - a[2]
+        local l2 = ex * ex + ey * ey
+        local t = l2 > 0 and math.max(0, math.min(1, ((x - a[1]) * ex + (y - a[2]) * ey) / l2)) or 0
+        d = math.min(d, hypot(x - a[1] - ex * t, y - a[2] - ey * t))
+        local cr = ex * (y - a[2]) - ey * (x - a[1])
+        if cr < 0 then inside = false end
+    end
+    return inside and d or -d
+end
+
 local function new_web(o)
     local self = setmetatable({}, W_)
     self.name, self.corner = o.name, o.corner
@@ -57,22 +74,47 @@ local function new_web(o)
     local H = o.H
     local size = o.size or 1
     self.L = H * 0.011 * size                       -- spider body length
-    self.speed = H * 0.12 * (o.speed or 1)          -- walking speed, px/s
+    self.speed = H * 0.05 * (o.speed or 1)          -- walking speed, px/s
     self.stay = o.stay or 900
 
-    -- frame: ceiling, side wall, the bridge between them, often a short line across the corner
+    -- frame: ceiling, side wall and the bridge between them. The bridge gets kinked outwards by
+    -- one or two moorings (the spider sinks from the outer line and swings to the wall lower
+    -- down), and often there is a short line across the corner itself.
     local S = H * rnd(0.24, 0.36) * size
-    local T, Lv = S * rnd(0.95, 1.35), S * rnd(0.8, 1.15)
+    local T, Lv = S * rnd(0.95, 1.35), S * rnd(0.75, 1.0)
     self.T1, self.L1 = { T, 0 }, { 0, Lv }
+    local chain = { self.T1, self.L1 }      -- the outer edge, ceiling to wall
+    self.moor = {}
+    for _ = 1, math.random(1, 2) do
+        local a, b = chain[#chain - 1], chain[#chain]
+        local f = rnd(0.35, 0.65)
+        local B = { lerp(a[1], b[1], f), lerp(a[2], b[2], f) }
+        local G = { 0, b[2] + S * rnd(0.08, 0.2) }
+        chain[#chain], chain[#chain + 1] = B, G
+        self.moor[#self.moor + 1] = { B = B, G = G }
+    end
     if math.random() < 0.6 then
         self.cut = { T * rnd(0.1, 0.22), Lv * rnd(0.1, 0.22) }
-        self.poly = { { self.cut[1], 0 }, { T, 0 }, { 0, Lv }, { 0, self.cut[2] } }
+        self.poly = { { self.cut[1], 0 } }
     else
-        self.poly = { { 0, 0 }, { T, 0 }, { 0, Lv } }
+        self.poly = { { 0, 0 } }
     end
-    self.hub = { T * rnd(0.28, 0.42), Lv * rnd(0.26, 0.4) }
+    for _, p in ipairs(chain) do self.poly[#self.poly + 1] = p end
+    if self.cut then self.poly[#self.poly + 1] = { 0, self.cut[2] } end
+
+    -- hub: the roomiest spot inside the frame (farthest from every edge), nudged upwards a bit
+    local best, bx, by = -1, 0, 0
+    for i = 1, 39 do
+        for j = 1, 39 do
+            local x, y = T * i / 40, (chain[#chain][2]) * j / 40
+            local d = edge_dist(x, y, self.poly)
+            if d > best then best, bx, by = d, x, y end
+        end
+    end
+    self.rin = best
+    self.hub = { bx * rnd(0.95, 1.08), by - best * rnd(0.05, 0.3) }
     self.drop = self.hub[1]
-    self.D = { self.hub[1], Lv * (1 - self.hub[1] / T) }   -- where the drop line meets the bridge
+    self.D = { self.hub[1], self.hub[2] + ray_hit(self.hub[1], self.hub[2], 0, 1, self.poly) }
 
     -- perimeter coordinates, so the spider can walk the frame between two anchors
     self.cum, self.per = {}, 0
@@ -166,7 +208,7 @@ function W_:program()
     local hub = self.hub
 
     local function step() return coroutine.yield() end
-    local function pause(t) local e = 0 while e < t do e = e + step() end end
+    local function pause(t) local e = 0 t = t * 1.4 while e < t do e = e + step() end end
     local function turn(target, dt, rate)
         local d = (target - sp.h + pi) % (2 * pi) - pi
         local m = (rate or 7) * dt
@@ -187,6 +229,7 @@ function W_:program()
             sp.x, sp.y = sp.x + dx / d * s, sp.y + dy / d * s
             turn(o.heading or math.atan2(dy, dx), dt)
             sp.gait = sp.gait + s / (L * 0.45)
+            if o.each then o.each() end
         end
     end
     local function walk(pts, o) for _, p in ipairs(pts) do move(p[1], p[2], o) end end
@@ -204,33 +247,58 @@ function W_:program()
         while not turn(target, step(), 3) do end
     end
 
-    -- 1. down from the ceiling on a dragline, in stages
-    local T1, L1 = self.T1, self.L1
-    local ell = hypot(T1[1], L1[2])
-    sp.drag = { T1[1], 0 }
-    while sp.y < ell - 0.5 do
-        move(sp.x, math.min(ell, sp.y + H * rnd(0.05, 0.14)), { heading = pi / 2, v = 0.4, steady = true })
-        bob(rnd(0.8, 2.5))
+    -- hang from (px, py), lower in stages to the length that reaches the wall at height gy,
+    -- pump a swing until the wall is in reach and catch it: a new frame line
+    local function swing_to(px, py, gy)
+        local ell = hypot(px, gy - py)
+        sp.drag, sp.hang = { px, py }, true
+        face(pi / 2)
+        while sp.y < py + ell - 0.5 do
+            move(px, math.min(py + ell, sp.y + H * rnd(0.04, 0.12)), { heading = pi / 2, v = 0.4, steady = true })
+            bob(rnd(0.8, 2.5))
+        end
+        pause(rnd(1.5, 4))
+        local reach = math.atan2(px, gy - py)
+        local period = 2.1 * math.sqrt(ell / (0.4 * H))
+        local amp, tt = 0.03, 0
+        while true do
+            local dt = step()
+            tt = tt + dt
+            amp = amp + dt * reach / (4 * period)
+            local phi = amp * math.sin(2 * pi * tt / period)
+            sp.x, sp.y = px - ell * math.sin(phi), py + ell * math.cos(phi)
+            sp.h = math.atan2(math.cos(phi), -math.sin(phi))      -- head away from the pivot
+            sp.gait = sp.gait + dt * 0.8                          -- legs paddling
+            if phi >= reach then break end
+        end
+        sp.x, sp.y, sp.drag, sp.hang = 0, gy, nil, false
+        return self:add_thread("frame", px, py, 0, gy, ell * 0.05)
     end
-    pause(rnd(1, 3))
 
-    -- swing: pump until the side wall is in reach, catch it at L1
-    local reach = math.atan2(T1[1], L1[2])
-    local period = 2.1 * math.sqrt(ell / (0.4 * H))
-    local amp, tt = 0.03, 0
-    while true do
-        local dt = step()
-        tt = tt + dt
-        amp = amp + dt * reach / (3.5 * period)
-        local phi = amp * math.sin(2 * pi * tt / period)
-        sp.x, sp.y = T1[1] - ell * math.sin(phi), ell * math.cos(phi)
-        sp.h = math.atan2(math.cos(phi), -math.sin(phi))      -- head away from the pivot
-        sp.gait = sp.gait + dt * 0.8                          -- legs paddling
-        if phi >= reach then break end
+    -- walk thread t from its wall end (t[3], t[4]) to (x, y), reeling it in behind
+    local function reel(t, x, y)
+        local frame = self.threads.frame
+        for i = #frame, 1, -1 do
+            if frame[i] == t then table.remove(frame, i); self.dirty.frame = true end
+        end
+        local listed = false
+        for _, u in ipairs(self.tight) do listed = listed or u == t end
+        if not listed then self.tight[#self.tight + 1] = t end
+        t.live, t.sag = true, 0
+        move(x, y, { each = function() t[3], t[4] = sp.x, sp.y end })
+        t[3], t[4], t.live = x, y, false
     end
-    sp.x, sp.y, sp.drag, sp.hang = L1[1], L1[2], nil, false
-    self:add_thread("frame", T1[1], 0, L1[1], L1[2], ell * 0.05)
-    pause(rnd(1.5, 3))
+
+    -- 1. down from the ceiling on a dragline, swing to the side wall: the bridge.
+    --    Then sink from the outer line and swing to the wall lower down, once or twice.
+    local edge = swing_to(self.T1[1], 0, self.L1[2])
+    pause(rnd(2, 4))
+    for _, m in ipairs(self.moor) do
+        reel(edge, m.B[1], m.B[2])
+        pause(rnd(1, 2.5))
+        edge = swing_to(m.B[1], m.B[2], m.G[2])
+        pause(rnd(2, 4))
+    end
 
     -- 2. up the wall; often a line across the corner, then along the ceiling to the drop point
     if self.cut then
@@ -299,7 +367,7 @@ function W_:program()
         r = math.min(r, s.len * 0.96) + (jit or 0)
         return hub[1] + s.dx * r, hub[2] + s.dy * r
     end
-    local function spiral(kind, steps, radius, k0, on_point, faults)
+    local function spiral(kind, steps, radius, k0, on_point, faults, v)
         local px, py
         for i = 0, steps do
             local k = (k0 + i - 1) % n + 1
@@ -307,7 +375,7 @@ function W_:program()
             local x, y = at(k, r, jit)
             if px then
                 sp.drag = { px, py }
-                move(x, y, { v = 1.3 })
+                move(x, y, { v = v or 1.3 })
                 if math.random() >= (faults or 0) then self:add_thread(kind, px, py, x, y) end
             else
                 move(x, y)
@@ -320,15 +388,20 @@ function W_:program()
     end
 
     -- 5. hub turns, then the temporary spiral outwards
-    local r0, r1 = H * 0.012, H * rnd(0.03, 0.042)
-    local hub_steps = floor(n * rnd(2, 3))
-    spiral("hub", hub_steps, function(i) return lerp(r0, r1, i / hub_steps) end, math.random(n))
+    -- every spiral uses the same rule: a fixed fraction of each spoke's length per turn
+    local function turns(fa, df, dir)
+        return function(i, k)
+            local len = math.min(spokes[k].len, self.rin * 1.7)
+            return len * (fa + dir * df * i / n), len * df * rnd(-0.12, 0.12)
+        end
+    end
+    local h0, h1, dh = rnd(0.04, 0.06), rnd(0.12, 0.16), rnd(0.025, 0.035)
+    spiral("hub", floor((h1 - h0) / dh * n), turns(h0, dh, 1), math.random(n), nil, 0, 0.8)
     pause(rnd(1, 3))
-    local aux_steps = floor(n * rnd(3.5, 5))
+    local aux_turns = rnd(3.5, 5)
     local aux_by = {}
     local fa0, fa1 = rnd(0.2, 0.26), rnd(0.8, 0.86)
-    spiral("aux", aux_steps, function(i, k) return spokes[k].len * lerp(fa0, fa1, i / aux_steps) end,
-        math.random(n), function(k, r)
+    spiral("aux", floor(aux_turns * n), turns(fa0, (fa1 - fa0) / aux_turns, 1), math.random(n), function(k, r)
             local list = self.threads.aux
             if #list > 0 then
                 local seg = list[#list]
@@ -344,9 +417,7 @@ function W_:program()
     local df = rnd(0.032, 0.05)
     local cap_steps = floor((f0 - f1) / df * n)
     local k0 = math.random(n)
-    spiral("capture", cap_steps, function(i, k)
-        return spokes[k].len * (f0 - df * i / n), spokes[k].len * df * rnd(-0.12, 0.12)
-    end, k0, function(k, r)
+    spiral("capture", cap_steps, turns(f0, df, -1), k0, function(k, r)
         for _, seg in ipairs(aux_by[k] or {}) do
             if not seg.dead and seg.r and seg.r > r then seg.dead = true; self.dirty.aux = true end
         end
@@ -383,7 +454,7 @@ function W_:update(dt)
     for i = #self.tight, 1, -1 do
         local t = self.tight[i]
         t.sag = t.sag * math.exp(-dt * 2.5)
-        if t.sag < 0.5 then
+        if t.sag < 0.5 and not t.live then
             table.remove(self.tight, i)
             t.sag = 0
             local list = self.threads[t.kind]

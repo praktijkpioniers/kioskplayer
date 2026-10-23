@@ -647,6 +647,7 @@ local function tick_webs(dt, now)
         if (count[name] or 0) < want and now >= web_next[name] then
             local used, free = {}, {}
             for _, w in ipairs(webs) do used[w.corner] = true end
+            if wm and wm.position then used[wm.position] = true end   -- keep the logo corner clear
             for _, c in ipairs(el.corners or { "top-left", "top-right" }) do
                 if not used[c] then free[#free + 1] = c end
             end
