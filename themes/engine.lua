@@ -24,6 +24,7 @@ local mode = "hidden"
 local W, H = 0, 0
 local decor = {}         -- static/bobbing actors
 local actors = {}        -- transient actors (walkers, flyers, peekers, particles, droppers)
+local webs = {}          -- orb weavers (weaver.lua): not cleared by refresh, a video starting must not wipe a half-built web
 local elements = {}      -- element state (next spawn time, active count)
 local shown = {}         -- id -> last draw key (skip redundant overlay-add)
 local free_ids = {}
@@ -227,7 +228,12 @@ end
 
 local function group_busy(groups)
     if #groups == 0 then return false end
-    for _, a in ipairs(actors) do
+    local busy = {}
+    for _, a in ipairs(actors) do busy[#busy + 1] = a end
+    for _, w in ipairs(webs) do      -- a web counts while its spider is in it
+        if not w.sp.gone then busy[#busy + 1] = w end
+    end
+    for _, a in ipairs(busy) do
         for _, g in ipairs(a.groups or {}) do
             for _, want in ipairs(groups) do if g == want then return true end end
         end
@@ -677,7 +683,6 @@ local function load_module(name)
     msg.error(name .. ": " .. tostring(mod))
 end
 local weaver = load_module("weaver.lua")
-local webs = {}      -- not cleared by refresh: a video starting must not wipe a half-built web
 local web_next = {}  -- element name -> time the next web may start
 
 local function tick_webs(dt, now)
@@ -700,7 +705,9 @@ local function tick_webs(dt, now)
     for name, el in pairs(on) do
         web_next[name] = web_next[name] or now + rnd(range(el.delay, 3))
         local want = math.floor(scaled(el, el.max_active, 1) + 0.5)
-        if (count[name] or 0) < want and now >= web_next[name] then
+        if group_busy(groups_of(el)) then
+            if now >= web_next[name] then web_next[name] = now + rnd(5, 15) end
+        elseif (count[name] or 0) < want and now >= web_next[name] then
             local used, free = {}, {}
             for _, w in ipairs(webs) do used[w.corner] = true end
             if wm and wm.position then used[wm.position] = true end   -- keep the logo corner clear
@@ -710,6 +717,7 @@ local function tick_webs(dt, now)
             if #free > 0 then
                 webs[#webs + 1] = weaver.new({ name = name, W = W, H = H, corner = free[math.random(#free)],
                     speed = el.speed, size = el.size, stay = rnd(range(el.stay, 900)) })
+                webs[#webs].groups = groups_of(el)
             end
             web_next[name] = now + rnd(range(el.every, 120))
         end

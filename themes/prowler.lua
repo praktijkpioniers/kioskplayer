@@ -545,11 +545,13 @@ function C:frame()
         chain[#chain + 1] = x; chain[#chain + 1] = y
     end
     body[#body + 1] = strip(chain, 0.95, 0.5)
-    -- torso: deep chest, belly tucked up, round haunch (offsets turn with the body)
+    -- torso: a flat back, a full belly, deep chest, round haunch (offsets turn with the body)
     local function B(x0, y0, ox, oy) return x0 + ox * cb + oy * sb, y0 - ox * sb + oy * cb end
-    local ax, ay = B(hpx, hpy, 0, -0.5)
-    local bx2, by2 = B(shx, shy, 0, -0.35)
-    body[#body + 1] = capsule(ax, ay, 2.2, bx2, by2, 2.1)
+    local ax, ay = B(hpx, hpy, 0, -0.3)
+    local bx2, by2 = B(shx, shy, 0, -0.25)
+    body[#body + 1] = capsule(ax, ay, 1.95, bx2, by2, 1.9)
+    local mx, my = B(hpx, hpy, p.bl * 0.5, 0.75)
+    body[#body + 1] = ellipse(mx, my, p.bl * 0.4, 2.45, -p.ba)
     local cx, cy = B(hpx, hpy, -0.2, 0.15)
     body[#body + 1] = ellipse(cx, cy, 2.6 + 0.3 * p.fold, 2.7, -p.ba)
     cx, cy = B(shx, shy, 0.2, 0.75)

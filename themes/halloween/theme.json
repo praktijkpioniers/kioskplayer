@@ -282,7 +282,8 @@
       "stay": [
         900,
         2400
-      ]
+      ],
+      "group": "spider"
     },
     {
       "type": "prowler",
