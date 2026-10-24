@@ -373,6 +373,14 @@ VARIANTS_DIRECTIONS = ["right", "left", "up", "down"]
 def _variant(im: "Image.Image", name: str) -> "Image.Image":
     if name in ("normal", "right") or name.startswith("fade"):
         return im
+    if name.startswith("size"):  # "size0.7" / "size0.7m": smaller (farther away), centred in the cell
+        f = float(name[4:].rstrip("m"))
+        small = im.resize((max(1, round(im.width * f)), max(1, round(im.height * f))), Image.LANCZOS)
+        if name.endswith("m"):
+            small = small.transpose(Image.FLIP_LEFT_RIGHT)
+        cell = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        cell.paste(small, ((im.width - small.width) // 2, (im.height - small.height) // 2))
+        return cell
     if name == "mirror":
         return im.transpose(Image.FLIP_LEFT_RIGHT)
     if name == "left":
@@ -414,6 +422,9 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     # overlay bitmaps have no alpha of their own)
     fades = 0 if directions else int(sdef.get("fade", 0))
     variants = variants + [f"fade{k}" for k in range(1, fades + 1)]
+    # "sizes": [0.8, 0.6] → smaller copies (+ mirrored) after that, for depth (flyers far away)
+    sizes = [] if directions else [float(f) for f in sdef.get("sizes", [])]
+    variants = variants + [f"size{f}{m}" for f in sizes for m in ("", "m")]
     frames = _cells(frames, square=directions)
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -438,6 +449,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "fps": float(sdef.get("fps", 0)),
         "spin": int(sdef.get("spin", 0)),
         "fades": fades,
+        "sizes": sizes,
         "clips": clips,
         "origin": origin,
         "unit": float(sdef["unit"]) if origin else None,
@@ -514,6 +526,7 @@ class ThemeController:
         self._active: Optional[tuple[str, float]] = None
         self._loaded_key: Optional[tuple[Any, ...]] = None
         self._wm_key: Optional[tuple[Any, ...]] = None
+        self._overscan: Any = None
         self._next_check = 0.0
         self._mode = "hidden"
         self._busy = threading.Lock()
@@ -526,6 +539,7 @@ class ThemeController:
         """mpv (re)started: the engine knows nothing yet, so resend everything."""
         self._loaded_key = None
         self._wm_key = None
+        self._overscan = None
         self._next_check = 0.0
         mode, self._mode = self._mode, ""
         self.set_mode(mode)
@@ -573,6 +587,12 @@ class ThemeController:
                 meta = build_watermark(self.cfg, h) if wm_on else None
                 self.send("script-message", "watermark", json.dumps(meta) if meta else "")
                 self.log(f"themes: watermark {'on' if meta else 'off'}")
+
+            # TV overscan: the engine keeps everything inside what the screen really shows
+            ov = self.cfg.get("screen_overscan") or 0
+            if ov != self._overscan:
+                self._overscan = ov
+                self.send("script-message", "theme-overscan", json.dumps(ov))
 
             # Theme
             pick = pick_theme(self.cfg, today_for(self.cfg))

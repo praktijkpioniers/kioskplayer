@@ -5,6 +5,7 @@
 --   theme-off                    remove theme
 --   theme-mode idle|video|hidden where we are: idle screen, playing video (subtle), or nothing
 --   watermark <json>|""          watermark sprite meta (+position, margin) or "" to remove
+--   theme-overscan <json>        TV overscan: fraction hidden per side (n or [l, t, r, b])
 --
 -- Sprites are premultiplied BGRA atlases (see themes.py): frames, then mirrored frames,
 -- drawn with overlay-add. mpv draws overlays in id order, so decor gets the high ids and
@@ -15,13 +16,16 @@ local msg = require "mp.msg"
 
 local FPS = 30
 local DRAW_HZ = 15      -- default redraw rate of moving actors (each overlay-add costs a full OSD redraw)
-local WM_ID = 63
-local DECOR_IDS = { first = 40, last = 62 }
-local ACTOR_IDS = { first = 0, last = 39 }
+local WM_ID = 0          -- below everything: creatures may hang over the logo
+local DECOR_IDS = { first = 41, last = 63 }
+local ACTOR_IDS = { first = 1, last = 40 }
 
 local M = nil            -- manifest
 local mode = "hidden"
-local W, H = 0, 0
+local W, H = 0, 0         -- the visible area (screen minus overscan), everything is laid out in it
+local FW, FH = 0, 0       -- the whole screen
+local OX, OY = 0, 0       -- where the visible area starts
+local overscan = { 0, 0, 0, 0 }  -- left, top, right, bottom: fractions a TV hides (theme-overscan)
 local decor = {}         -- static/bobbing actors
 local actors = {}        -- transient actors (walkers, flyers, peekers, particles, droppers)
 local webs = {}          -- orb weavers (weaver.lua): not cleared by refresh, a video starting must not wipe a half-built web
@@ -52,7 +56,7 @@ local function draw(id, spr, frame, variant, x, y)
     local n = spr.frames
     local v = (variant == true) and 1 or (tonumber(variant) or 0)
     local idx = (frame % n) + v * n
-    local xi, yi = math.floor(x + 0.5), math.floor(y + 0.5)
+    local xi, yi = math.floor(x + OX + 0.5), math.floor(y + OY + 0.5)
     local key = xi .. ":" .. yi .. ":" .. idx
     if shown[id] == key then return end
     shown[id] = key
@@ -310,23 +314,35 @@ function spawn.walker(el, spr)
     return a
 end
 
--- flyer: crosses the screen on a wavy path in the upper part (bats, witches, ghosts)
+-- flyer: crosses the screen high up (bats, witches, ghosts). el.y is the height in the middle;
+-- el.bend lets the path sag towards the sides (an arc over the middle, which stays clear).
+-- A sprite with "sizes" flies at a random depth: smaller is farther away, and slower.
 function spawn.flyer(el, spr)
     local a = { el = el, spr = spr }
     local ltr = math.random() < 0.5
     a.dir = ltr and 1 or -1
     a.x = ltr and -spr.w or W
-    local ylo, yhi = range(el.y, 0.15)
-    if mode == "video" and level() < PRIME then ylo, yhi = 0.0, 0.08 end
+    local ylo, yhi = range(el.y, 0.1)
+    if mode == "video" and level() < PRIME then ylo, yhi = 0.0, 0.06 end
     a.y0 = rnd(ylo, yhi) * H
-    a.v = rnd(range(el.speed, 0.15)) * W
-    a.amp = (el.amp or 0.04) * H
+    a.bend = rnd(range(el.bend, 0)) * H
+    local depth, variant = 1, 0
+    local sizes = spr.sizes or {}
+    if #sizes > 0 then
+        local k = math.random(0, #sizes)    -- 0: full size
+        if k > 0 then depth, variant = sizes[k], #(spr.variants or {}) - 2 * #sizes + 2 * (k - 1) end
+    end
+    a.v = rnd(range(el.speed, 0.15)) * W * depth
+    a.amp = (el.amp or 0.04) * H * depth
     a.freq = rnd(1.5, 3.0)
-    a.mirror = (a.dir < 0) ~= (el.faces == "left")
+    local mirror = (a.dir < 0) ~= (el.faces == "left")
+    a.variant = variant + (mirror and 1 or 0)
     function a.update(dt, t)
         a.x = a.x + a.dir * a.v * dt
         if a.x < -spr.w - 2 or a.x > W + 2 then return false end
-        return true, a.x, a.y0 + math.sin(t * a.freq) * a.amp, math.floor(t * math.max(spr.fps, 1)), a.mirror
+        local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
+        local y = a.y0 + a.bend * side * side + math.sin(t * a.freq) * a.amp
+        return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), a.variant
     end
     return a
 end
@@ -682,7 +698,10 @@ function spawn.visitor(el, _)
     for _, c in ipairs(el.cast or {}) do
         local names = c.sprites or { c.sprite }
         if M.sprites[names[1]] and not group_busy(groups_of(c)) then
-            for _, pl in ipairs(c.places or { { 0.02, 0 } }) do
+            if c.near_logo then   -- one place: somewhere around the logo (see below)
+                if not busy_places.logo then options[#options + 1] = { c = c, names = names, pl = {}, key = "logo" } end
+            end
+            for _, pl in ipairs(c.near_logo and {} or c.places or { { 0.02, 0 } }) do
                 local key = string.format("%s:%.3f:%.3f", c.anchor or "bottom-right", pl[1], pl[2])
                 if not busy_places[key] then options[#options + 1] = { c = c, names = names, pl = pl, key = key } end
             end
@@ -693,7 +712,21 @@ function spawn.visitor(el, _)
     local spr = M.sprites[o.names[math.random(#o.names)]] or M.sprites[o.names[1]]
     local anchor = o.c.anchor or "bottom-right"
     local fx = ANCHORS[anchor] or ANCHORS["bottom-right"]
-    local x, y = fx(spr, o.pl[1], o.pl[2])
+    local x, y
+    if o.c.near_logo then
+        -- hang from the top edge around/over the logo (top corner), or in that quarter without one
+        local pos = wm and wm.position or o.c.anchor or "top-right"
+        if wm and pos:find("top") then
+            local m = wm.margin * H
+            local lx = pos:find("left") and m or (W - wm.w - m)
+            x = lx + wm.w / 2 + rnd(-1, 1) * (wm.w / 2 + spr.w) - spr.w / 2
+        else
+            x = pos:find("left") and rnd(0, W * 0.25) or rnd(W * 0.75 - spr.w, W - spr.w)
+        end
+        x, y = clamp(x, 0, W - spr.w), 0
+    else
+        x, y = fx(spr, o.pl[1], o.pl[2])
+    end
     local hx, hy = x, y
     if anchor:find("bottom") then hy = H + 2
     elseif o.c.from == "top" then hy = -spr.h - 2      -- lowered from above (hanging things)
@@ -1030,8 +1063,13 @@ local function render_ass(now)
         end
     end
     local data = table.concat(out, "\n")
-    if data == ass.data and ass.res_x == W and ass.res_y == H then return end  -- unchanged: skip OSD redraw
-    ass.res_x, ass.res_y, ass.z = W, H, 5
+    if OX ~= 0 or OY ~= 0 then  -- every event is placed with \pos: shift them into the visible area
+        data = data:gsub("\\pos%((%-?[%d.]+),(%-?[%d.]+)%)", function(x, y)
+            return string.format("\\pos(%s,%s)", tonumber(x) + OX, tonumber(y) + OY)
+        end)
+    end
+    if data == ass.data and ass.res_x == FW and ass.res_y == FH then return end  -- unchanged: skip OSD redraw
+    ass.res_x, ass.res_y, ass.z = FW, FH, 5
     ass.data = data
     ass:update()
 end
@@ -1119,7 +1157,12 @@ end
 local function update_dims()
     local w = mp.get_property_number("osd-width", 0)
     local h = mp.get_property_number("osd-height", 0)
-    if w > 0 and h > 0 then W, H = w, h end
+    if w > 0 and h > 0 then
+        FW, FH = w, h
+        local l, t, r, b = overscan[1], overscan[2], overscan[3], overscan[4]
+        OX, OY = math.floor(w * l + 0.5), math.floor(h * t + 0.5)
+        W, H = w - OX - math.floor(w * r + 0.5), h - OY - math.floor(h * b + 0.5)
+    end
 end
 
 -- Subtitles are always drawn below overlay-add bitmaps (mpv's fixed order), so while a video
@@ -1151,8 +1194,9 @@ local function update_sub_pos()
             end
         end
     end
+    local cut = FH - OY - H     -- TV overscan at the bottom
     local pos = sub_pos0
-    if lift > 0 then pos = math.max(50, sub_pos0 - lift / H * 100 - 1) end
+    if lift > 0 or cut > 0 then pos = math.max(50, sub_pos0 - (lift + cut) / math.max(FH, 1) * 100 - (lift > 0 and 1 or 0)) end
     if mp.get_property_number("sub-pos", 100) ~= pos then mp.set_property_number("sub-pos", pos) end
 end
 
@@ -1186,6 +1230,18 @@ mp.register_script_message("theme-load", function(path)
     end
     M = data
     msg.info(string.format("theme %s level %d, %d elements", M.theme, M.level or 0, #(M.elements or {})))
+    refresh()
+end)
+
+-- theme-overscan <json>: a number (all sides) or [left, top, right, bottom], fractions of the
+-- screen a TV cuts off; everything moves into the part that is left
+mp.register_script_message("theme-overscan", function(js)
+    local v = (js and js ~= "") and utils.parse_json(js) or 0
+    if type(v) == "number" then v = { v, v, v, v } end
+    if type(v) ~= "table" then v = {} end
+    local o = {}
+    for k = 1, 4 do o[k] = clamp(tonumber(v[k]) or 0, 0, 0.2) end
+    overscan = o
     refresh()
 end)
 

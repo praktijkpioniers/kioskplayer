@@ -169,6 +169,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
     "themes_text": False,              # characters may say shouts/jokes in speech balloons
 
+    # TV overscan: fraction of the screen a TV hides at each side, 0.03 or [left, top, right, bottom];
+    # theme animations and the watermark stay inside the rest
+    "screen_overscan": 0,
+
     # TV-style watermark
     "watermark_enabled": True,
     "watermark_image": "themes/watermark/default.png",

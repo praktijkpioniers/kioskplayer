@@ -11,7 +11,10 @@
     "Types: decor (always there), visitor (comes and goes: cast of sprite+anchor+places), particles, flyer, walker,",
     "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker,",
     "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom).",
-    "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time."
+    "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time.",
+    "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
+    "a sprite with sizes = [0.8, 0.62] flies at a random depth (smaller = farther = slower).",
+    "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo."
   ],
   "sprites": {
     "pumpkin": {
@@ -39,7 +42,11 @@
       "file": "bat.png",
       "height": 0.055,
       "flap": 6,
-      "fps": 12
+      "fps": 12,
+      "sizes": [
+        0.8,
+        0.62
+      ]
     },
     "spider": {
       "file": "spider.png",
@@ -48,11 +55,19 @@
     "ghost": {
       "file": "ghost.png",
       "height": 0.13,
-      "opacity": 0.85
+      "opacity": 0.85,
+      "sizes": [
+        0.8,
+        0.62
+      ]
     },
     "witch": {
       "file": "witch.png",
-      "height": 0.13
+      "height": 0.13,
+      "sizes": [
+        0.8,
+        0.62
+      ]
     },
     "zombie": {
       "file": "zombie.png",
@@ -229,23 +244,10 @@
       "cast": [
         {
           "sprite": "bat_hanging",
-          "anchor": "top-left",
+          "anchor": "top-right",
           "from": "top",
-          "places": [
-            [
-              0.3,
-              0.0
-            ],
-            [
-              0.42,
-              0.0
-            ],
-            [
-              0.55,
-              0.0
-            ]
-          ],
-          "group": "bat"
+          "group": "bat",
+          "near_logo": true
         },
         {
           "sprite": "owl",
@@ -403,13 +405,17 @@
         0.2
       ],
       "y": [
-        0.05,
-        0.3
+        0.02,
+        0.12
       ],
       "amp": 0.04,
       "group": [
         "flying",
         "bat"
+      ],
+      "bend": [
+        0.05,
+        0.3
       ]
     },
     {
@@ -426,11 +432,15 @@
         0.08
       ],
       "y": [
-        0.1,
-        0.4
+        0.04,
+        0.14
       ],
       "amp": 0.03,
-      "group": "flying"
+      "group": "flying",
+      "bend": [
+        0.05,
+        0.3
+      ]
     },
     {
       "type": "decor",
@@ -520,14 +530,18 @@
         0.22
       ],
       "y": [
-        0.05,
-        0.35
+        0.02,
+        0.12
       ],
       "amp": 0.04,
       "video_min": 8,
       "group": [
         "flying",
         "bat"
+      ],
+      "bend": [
+        0.05,
+        0.3
       ]
     },
     {
@@ -560,12 +574,16 @@
         0.08
       ],
       "y": [
-        0.1,
-        0.4
+        0.04,
+        0.14
       ],
       "amp": 0.03,
       "video_min": 8,
-      "group": "flying"
+      "group": "flying",
+      "bend": [
+        0.05,
+        0.3
+      ]
     },
     {
       "type": "performer",
@@ -612,9 +630,18 @@
       "lid": "coffin_lid",
       "min": 7,
       "video_min": 8,
-      "every": [600, 1200],
-      "delay": [60, 240],
-      "stay": [30, 90],
+      "every": [
+        600,
+        1200
+      ],
+      "delay": [
+        60,
+        240
+      ],
+      "stay": [
+        30,
+        90
+      ],
       "say": true,
       "group": "monster"
     },
@@ -706,12 +733,16 @@
         0.25
       ],
       "y": [
-        0.05,
-        0.25
+        0.02,
+        0.12
       ],
       "amp": 0.05,
       "video_min": 8,
-      "group": "flying"
+      "group": "flying",
+      "bend": [
+        0.05,
+        0.3
+      ]
     },
     {
       "type": "visitor",
@@ -730,23 +761,10 @@
       "cast": [
         {
           "sprite": "bat_hanging",
-          "anchor": "top-left",
+          "anchor": "top-right",
           "from": "top",
-          "places": [
-            [
-              0.3,
-              0.0
-            ],
-            [
-              0.42,
-              0.0
-            ],
-            [
-              0.55,
-              0.0
-            ]
-          ],
-          "group": "bat"
+          "group": "bat",
+          "near_logo": true
         },
         {
           "sprite": "owl",

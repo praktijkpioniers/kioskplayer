@@ -506,6 +506,9 @@ a.buttonlink {{
 
 <label>Height (fraction of screen)</label>
 <input name="watermark_height" value="{esc(cfg.get("watermark_height", 0.08))}">
+
+<label>TV overscan: part of the screen the TV hides (0.03, or left,top,right,bottom). Animations and watermark stay inside.</label>
+<input name="screen_overscan" value="{esc(",".join(str(v) for v in cfg["screen_overscan"]) if isinstance(cfg.get("screen_overscan"), list) else cfg.get("screen_overscan", 0))}">
 </fieldset>
 
 <fieldset>
@@ -881,6 +884,11 @@ class Handler(BaseHTTPRequestHandler):
         cfg["watermark_style"] = get("watermark_style")
         cfg["watermark_opacity"] = get("watermark_opacity", float)
         cfg["watermark_height"] = get("watermark_height", float)
+        try:
+            ov = [max(0.0, min(0.2, float(v))) for v in str(get("screen_overscan") or "0").replace(";", ",").split(",") if v.strip()]
+            cfg["screen_overscan"] = ov[0] if len(ov) == 1 else ov if len(ov) == 4 else 0
+        except ValueError:
+            pass
 
         save_config(cfg)
         notify_config_changed()
