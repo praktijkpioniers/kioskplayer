@@ -4,7 +4,7 @@ Several kiosks side by side on this desktop, as one room: each its own mpv windo
 engine, its own room-bus node (UDP over 127.0.0.1), and the same ThemeRoom bridge the player uses,
 so animations move from one window to the next.
 
-    multi.py [n=4] [level=8] [--gap 1.5] [--mode idle|video]
+    multi.py [n=4] [level=8] [--gap 16] [--mode idle|video]
 
 Keys go to one window: python3 tools/kiosksim/multi.py key <i> <key> ...   (b = a flyer now)
 Screenshot of the whole row:   python3 tools/kiosksim/multi.py shot <file.png>
@@ -34,14 +34,14 @@ SCREEN_W, SCREEN_H = 1920, 1080
 
 
 def geometry(i, n):
-    gap = 12
+    gap = 4
     w = (SCREEN_W - gap * (n + 1)) // n
     h = w * 9 // 16
     return w, h, gap + i * (w + gap), (SCREEN_H - h) // 2
 
 
 class Kiosk:
-    def __init__(self, i, n, gap_s):
+    def __init__(self, i, n, gap_px):
         self.i, self.n = i, n
         self.dir = BASE_DIR / f"k{i}"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -65,7 +65,7 @@ class Kiosk:
         peers = [f"127.0.0.1:{PORT + j}" for j in range(n) if j != i]
         self.bus = roombus.Bus("sim", node=f"kiosk{i}", port=PORT + i,
                                transports=[{"udp-peers": peers}]).start()
-        self.room = themes.ThemeRoom(self.bus, [f"kiosk{j}" for j in range(n)], gap_s, send=self.cmd,
+        self.room = themes.ThemeRoom(self.bus, [f"kiosk{j}" for j in range(n)], gap_px, send=self.cmd,
                                      log=lambda m: print(f"kiosk{i}: {m}"))
         threading.Thread(target=self._events, args=(sock,), daemon=True).start()
 
@@ -84,8 +84,8 @@ class Kiosk:
                 continue
             if ev.get("event") == "client-message":
                 args = ev.get("args") or []
-                if len(args) >= 2 and args[0] == "theme-room-out":
-                    self.room.from_engine(args[1])
+                if len(args) >= 2 and str(args[0]).startswith("theme-room-"):
+                    self.room.from_engine(str(args[0]), str(args[1]))
 
     def load(self, level, mode):
         for _ in range(50):
@@ -115,7 +115,7 @@ def shot(path):
                 pass
     if not ims:
         raise SystemExit("no kiosks running")
-    gap = 12
+    gap = 4
     out = Image.new("RGB", (sum(im.width for im in ims) + gap * (len(ims) - 1), max(im.height for im in ims)), "black")
     x = 0
     for im in ims:
@@ -137,7 +137,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("n", nargs="?", type=int, default=4)
     ap.add_argument("level", nargs="?", type=int, default=8)
-    ap.add_argument("--gap", type=float, default=1.5, help="seconds between two screens")
+    ap.add_argument("--gap", type=float, default=16, help="pixels (at 1080p) between two screens")
     ap.add_argument("--mode", default="idle")
     a = ap.parse_args()
     kiosks = [Kiosk(i, a.n, a.gap) for i in range(a.n)]

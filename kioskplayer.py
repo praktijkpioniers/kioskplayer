@@ -191,9 +191,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # from screen to screen). See roombus.py. transports: "udp-broadcast", {"udp-multicast": ip},
     # {"udp-peers": [host, ...]} (other subnets, tailnet); several at once is fine.
     # layout: node names (hostnames) left to right as a visitor sees the screens, for animations
-    # moving from screen to screen; gap_s: the time they are "between" two screens
+    # moving from screen to screen; gap_px: the space between two screens, in pixels (at 1080p)
     "room": {"enabled": False, "group": "", "node": "", "port": 47800,
-             "transports": ["udp-broadcast"], "key_file": "", "layout": [], "gap_s": 3.0},
+             "transports": ["udp-broadcast"], "key_file": "", "layout": [], "gap_px": 16},
 }
 
 
@@ -812,7 +812,7 @@ class App:
                 self.room = roombus.SharedState(self.room_bus, on_change=lambda k, v, e: self._room_q.put((k, v, e)))
                 rc = cfg.get("room") or {}
                 if rc.get("layout"):
-                    self.themes.room = ThemeRoom(self.room_bus, rc["layout"], float(rc.get("gap_s", 3.0)),
+                    self.themes.room = ThemeRoom(self.room_bus, rc["layout"], float(rc.get("gap_px", 16)),
                                                  send=lambda *a: self.renderer.ipc.command(*a), log=log)
         except Exception as e:
             log(f"room bus not started: {e}")

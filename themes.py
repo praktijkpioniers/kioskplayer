@@ -18,6 +18,7 @@ import hashlib
 import json
 import math
 import threading
+import time
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -522,44 +523,125 @@ def build_watermark(cfg: dict[str, Any], screen_h: int) -> Optional[dict[str, An
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ThemeRoom:
-    """Relays the engine's hand-overs to the neighbouring screens and back.
+    """The theme engine's link with the other screens in the room (over roombus).
 
-    layout: node names left to right as a visitor sees the screens (config room.layout);
-    gap_s: time an actor is "between" two screens. The engine says theme-room-out {side, ...};
-    we publish theme/handoff {to: <that neighbour>, ...}; the neighbour's ThemeRoom gives it to
-    its engine as theme-room-in.
+    Hand-overs: layout = node names left to right as a visitor sees the screens (config
+    room.layout); an actor crossing an edge towards a neighbour goes on there, gap_px further.
+    The engine says theme-room-out {side, ...}; we publish theme/handoff {to: <that neighbour>,
+    sent: wall ms}; the neighbour's ThemeRoom gives it to its engine as theme-room-in {late: s}.
+
+    Claims: no two screens show the same thing. The engine says theme-room-claims-out {claims}
+    (sprite keys of its decor and unique actors); we announce them (theme/claims, every few
+    seconds, with the time each was first shown) and tell the engine theme-room-claims
+    {ready, taken}: keys other screens show, including ones we show too but they had first (the
+    engine then gives those up). ready: we listened long enough after starting to know the room.
     """
 
-    def __init__(self, bus: Any, layout: list[str], gap_s: float, send: Callable[..., Any],
+    ANNOUNCE_S = 2.0
+    LISTEN_S = 2.5          # + a random bit, so screens started together don't decide at once
+
+    def __init__(self, bus: Any, layout: list[str], gap_px: float, send: Callable[..., Any],
                  log: Callable[[str], None] = print):
+        import random
         self.bus, self.send, self.log = bus, send, log
-        self.gap_s = float(gap_s)
+        self.gap_px = float(gap_px)
         layout = [str(n) for n in layout or []]
         i = layout.index(bus.node) if bus.node in layout else -1
         self.left = layout[i - 1] if i > 0 else None
         self.right = layout[i + 1] if 0 <= i < len(layout) - 1 else None
         if i < 0 and layout:
             log(f"room: {bus.node} is not in the layout {layout}; no hand-overs")
-        bus.subscribe("theme/handoff", self._from_bus)
+        self._lock = threading.Lock()
+        self.mine: dict[str, int] = {}                      # key → wall ms first shown
+        self.others: dict[str, tuple[float, dict]] = {}     # node → (monotonic heard, {key: ms})
+        self._ready_at = time.monotonic() + self.LISTEN_S + random.uniform(0, 1.5)
+        self._told: Optional[str] = None
+        bus.subscribe("theme/handoff", self._handoff_from_bus)
+        bus.subscribe("theme/claims", self._claims_from_bus)
+        threading.Thread(target=self._loop, daemon=True, name="themeroom").start()
+
+    @property
+    def ready(self) -> bool:
+        return time.monotonic() >= self._ready_at
 
     def announce(self) -> None:
-        """Tell the engine about its neighbours (after mpv or the engine started)."""
-        self.send("script-message", "theme-room",
-                  json.dumps({"left": bool(self.left), "right": bool(self.right), "gap": self.gap_s}))
+        """Tell the engine about the room (after mpv or the engine started)."""
+        self._told = None
+        self.send("script-message", "theme-room", json.dumps(
+            {"active": True, "left": bool(self.left), "right": bool(self.right),
+             "gap_px": self.gap_px, "ready": self.ready}))
+        self._tell_engine(force=True)
 
-    def from_engine(self, js: str) -> None:
+    # ── from the engine ──
+    def from_engine(self, name: str, js: str) -> None:
         try:
-            h = json.loads(js)
+            v = json.loads(js)
         except ValueError:
             return
-        to = self.right if h.get("side") == "right" else self.left if h.get("side") == "left" else None
-        if to:
-            h["to"] = to
-            self.bus.publish("theme/handoff", h)
+        if name == "theme-room-out":
+            to = self.right if v.get("side") == "right" else self.left if v.get("side") == "left" else None
+            if to:
+                v["to"], v["sent"] = to, int(time.time() * 1000)
+                self.bus.publish("theme/handoff", v)
+        elif name == "theme-room-claims-out":
+            keys = v.get("claims") if isinstance(v, dict) else None
+            keys = [str(k) for k in keys] if isinstance(keys, list) else []
+            now = int(time.time() * 1000)
+            with self._lock:
+                self.mine = {k: self.mine.get(k, now) for k in keys}
+            self._publish_claims()
+            self._tell_engine()
 
-    def _from_bus(self, topic: str, h: Any, env: dict) -> None:
+    # ── from the room ──
+    def _handoff_from_bus(self, topic: str, h: Any, env: dict) -> None:
         if isinstance(h, dict) and h.get("to") == self.bus.node:
+            sent = h.pop("sent", None)
+            if isinstance(sent, (int, float)):
+                h["late"] = max(0.0, min(1.0, (time.time() * 1000 - sent) / 1000.0))
             self.send("script-message", "theme-room-in", json.dumps(h))
+
+    def _claims_from_bus(self, topic: str, p: Any, env: dict) -> None:
+        if isinstance(p, dict):
+            with self._lock:
+                self.others[str(env.get("n"))] = (time.monotonic(), {str(k): int(v) for k, v in p.items()
+                                                                     if isinstance(v, (int, float))})
+            self._tell_engine()
+
+    # ── bookkeeping ──
+    def taken(self) -> list[str]:
+        """Keys other (live) screens show; for one we show too, the earliest wins (then node name)."""
+        now = time.monotonic()
+        alive_s = self.ANNOUNCE_S * 3.5
+        with self._lock:
+            out = set()
+            for node, (heard, claims) in self.others.items():
+                if now - heard > alive_s:
+                    continue                      # gone (switched off, rebooted): its claims too
+                for k, ms in claims.items():
+                    mine = self.mine.get(k)
+                    if mine is None or (ms, node) < (mine, self.bus.node):
+                        out.add(k)
+        return sorted(out)
+
+    def _publish_claims(self) -> None:
+        with self._lock:
+            claims = dict(self.mine)
+        self.bus.publish("theme/claims", claims)
+
+    def _tell_engine(self, force: bool = False) -> None:
+        msg = json.dumps({"ready": self.ready, "taken": self.taken()})
+        if force or msg != self._told:
+            self._told = msg
+            self.send("script-message", "theme-room-claims", msg)
+
+    def _loop(self) -> None:
+        k = 0
+        while True:
+            time.sleep(self.ANNOUNCE_S / 2)
+            k += 1
+            if k % 2 == 0:
+                self._publish_claims()        # repeated: lost packets, screens that come later
+            self._tell_engine()               # ready flips, silent screens drop out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -591,8 +673,8 @@ class ThemeController:
 
     def message(self, args: list[Any]) -> None:
         """A script-message from the engine (mpv client-message event)."""
-        if len(args) >= 2 and args[0] == "theme-room-out" and self.room:
-            self.room.from_engine(str(args[1]))
+        if len(args) >= 2 and str(args[0]).startswith("theme-room-") and self.room:
+            self.room.from_engine(str(args[0]), str(args[1]))
 
     def configure(self, cfg: dict[str, Any]) -> None:
         self.cfg = cfg

@@ -186,6 +186,48 @@ local function band_x(el, w)
     return rnd(0, W - w)
 end
 
+-- ── the room: the other screens (theme-room / theme-room-claims from the player) ──
+-- Neighbours: an actor crossing the edge towards one is handed over (theme-room-out → the player
+-- → the room bus → the neighbour's theme-room-in) and goes on there, gap_px further.
+-- Claims: what each screen shows (decor and unique actors, by sprite) is announced, so no two
+-- screens in the room show the same thing. At start a screen first listens (room.ready) before it
+-- puts anything up; if two screens took the same thing at once, the player tells the later one
+-- to give it up (taken).
+local room = { active = false, left = false, right = false, gap = 0, ready = true, taken = {} }
+local handed_in = {}       -- handed-over actors, spawned on the next tick
+local mine_sent = nil      -- the claims last told to the player
+local NOT_UNIQUE = { flyer = true, particles = true }   -- travel from screen to screen / just leaves
+
+local function claim_key(spr) return "spr:" .. tostring(spr and spr.name) end
+local function taken(spr) return room.taken[claim_key(spr)] == true end
+local function holding() return room.active and not room.ready end
+
+-- a sprite of the element that no other screen shows (nil when all are)
+local function free_sprite_of(el)
+    for _ = 1, 8 do
+        local spr = sprite_of(el)
+        if not spr or not taken(spr) then return spr end
+    end
+end
+
+local function room_send(name, t)
+    local js, err = utils.format_json(t)
+    if not js then
+        local parts = {}
+        for k, v in pairs(t) do parts[#parts + 1] = k .. "=" .. tostring(v) .. "(" .. type(v) .. ")" end
+        msg.error(name .. ": " .. tostring(err) .. " " .. table.concat(parts, " "))
+        return false
+    end
+    mp.commandv("script-message", name, js)
+    return true
+end
+
+local function hand_over(side, h)
+    if not room[side] then return false end
+    h.side = side
+    return room_send("theme-room-out", h)
+end
+
 -- ── decor (static, optionally bobbing / animated) ───────────────────────────
 
 local ANCHORS = {
@@ -199,14 +241,14 @@ local ANCHORS = {
 local function build_decor()
     for _, d in ipairs(decor) do hide(d.id) end
     decor = {}
-    if not M or mode == "hidden" then return end
+    if not M or mode == "hidden" or holding() then return end
     local id = DECOR_IDS.last
     for _, el in ipairs(M.elements) do
         if el.type == "decor" and element_on(el) then
             local n = math.floor(scaled(el, el.count, 1) + 0.5)
             local places = el.places or { { el.x or 0.02, el.y or 0 } }
             for k = 1, math.min(n, #places) do
-                local spr = sprite_of(el)
+                local spr = free_sprite_of(el)
                 if spr and id >= DECOR_IDS.first then
                     local fx = ANCHORS[el.anchor or "bottom-left"] or ANCHORS["bottom-left"]
                     local x, y = fx(spr, places[k][1], places[k][2])
@@ -325,26 +367,6 @@ function spawn.walker(el, spr)
     return a
 end
 
--- ── the room: other screens to the left and right (theme-room from the player) ──
--- An actor leaving towards a neighbour is handed over (theme-room-out → the player → the room bus
--- → the neighbour's theme-room-in) and comes in there after the gap between the screens.
-local room = { left = false, right = false, gap = 3 }
-local handed_in = {}       -- { at = time, h = handoff } waiting for their time
-
-local function hand_over(side, h)
-    if not room[side] then return false end
-    h.side = side
-    local js, err = utils.format_json(h)
-    if not js then
-        local parts = {}
-        for k, v in pairs(h) do parts[#parts + 1] = k .. "=" .. tostring(v) .. "(" .. type(v) .. ")" end
-        msg.error("hand-over: " .. tostring(err) .. " " .. table.concat(parts, " "))
-        return false
-    end
-    mp.commandv("script-message", "theme-room-out", js)
-    return true
-end
-
 -- flyer: crosses the screen high up (bats, witches, ghosts). el.y is the height in the middle;
 -- el.bend lets the path sag towards the sides (an arc over the middle, which stays clear).
 -- A sprite with "sizes" flies at a random depth: smaller is farther away, and slower.
@@ -369,17 +391,29 @@ function spawn.flyer(el, spr, h)
     a.v = (h and h.v or rnd(range(el.speed, 0.15)) * depth) * W
     a.amp = (el.amp or 0.04) * H * depth
     a.freq = h and h.freq or rnd(1.5, 3.0)
-    a.ph = h and (h.ph + a.freq * (room.gap - (mp.get_time() - t0))) or 0   -- the bob goes on
+    a.ph = 0
+    if h then
+        -- it went over the neighbour's edge h.lead (× H) ago, plus the time on the way (h.late):
+        -- the front comes in that far past our edge, gap_px later
+        local late = clamp(tonumber(h.late) or 0, 0, 1)
+        local front = (h.lead or 0) * H + a.v * late - room.gap
+        a.x = ltr and (front - spr.w) or (W - front)
+        a.ph = (h.ph or 0) + a.freq * late - a.freq * (mp.get_time() - t0)   -- the bob goes on
+    end
     local mirror = (a.dir < 0) ~= (el.faces == "left")
     a.variant = variant + (mirror and 1 or 0)
     function a.update(dt, t)
         a.x = a.x + a.dir * a.v * dt
-        if a.x < -spr.w - 2 or a.x > W + 2 then
+        -- the front reaches the edge it flies to: the neighbour takes over from here (for a
+        -- moment both show a part)
+        local lead = (a.dir > 0) and (a.x + spr.w - W) or (-a.x)
+        if lead >= 0 and not a.handed_on then
+            a.handed_on = true
             hand_over(a.dir > 0 and "right" or "left", {
-                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, k = k,
+                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, k = k, lead = lead / H,
                 y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph })
-            return false
         end
+        if a.x < -spr.w - 2 or a.x > W + 2 then return false end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
         local y = a.y0 + a.bend * side * side + math.sin(t * a.freq + a.ph) * a.amp
         return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), a.variant
@@ -898,6 +932,7 @@ function spawn.peeker(el, spr)
 end
 
 local function try_spawn(el, now)
+    if holding() then return end        -- (the first-spawn timers start once the room is heard)
     local st = elements[el]
     if not st then
         -- first spawn soon after load (or after el.delay), slightly staggered
@@ -926,10 +961,17 @@ local function try_spawn(el, now)
         st.next = now + rnd(2, 6)
         return
     end
-    local spr = el.cast and {} or sprite_of(el)   -- visitors pick their own sprite
-    if not spr or not spawn[el.type] then return end
+    local unique = el.room_unique ~= false and not NOT_UNIQUE[el.type]
+    local spr = el.cast and {} or (unique and free_sprite_of(el) or sprite_of(el))   -- visitors pick their own sprite
+    if not spr then st.next = now + rnd(5, 15) return end
+    if not spawn[el.type] then return end
     local a = spawn[el.type](el, spr)
+    if a and unique and a.spr and taken(a.spr) then
+        if a.release then a.release() end
+        a = nil                         -- another screen in the room shows it now
+    end
     if not a or #free_ids < (a.layers or 1) then st.next = now + 5 return end
+    a.unique, a.born = unique, now
     a.groups = a.groups or groups_of(el)
     a.id = take_id(); st.active = st.active + 1
     if a.layers then
@@ -1040,7 +1082,7 @@ local function tick_cats(dt, now)
     cats = keep
     for name, el in pairs(on) do
         cat_next[name] = cat_next[name] or now + rnd(range(el.delay, 10))
-        if (count[name] or 0) < 1 and now >= cat_next[name] then
+        if (count[name] or 0) < 1 and now >= cat_next[name] and not holding() and not room.taken["spr:cat"] then
             local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things })
             c.name = name
             cats[#cats + 1] = c
@@ -1168,7 +1210,13 @@ local function tick()
     local dt = math.min(0.2, now - last)
     last = now
     local t = now - t0
-    if not M or mode == "hidden" then return end
+    if not M or mode == "hidden" then
+        if room.active and mine_sent ~= "" then     -- nothing on screen: nothing claimed
+            mine_sent = ""
+            room_send("theme-room-claims-out", { claims = {} })
+        end
+        return
+    end
 
     if level() >= DEMO then
         tick_demo(t)
@@ -1185,10 +1233,10 @@ local function tick()
     -- actors coming over from a neighbour
     local wait = {}
     for _, w in ipairs(handed_in) do
-        if now - w.at > 10 then         -- stale (hidden meanwhile)
-        elseif now < w.at then wait[#wait + 1] = w
+        if now - w.at > 2 then          -- stale (hidden meanwhile)
         else
             local h = w.h
+            h.late = (tonumber(h.late) or 0) + (now - w.at)
             local el = M.elements[h.el or 0]
             local spr = M.sprites[h.sprite or ""]
             if el and spr and spawn[h.kind] and el.type == h.kind and #free_ids > 0 then
@@ -1232,6 +1280,25 @@ local function tick()
         end
     end
     actors = keep
+
+    -- tell the room what this screen shows (the player passes it on when it changed)
+    if room.active then
+        room.claim_t = (room.claim_t or 0) - dt
+        if room.claim_t <= 0 then
+            room.claim_t = 1
+            local set, keys = {}, {}
+            for _, d in ipairs(decor) do set[claim_key(d.spr)] = true end
+            for _, a in ipairs(actors) do if a.unique and a.spr then set[claim_key(a.spr)] = true end end
+            if #cats > 0 then set["spr:cat"] = true end
+            for k in pairs(set) do keys[#keys + 1] = k end
+            table.sort(keys)
+            local sig = table.concat(keys, ",")
+            if sig ~= mine_sent then
+                mine_sent = sig
+                room_send("theme-room-claims-out", { claims = keys })
+            end
+        end
+    end
 
     render_ass(now)
 end
@@ -1355,8 +1422,43 @@ end)
 -- theme-room <json>: {"left": bool, "right": bool, "gap": s} — are there screens beside this one
 mp.register_script_message("theme-room", function(js)
     local v = js and js ~= "" and utils.parse_json(js) or {}
-    room = { left = v.left == true, right = v.right == true, gap = tonumber(v.gap) or 3 }
-    msg.verbose(string.format("room: left %s, right %s, gap %.1f s", tostring(room.left), tostring(room.right), room.gap))
+    room.active = v.active ~= false
+    room.left, room.right = v.left == true, v.right == true
+    room.gap_px = tonumber(v.gap_px) or 0
+    room.ready = v.ready ~= false
+    room.gap = room.gap_px * H / 1080
+    msg.verbose(string.format("room: left %s, right %s, gap %d px", tostring(room.left), tostring(room.right), room.gap_px))
+end)
+
+-- theme-room-claims <json>: {"ready": bool, "taken": [keys]} — what other screens in the room show
+-- (for keys we show too: they had it first, give it up)
+mp.register_script_message("theme-room-claims", function(js)
+    local v = js and utils.parse_json(js)
+    if type(v) ~= "table" then return end
+    local was_holding = holding()
+    room.taken = {}
+    for _, k in ipairs(v.taken or {}) do room.taken[k] = true end
+    room.ready = v.ready ~= false
+    local lost = false
+    for _, d in ipairs(decor) do if room.taken[claim_key(d.spr)] then lost = true end end
+    -- an actor that started at the same moment as the same one on another screen: still coming
+    -- in from off-screen, so it can quietly go
+    local now = mp.get_time()
+    for _, a in ipairs(actors) do
+        if a.unique and a.spr and room.taken[claim_key(a.spr)] and now - (a.born or 0) < 3 then
+            a.update = function() return false end
+            msg.verbose("room: " .. tostring(a.spr.name) .. " is on another screen, not here")
+        end
+    end
+    if was_holding and not holding() then
+        msg.verbose("room: heard the room, starting")
+        build_decor()
+        update_sub_pos()
+    elseif lost then
+        msg.verbose("room: another screen shows our decor, picking again")
+        build_decor()
+        update_sub_pos()
+    end
 end)
 
 -- theme-room-in <json>: an actor a neighbour handed over; it comes in from that neighbour's side
@@ -1364,7 +1466,7 @@ end)
 mp.register_script_message("theme-room-in", function(js)
     local h = js and utils.parse_json(js)
     if not h or not M or mode == "hidden" then return end
-    handed_in[#handed_in + 1] = { at = mp.get_time() + room.gap, h = h }
+    handed_in[#handed_in + 1] = { at = mp.get_time(), h = h }
 end)
 
 mp.register_script_message("theme-off", function()
