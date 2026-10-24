@@ -1274,6 +1274,7 @@ function spawn.mummy(el, spr)
         tc = tc + dt
         if s.summon and not s.summoned then
             s.summoned = true
+            msg.verbose("mummy: the helper hurries over from next door")
             hand_over(side, { kind = "passer", el = el.index, sprite = helper.name, clip = "walk", rate = 2.4,
                               dir = side == "right" and -1 or 1, from_far = true, hops = MAX_HOPS })
         end
