@@ -86,7 +86,18 @@ roombus.SharedState(bus_x, announce_s=0.5).set("lang", "xx")
 time.sleep(1.5)
 good &= check("a wrong key is ignored", all(s.get("lang") == "pt" for s in states))
 
+# a stateless selector (as an ESP32 would): room/set, no clock, no key handling beyond signing
+sel = roombus.Bus("sim", node="selector", port=BASE + N + 1, key=KEY,
+                  transports=[{"udp-peers": [f"127.0.0.1:{BASE + j}" for j in range(N)]}]).start()
+for _ in range(3):
+    sel.publish("room/set", {"key": "lang", "value": "ko", "src": "esp"})
+    time.sleep(0.1)
+v, t = agree(states, "lang")
+good &= check("a selector's room/set reaches everyone", v == "ko", f"({t and round(t, 2)} s)")
+good &= check("the selector shows as the source", states[1].entry("lang").get("by") == "selector")
+
 peers = nodes[0][0].peers()
-good &= check("peers seen", sum(p["alive"] for p in peers.values()) == N - 1, f"{sorted(peers)}")
+alive = sorted(n for n, p in peers.items() if p["alive"] and n.startswith("kiosk"))
+good &= check("peers seen", len(alive) == N - 1, f"{alive}")
 print("ALL OK" if good else "SOME FAILED")
 sys.exit(0 if good else 1)

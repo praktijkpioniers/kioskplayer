@@ -10,14 +10,18 @@ Layers:
                                                     subnets, a tailnet, several instances on one box)
                all UDP transports share one socket on the bus port, so receiving is the same for all
   SharedState  a small key → value map that every player keeps a copy of; the newest write wins
-               and it is re-announced periodically, so lost packets and rebooted players catch up
+               and it is re-announced periodically, so lost packets and rebooted players catch up.
+               Simple devices (an ESP32 language selector) don't keep state or a clock: they send
+               "room/set" {"key", "value"} and every player that hears it writes it.
+
+Wire format, enough for a microcontroller to join: see PROTOCOL.md.
 
 Nothing here is reliable on purpose (WiFi broadcast is not acknowledged): state is idempotent and
 repeated, events carry a time far enough ahead. The clock is hybrid: wall-clock milliseconds
 (players are NTP-synced) but never lower than anything seen, so the order stays right.
 
 Try it:  python3 roombus.py listen [--group g] [--port 47800] [--peers h1,h2]
-         python3 roombus.py set lang de [--group g] ...
+         python3 roombus.py set lang de [--group g] ...    (as a selector would: room/set)
 """
 
 from __future__ import annotations
@@ -297,12 +301,14 @@ class SharedState:
     """
 
     def __init__(self, bus: Bus, topic: str = "room/state", announce_s: float = 2.0,
-                 on_change: Optional[Callable[[str, Any, dict], None]] = None):
+                 on_change: Optional[Callable[[str, Any, dict], None]] = None,
+                 set_topic: str = "room/set"):
         self.bus, self.topic, self.announce_s = bus, topic, announce_s
         self.on_change = on_change
         self._lock = threading.Lock()
         self._entries: dict[str, dict] = {}
         bus.subscribe(topic, self._on_msg)
+        bus.subscribe(set_topic, self._on_set)
         self._stop = threading.Event()
         threading.Thread(target=self._announce_loop, daemon=True, name="roombus-state").start()
 
@@ -343,6 +349,13 @@ class SharedState:
             self.bus._observe(int(e.get("c") or 0))
             self._changed(k, e)
 
+    def _on_set(self, topic, payload, env) -> None:
+        """A write asked for by a device without state (every player hearing it applies it; the
+        same value from several players converges at once)."""
+        if isinstance(payload, dict) and isinstance(payload.get("key"), str):
+            meta = {k: v for k, v in payload.items() if k not in ("key", "value", "v", "c", "n", "ts")}
+            self.set(payload["key"], payload.get("value"), by=env.get("n"), **meta)
+
     def _changed(self, key, e) -> None:
         if self.on_change:
             try:
@@ -373,7 +386,7 @@ def bus_from_config(room: dict, info: Optional[dict] = None) -> Optional[Bus]:
      "transports": ["udp-broadcast", {"udp-peers": ["100.92.49.115"]}],
      "key_file": "~/.config/kioskplayer/room.key"}
     """
-    if not room or not room.get("enabled") or not room.get("group"):
+    if not room or not room.get("enabled"):
         return None
     key = None
     kf = str(room.get("key_file") or "")
@@ -382,7 +395,7 @@ def bus_from_config(room: dict, info: Optional[dict] = None) -> Optional[Bus]:
             key = Path(kf).expanduser().read_bytes().strip() or None
         except OSError as e:
             _log(f"key_file {kf}: {e}; messages go unsigned")
-    return Bus(str(room["group"]), node=str(room.get("node") or ""),
+    return Bus(str(room.get("group") or "default"), node=str(room.get("node") or ""),
                port=int(room.get("port") or DEFAULT_PORT),
                transports=room.get("transports") or ["udp-broadcast"], key=key, info=info).start()
 
@@ -392,7 +405,7 @@ def _main() -> None:
     ap = argparse.ArgumentParser(description="room bus test tool")
     ap.add_argument("cmd", choices=["listen", "set"])
     ap.add_argument("args", nargs="*")
-    ap.add_argument("--group", default="test")
+    ap.add_argument("--group", default="default")
     ap.add_argument("--node", default="")
     ap.add_argument("--port", type=int, default=DEFAULT_PORT)
     ap.add_argument("--peers", default="", help="comma list for udp-peers")
@@ -406,11 +419,12 @@ def _main() -> None:
                            "port": a.port, "transports": tr, "key_file": a.key_file})
     state = SharedState(bus, on_change=lambda k, v, e: _log(f"state {k} = {v!r} (by {e.get('n')})"))
     bus.subscribe("", lambda t, p, e: t.startswith(("bus/", "room/state")) or _log(f"{e['n']}: {t} {p!r}"))
-    if a.cmd == "set":
+    if a.cmd == "set":                    # like a selector: ask the players, keep no state
         k, v = a.args[0], (a.args[1] if len(a.args) > 1 else None)
-        time.sleep(2.5)                   # hear the others first
-        state.set(k, v)
-        time.sleep(1.0)
+        for _ in range(3):                # repeated: broadcast on WiFi may get lost
+            bus.publish("room/set", {"key": k, "value": v, "src": "cli"})
+            time.sleep(0.3)
+        time.sleep(1.5)
         return
     last = 0.0
     while True:
