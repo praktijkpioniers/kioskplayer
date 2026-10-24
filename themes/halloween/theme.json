@@ -9,7 +9,8 @@
     "band = keep to the left/right screen edges (below 8). hz = redraw rate (default 15, particles 12).",
     "say = speech balloon (only when themes_text is on).",
     "Types: decor (always there), visitor (comes and goes: cast of sprite+anchor+places), particles, flyer, walker,",
-    "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker."
+    "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker,",
+    "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom)."
   ],
   "sprites": {
     "pumpkin": {
@@ -100,10 +101,6 @@
       "file": "mummy.png",
       "height": 0.26
     },
-    "black_cat": {
-      "file": "black_cat.png",
-      "height": 0.11
-    },
     "raven": {
       "file": "raven.png",
       "height": 0.09
@@ -158,16 +155,6 @@
           "places": [
             [
               0.01,
-              0.0
-            ]
-          ]
-        },
-        {
-          "sprite": "black_cat",
-          "anchor": "bottom-left",
-          "places": [
-            [
-              0.015,
               0.0
             ]
           ]
@@ -252,21 +239,6 @@
           ]
         },
         {
-          "sprite": "black_cat",
-          "anchor": "bottom-left",
-          "places": [
-            [
-              0.015,
-              0.0,
-              true
-            ],
-            [
-              0.13,
-              0.0
-            ]
-          ]
-        },
-        {
           "sprite": "raven",
           "anchor": "bottom-left",
           "places": [
@@ -307,6 +279,21 @@
       "stay": [
         900,
         2400
+      ]
+    },
+    {
+      "type": "prowler",
+      "name": "cat",
+      "min": 1,
+      "video_min": 8,
+      "full": 8,
+      "delay": [
+        20,
+        90
+      ],
+      "every": [
+        300,
+        900
       ]
     },
     {
@@ -699,21 +686,6 @@
             [
               0.0,
               0.32
-            ]
-          ]
-        },
-        {
-          "sprite": "black_cat",
-          "anchor": "bottom-left",
-          "places": [
-            [
-              0.12,
-              0.0
-            ],
-            [
-              0.82,
-              0.0,
-              true
             ]
           ]
         },

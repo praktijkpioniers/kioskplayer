@@ -617,12 +617,13 @@ end
 
 -- ── orb weavers (weaver.lua): webs built over minutes, kept across refreshes ──
 
-local weaver = nil
-do
+local function load_module(name)
     local dir = (debug.getinfo(1, "S").source or ""):match("^@(.*)/[^/]*$") or "."
-    local ok, mod = pcall(dofile, dir .. "/weaver.lua")
-    if ok then weaver = mod else msg.error("weaver.lua: " .. tostring(mod)) end
+    local ok, mod = pcall(dofile, dir .. "/" .. name)
+    if ok then return mod end
+    msg.error(name .. ": " .. tostring(mod))
 end
+local weaver = load_module("weaver.lua")
 local webs = {}      -- not cleared by refresh: a video starting must not wipe a half-built web
 local web_next = {}  -- element name -> time the next web may start
 
@@ -658,6 +659,55 @@ local function tick_webs(dt, now)
                     speed = el.speed, size = el.size, stay = rnd(range(el.stay, 900)) })
             end
             web_next[name] = now + rnd(range(el.every, 120))
+        end
+    end
+end
+
+-- ── prowlers (prowler.lua): a cat strolling along the bottom edge ────────────
+
+local prowler = load_module("prowler.lua")
+local cats = {}
+local cat_next = {}  -- element name -> time the next cat may come
+
+-- things standing on the bottom edge (decor and visitors): the cat doesn't stop behind them,
+-- and sharpens its claws on the pumpkins
+local function bottom_things()
+    local list = {}
+    local function add(spr, x, y)
+        if spr and y + spr.h >= H - 2 then
+            list[#list + 1] = { x1 = x + spr.w * 0.1, x2 = x + spr.w * 0.9,
+                                pumpkin = (spr.name or ""):find("pumpkin") ~= nil }
+        end
+    end
+    for _, d in ipairs(decor) do add(d.spr, d.x, d.y) end
+    for _, a in ipairs(actors) do if a.el.type == "visitor" and a.sx then add(a.spr, a.sx, a.sy) end end
+    return list
+end
+
+local function tick_cats(dt, now)
+    if not prowler then return end
+    local on = {}
+    for _, el in ipairs(M.elements) do
+        if el.type == "prowler" and element_on(el) then on[el.name or "prowler"] = el end
+    end
+    local keep, count = {}, {}
+    for _, c in ipairs(cats) do
+        local el = on[c.name]
+        if el and c.W == W and c.H == H and c:update(dt) then
+            keep[#keep + 1] = c
+            count[c.name] = (count[c.name] or 0) + 1
+        elseif el then
+            cat_next[c.name] = now + rnd(range(el.every, 300)) * (1 - 0.66 * growth(el))
+        end
+    end
+    cats = keep
+    for name, el in pairs(on) do
+        cat_next[name] = cat_next[name] or now + rnd(range(el.delay, 10))
+        if (count[name] or 0) < 1 and now >= cat_next[name] then
+            local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things })
+            c.name = name
+            cats[#cats + 1] = c
+            cat_next[name] = math.huge
         end
     end
 end
@@ -740,6 +790,7 @@ local function render_ass(now)
     local said = false
     if level() < DEMO then
         for _, w in ipairs(webs) do w:render(now, out, DRAW_HZ) end
+        for _, c in ipairs(cats) do c:render(now, out, DRAW_HZ) end
     end
     for _, d in ipairs(demo) do
         out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\bord2\\shad0\\1c&HFFFFFF&\\3c&H202020&\\fnDejaVu Sans}%s",
@@ -784,6 +835,7 @@ local function tick()
     end
     tick_decor(t)
     tick_webs(dt, now)
+    tick_cats(dt, now)
 
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
@@ -846,7 +898,7 @@ end
 
 -- Subtitles are always drawn below overlay-add bitmaps (mpv's fixed order), so while a video
 -- plays with decorations standing on the bottom edge, lift the subtitles just above them.
--- Only static decorations count (decor, visitors), so the subtitles don't jump around.
+-- Only static decorations count (decor, visitors, the cat's lane), so the subtitles don't jump around.
 local sub_pos0 = mp.get_property_number("sub-pos", 100)
 local function update_sub_pos()
     local lift = 0
@@ -856,6 +908,9 @@ local function update_sub_pos()
         end
         -- visitors come and go; reserve their room for as long as the element is on
         for _, el in ipairs(M.elements or {}) do
+            if el.type == "prowler" and element_on(el) and el.lift_subs ~= false then
+                lift = math.max(lift, H * 0.125 * (el.size or 1))
+            end
             if el.type == "visitor" and element_on(el) and el.lift_subs ~= false then
                 for _, c in ipairs(el.cast or {}) do
                     for _, name in ipairs(c.sprites or { c.sprite }) do
@@ -899,6 +954,7 @@ mp.register_script_message("theme-load", function(path)
     f:close()
     if not data then msg.error("theme-load: bad json " .. path) return end
     for name, s in pairs(data.sprites or {}) do
+        s.name = name
         s.fps = s.fps or 0
         s.spin = s.spin or 0
     end
@@ -910,6 +966,7 @@ end)
 mp.register_script_message("theme-off", function()
     M = nil
     webs, web_next = {}, {}
+    cats, cat_next = {}, {}
     refresh()
 end)
 
@@ -923,7 +980,7 @@ end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
---   f = web building ×8, w = start a new web
+--   f = web building ×8, w = start a new web, c = send a cat now
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -954,6 +1011,10 @@ mp.add_forced_key_binding("f", "theme-preview-fast", function()
 end)
 mp.add_forced_key_binding("w", "theme-preview-web", function()
     webs, web_next = {}, {}   -- start over with a fresh web
+end)
+mp.add_forced_key_binding("c", "theme-preview-cat", function()
+    cats = {}
+    for name in pairs(cat_next) do cat_next[name] = 0 end
 end)
 mp.add_forced_key_binding("t", "theme-preview-text", function()
     preview.text = not text_on()

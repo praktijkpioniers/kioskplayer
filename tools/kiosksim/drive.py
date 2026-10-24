@@ -4,7 +4,8 @@ Drive the kiosksim mpv over IPC.
 
     drive.py <level> <idle|video> [delay ...]   load the Halloween theme at a level, screenshot
                                                 after each delay (shot0.png, shot1.png, ...)
-    drive.py key <key> [...]                    press keys (preview keys: 1-9 0 v t f w, SPACE)
+    drive.py key <key> [...]                    press keys (preview keys: 1-9 0 v t f w c, SPACE)
+    drive.py catsheet                           the prowler cat in fixed poses for 60 s (catsheet.png)
 """
 import json
 import os
@@ -45,6 +46,11 @@ def main() -> None:
     if sys.argv[1] == "key":
         for k in sys.argv[2:]:
             c.cmd(["keypress", k])
+        return
+    if sys.argv[1] == "catsheet":
+        c.cmd(["load-script", str(Path(__file__).resolve().parent / "catsheet.lua")])
+        time.sleep(1)
+        c.shot("catsheet.png")
         return
     import themes
     level, mode = int(sys.argv[1]), sys.argv[2]
