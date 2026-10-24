@@ -1,0 +1,504 @@
+{
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The Knight without helmet, cape and weapons, repainted: grey-green skin, black hair, a dark suit; a bolt through the neck (a prop). Tall and stiff: longer legs and back, smaller head; arms straight out in front. shock: jolted (Hit_A) with his arms flung wide. piece_*: each part alone in the shock pose, spinning (he flies apart).",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+ "hide": [
+  "Icosphere",
+  "Knight_Helmet",
+  "Knight_Cape",
+  "1H_Sword_Offhand",
+  "Badge_Shield",
+  "Rectangle_Shield",
+  "Round_Shield",
+  "Spike_Shield",
+  "1H_Sword",
+  "2H_Sword"
+ ],
+ "recolor": {
+  "knight_texture": {
+   "0,0": "#9db890",
+   "1,0": "#17171b",
+   "3,0": "#3b3d48",
+   "4,0": "#2c2e36",
+   "7,0": "#363844",
+   "2,1": "#3b3d48",
+   "3,1": "#3b3d48",
+   "7,1": "#2a2b32",
+   "1,2": "#33343c",
+   "4,2": "#24252b",
+   "5,2": "#24252b",
+   "5,0": "#4a3a30",
+   "6,0": "#3e3028",
+   "5,1": "#4a3a30",
+   "6,1": "#3e3028",
+   "3,2": "#4a3a30",
+   "0,1": "#3b3d48",
+   "2,2": "#3b3d48",
+   "1,1": "#4a4c56"
+  }
+ },
+ "props": [
+  {
+   "bone": "head",
+   "at": [
+    0,
+    0.02,
+    0.2
+   ],
+   "size": [
+    0.09,
+    1.15
+   ],
+   "axis": "x",
+   "color": "#a4a6ae"
+  }
+ ],
+ "outline": 0.008,
+ "bone_scale": {
+  "head": 0.8,
+  "upperleg.l": [
+   1,
+   1.35,
+   1
+  ],
+  "upperleg.r": [
+   1,
+   1.35,
+   1
+  ],
+  "lowerleg.l": [
+   1,
+   1.35,
+   1
+  ],
+  "lowerleg.r": [
+   1,
+   1.35,
+   1
+  ],
+  "spine": [
+   1.05,
+   1.2,
+   1.05
+  ]
+ },
+ "frame": {
+  "x": [
+   -1.2,
+   1.2
+  ],
+  "h": 3.0
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "speed": 0.55,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     85,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     85,
+     0,
+     18
+    ]
+   }
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     85,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     85,
+     0,
+     18
+    ]
+   }
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     85,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     85,
+     0,
+     18
+    ]
+   }
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     85,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     85,
+     0,
+     18
+    ]
+   }
+  },
+  "shock": {
+   "action": "Hit_A",
+   "yaw": 15,
+   "step": 1,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   }
+  },
+  "piece_head": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_Head",
+    "prop"
+   ],
+   "spin": true
+  },
+  "piece_body": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_Body"
+   ],
+   "spin": true
+  },
+  "piece_arm_l": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_ArmLeft"
+   ],
+   "spin": true
+  },
+  "piece_arm_r": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_ArmRight"
+   ],
+   "spin": true
+  },
+  "piece_leg_l": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_LegLeft"
+   ],
+   "spin": true
+  },
+  "piece_leg_r": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     10,
+     0,
+     80
+    ],
+    "upperarm.r": [
+     10,
+     0,
+     -80
+    ],
+    "head": [
+     12,
+     0,
+     0
+    ]
+   },
+   "only": [
+    "Knight_LegRight"
+   ],
+   "spin": true
+  }
+ }
+}

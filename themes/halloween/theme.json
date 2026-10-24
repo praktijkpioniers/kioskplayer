@@ -15,6 +15,7 @@
     "on decor: one element of the group per screen (one pumpkin set, left or right corner).",
     "crawler wander = [s, s]: an erratic path (a new direction every 'turn' s), then out at the top or bottom.",
     "walker/crawler/performer passing a tombstone: grave_chance (0.35) to drop into the grave; graves = false: never.",
+    "frankenstein: shocks himself at a stop, at the last one he blows apart (explode = false: walks off).",
     "vampire, mummy, zombie: baked scenes (themes/engine.lua). zombie: thought = its brain thought sprite; invite =",
     "[{type, sprite, chance, after}]: when it comes, maybe one of these comes soon too, walker group or not (the",
     "vampire and the cat run past a zombie, it reaches for them; a skeleton gets a crossed-out brain).",
@@ -98,6 +99,10 @@
     },
     "coffin_lid": {
       "anim": "anim/coffin_lid",
+      "unit": 0.115
+    },
+    "frankenstein3d": {
+      "anim": "anim/frankenstein",
       "unit": 0.115
     },
     "zombie3d": {
@@ -680,6 +685,24 @@
         90
       ],
       "say": true,
+      "group": [
+        "monster",
+        "walker"
+      ]
+    },
+    {
+      "type": "frankenstein",
+      "sprite": "frankenstein3d",
+      "min": 8,
+      "video_min": 8,
+      "every": [
+        240,
+        480
+      ],
+      "delay": [
+        40,
+        150
+      ],
       "group": [
         "monster",
         "walker"

@@ -31,6 +31,11 @@
 #              bandage wrapping over those meshes (a mummy); per clip "wrap": 1 wrapped (default),
 #              0 bare, [from, to] (un)wrapping during the clip: the bandage shows below a level
 #              that rises from the feet to the head (with a spiral edge)
+#   per clip "only": ["Knight_Head", "prop"]  render only the meshes whose names contain one of these
+#   per clip "spin": true  turn what shows about its own middle, a full turn over the clip's frames
+#              (in the picture plane): pieces flying off
+#   "props":   [{"bone": "head", "at": [0.3, 0, 0.1], "size": [0.05, 0.2], "axis": "x", "color": "#999"}]
+#              simple shapes riding on a bone (neck bolts), see below
 #   "heap":    {"color": "#e6dfc8"}  a pile of bandage at the feet; per clip "heap": 0 (default),
 #              1 or [from, to] (its size)
 #
@@ -173,6 +178,34 @@ if SHELL:
             shell_objs.append(c)
     meshes += shell_objs
     body_top = max((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices)
+
+# props: simple shapes riding on a bone (neck bolts), placed in the rest pose relative to the
+# bone's head: {"bone": "head", "at": [x, y, z], "shape": "cylinder", "size": [radius, length],
+# "axis": "x", "color": "#..."}  (or "shape": "cube", "size": [sx, sy, sz])
+for i, pr in enumerate(R.get("props", [])):
+    b = rig.data.bones[pr["bone"]]
+    at = rig.matrix_world @ b.head_local + Vector(pr.get("at", [0, 0, 0]))
+    if pr.get("shape", "cylinder") == "cube":
+        bpy.ops.mesh.primitive_cube_add(size=1, location=at)
+        o = bpy.context.object
+        o.scale = pr["size"]
+    else:
+        r, ln = pr["size"]
+        bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=ln, vertices=16, location=at)
+        o = bpy.context.object
+        o.rotation_euler = {"x": (0, math.pi / 2, 0), "y": (math.pi / 2, 0, 0), "z": (0, 0, 0)}[pr.get("axis", "x")]
+    o.name = f"prop{i}"
+    bpy.context.view_layer.update()
+    m = bpy.data.materials.new(o.name)
+    m.use_nodes = True
+    m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (*hexrgb(pr.get("color", "#808080")), 1)
+    m.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.6
+    o.data.materials.append(m)
+    mw = o.matrix_world.copy()
+    o.parent, o.parent_type, o.parent_bone = rig, "BONE", pr["bone"]
+    bpy.context.view_layer.update()
+    o.matrix_world = mw
+    meshes.append(o)
 
 # Turntable parent so yaw does not fight the imported rig transform.
 pivot = bpy.data.objects.new("pivot", None)
@@ -411,13 +444,31 @@ def wrap_state(c, i, n):
         heap.scale = (s, s, max(0.05, s))
 
 
+from mathutils import Matrix
+shown = {o: o.hide_render for o in meshes}
 for name, (a, fr) in clips.items():
     c = R["clips"][name]
+    only = c.get("only")
+    for o in meshes:
+        o.hide_render = shown[o] or bool(only and not any(n in o.name for n in only))
     for i, (f, yaw) in enumerate(fr):
         pose(a, f, yaw)
         wrap_state(c, i, len(fr))
+        loc, rot = pivot.location.copy(), pivot.rotation_euler.copy()
+        if c.get("spin"):
+            # turn what shows about its own middle, in the picture plane: a piece flying off
+            dg = bpy.context.evaluated_depsgraph_get()
+            pts = [ev.matrix_world @ v.co for o in meshes if not o.hide_render
+                   for ev in [o.evaluated_get(dg)] for v in ev.to_mesh().vertices]
+            mid = sum(pts, Vector()) / max(1, len(pts))
+            ang = 2 * math.pi * i / len(fr)
+            pivot.matrix_world = (Matrix.Translation(mid) @ Matrix.Rotation(ang, 4, "Y")
+                                  @ Matrix.Translation(-mid) @ pivot.matrix_world)
         scene.render.filepath = os.path.join(OUT, f"{name}_{i:04d}.png")
         bpy.ops.render.render(write_still=True)
+        pivot.location, pivot.rotation_euler = loc, rot
+    for o in meshes:
+        o.hide_render = shown[o]
     meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1) * c.get("speed", 1),
                   "loop": bool(c.get("loop", False)),
                   "stride": stride(a, fr) if c.get("stride") == "auto" else float(c.get("stride", 0))}

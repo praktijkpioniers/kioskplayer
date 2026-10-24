@@ -1269,6 +1269,191 @@ function spawn.zombie(el, spr)
     return a
 end
 
+-- ASS helpers for the frankenstein: a jagged spark from (x0, y0) to (x1, y1), a puff of smoke
+local function spark(out, x0, y0, x1, y1, color, width)
+    local pts, n = {}, 5
+    local dx, dy = x1 - x0, y1 - y0
+    local len = math.sqrt(dx * dx + dy * dy)
+    for i = 0, n do
+        local q, j = i / n, (i == 0 or i == n) and 0 or rnd(-0.18, 0.18) * len
+        pts[#pts + 1] = { x0 + dx * q - dy / len * j, y0 + dy * q + dx / len * j }
+    end
+    local path = {}
+    for i = 1, #pts do path[#path + 1] = string.format("%d %d", pts[i][1], pts[i][2]) end
+    for i = #pts - 1, 2, -1 do path[#path + 1] = string.format("%d %d", pts[i][1], pts[i][2]) end
+    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord%d\\shad0\\blur1\\1c&HFFFFFF&\\3c%s\\p1}m %s l %s{\\p0}",
+        width or 2, color or "&HFFF0A0&", path[1], table.concat(path, " l ", 2))
+end
+
+local function puff(out, x, y, r, alpha)
+    local k = 0.5523 * r
+    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%d\\1c&H9A9A9A&\\1a&H%02X&\\p1}"
+        .. "m %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d{\\p0}",
+        math.max(1, math.floor(r * 0.06)), math.floor(clamp(alpha, 0, 1) * 255),
+        x, y - r, x + k, y - r, x + r, y - k, x + r, y, x + r, y + k, x + k, y + r, x, y + r,
+        x - k, y + r, x - r, y + k, x - r, y, x - r, y - k, x - k, y - r, x, y - r)
+end
+
+-- frankenstein: a baked character stomping across with his arms out; at a stop he faces the
+-- viewer and shocks himself (sparks crackle from his neck bolt, he jolts, a little smoke). At
+-- the last stop one shock too many: he blows apart, the pieces (clips piece_*, spinning) fly
+-- up and come down, lie a moment in the smoke and sink into the ground. el.explode = false:
+-- he walks off instead. Layers: him, then his six pieces.
+local PIECES = { -- clip, flying off (x: outwards, y: up, in u/s), height of its middle on him and lying (u)
+    { "piece_head", 0.0, 5.5, 2.3, 0.35 }, { "piece_body", 0.3, 4.5, 1.35, 0.4 },
+    { "piece_arm_l", -2.4, 5.5, 1.45, 0.15 }, { "piece_arm_r", 2.4, 5.5, 1.45, 0.15 },
+    { "piece_leg_l", -1.6, 3.5, 0.45, 0.2 }, { "piece_leg_r", 1.6, 3.5, 0.45, 0.2 },
+}
+function spawn.frankenstein(el, spr)
+    local C = spr.clips
+    if not (C and C.walk and C.idle and C.shock and spr.origin and spr.unit) then return nil end
+    for _, p in ipairs(PIECES) do if not C[p[1]] then return nil end end
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, layers = 1 + #PIECES, brainy = true }
+    local dir = math.random() < 0.5 and 1 or -1
+    local x = dir > 0 and -1.2 * u or W + 1.2 * u
+    local explode = el.explode ~= false
+    local stops = {}
+    for _ = 1, explode and 2 or math.random(1, 2) do stops[#stops + 1] = rnd(0.15, 0.85) * W end
+    table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
+    if math.abs(stops[#stops] - (stops[#stops - 1] or -1e9)) < 3 * u then table.remove(stops, 1) end
+    stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
+    local state, tc, k, dur = "walk", 0, 1, 0
+    local smoke = {}                        -- {x, y, r, t, life}
+    local pieces, bang_t, still_t
+    local function last_stop() return k == #stops - 1 and explode end
+    local function neck() return x, H - 2.0 * u end
+
+    function a.update(dt, t)
+        tc = tc + dt
+        local c, m, jx, jy = nil, dir < 0, 0, 0
+        if state == "walk" then
+            c = C.walk
+            local to = stops[k]
+            x = x + dir * c.stride_px * c.fps / c.count * (el.speed or 1.0) * dt
+            if (to - x) * dir <= 0 then
+                x = to
+                if k == #stops then return false end
+                state, tc = C.turn_front and "turn_front" or "stand", 0
+            end
+        elseif state == "turn_front" then
+            c = C.turn_front
+            if tc >= c.count / c.fps then state, tc, dur = "stand", 0, rnd(0.8, 1.6) end
+        elseif state == "stand" then
+            c, m = C.idle, false
+            if tc >= dur then state, tc, dur = "shock", 0, last_stop() and rnd(2.6, 3.4) or rnd(1.2, 2.2) end
+        elseif state == "shock" then
+            c, m = C.shock, false
+            local big = last_stop()
+            jx, jy = rnd(-1, 1) * u * (big and 0.06 or 0.035), rnd(-1, 1) * u * 0.02
+            if math.random() < dt * 6 then
+                local nx, ny = neck()
+                smoke[#smoke + 1] = { x = nx + rnd(-0.3, 0.3) * u, y = ny - 0.6 * u, r = 0.15 * u, t = 0, life = 1.5 }
+            end
+            if tc >= dur then
+                if big then
+                    state, tc, bang_t = "bang", 0, t
+                    local nx, ny = neck()
+                    for _ = 1, 9 do
+                        smoke[#smoke + 1] = { x = nx + rnd(-0.8, 0.8) * u, y = ny + rnd(-0.6, 1.2) * u,
+                                              r = rnd(0.3, 0.55) * u, t = 0, life = rnd(1.6, 2.4), grow = 1.0 }
+                    end
+                    pieces = {}
+                    for i, p in ipairs(PIECES) do
+                        local pc = C[p[1]]
+                        pieces[i] = { c = pc, dx = 0, dy = 0, vx = (p[2] + rnd(-1, 1)) * u, vy = -(p[3] + rnd(-1, 1)) * 1.5 * u,
+                                      ground = (p[4] - p[5]) * u, spin = rnd(10, 18) * (math.random() < 0.5 and 1 or -1),
+                                      f = math.random(0, pc.count - 1), bounced = false, landed = false }
+                    end
+                    msg.verbose("frankenstein: boom")
+                else
+                    state, tc, dur = "smoking", 0, rnd(1.2, 2.2)
+                end
+            end
+        elseif state == "smoking" then
+            c, m = C.idle, false
+            if tc >= dur then
+                k = k + 1
+                state, tc = C.turn_side and "turn_side" or "walk", 0
+            end
+        elseif state == "turn_side" then
+            c = C.turn_side
+            if tc >= c.count / c.fps then state, tc = "walk", 0 end
+        end
+
+        -- smoke drifts up, grows and fades
+        local keep = {}
+        for _, p in ipairs(smoke) do
+            p.t = p.t + dt
+            p.y = p.y - 0.5 * u * dt
+            p.r0 = p.r0 or p.r
+            p.r = p.r + p.r0 * (p.grow or 0.8) * dt
+            if p.t < p.life then keep[#keep + 1] = p end
+        end
+        smoke = keep
+
+        local layers = {}
+        local y0 = H - spr.origin[2]
+        if state ~= "bang" then
+            local frame = math.floor(tc * c.fps)
+            if c.loop or state == "shock" then frame = frame % c.count else frame = math.min(frame, c.count - 1) end
+            local mi = m and true or false
+            local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+            layers[1] = { spr = spr, frame = c.start + frame, variant = mi, x = x - ox + jx, y = y0 + jy }
+            a.sx, a.sy, a.cx = layers[1].x, layers[1].y, x
+        else
+            a.cx = nil
+            -- the pieces: up and out, down again, a bounce, still; then into the ground
+            local all_still = true
+            for i, p in ipairs(pieces) do
+                if not p.landed then
+                    all_still = false
+                    p.vy = p.vy + 14 * u * dt
+                    p.dx, p.dy = p.dx + p.vx * dt, p.dy + p.vy * dt
+                    p.f = p.f + p.spin * dt
+                    if p.dy >= p.ground and p.vy > 0 then        -- down on the ground: one bounce, then still
+                        if not p.bounced then
+                            p.bounced, p.vy, p.vx, p.spin = true, -p.vy * 0.35, p.vx * 0.5, p.spin * 0.4
+                        else
+                            p.landed, p.dy = true, p.ground
+                        end
+                    end
+                end
+                local fr = math.floor(p.f) % p.c.count
+                local sink = (still_t and t - still_t > 2.5) and (t - still_t - 2.5) * 0.8 * u or 0
+                layers[1 + i] = { spr = spr, frame = p.c.start + fr, variant = false,
+                                  x = x - spr.origin[1] + p.dx, y = y0 + p.dy + sink }
+            end
+            if all_still and not still_t then still_t = t end      -- all down: a moment, then into the ground
+            if still_t and t - still_t > 5 then return false end
+        end
+        return true, layers
+    end
+
+    function a.ass(out, t)
+        for _, p in ipairs(smoke) do puff(out, p.x, p.y, p.r, 0.35 + 0.65 * p.t / p.life) end
+        if state == "shock" then
+            local nx, ny = neck()
+            local n = last_stop() and 4 or 2
+            for _ = 1, n do
+                local side = math.random() < 0.5 and -1 or 1
+                local bx = nx + side * 0.55 * u
+                local ang = rnd(0, 2 * math.pi)
+                local r = rnd(0.5, 1.1) * u * (last_stop() and 1.4 or 1)
+                spark(out, bx, ny, bx + math.cos(ang) * r, ny + math.sin(ang) * r,
+                      math.random() < 0.5 and "&HFFE080&" or "&H40F0FF&", last_stop() and 3 or 2)
+            end
+        elseif state == "bang" and tc < 0.25 then
+            local nx, ny = neck()
+            for _ = 1, 10 do
+                local ang = rnd(0, 2 * math.pi)
+                spark(out, nx, ny + 0.6 * u, nx + math.cos(ang) * 2.2 * u, ny + 0.6 * u + math.sin(ang) * 2.2 * u, "&H40F0FF&", 4)
+            end
+        end
+    end
+    return a
+end
+
 -- visitor: a decoration that comes and goes (low levels: "now and then a pumpkin").
 -- el.cast = list of { sprite, anchor, places } like decor; one entry is picked per visit.
 -- It slides in from its corner/edge, stays el.stay seconds, slides out again. Two visitors
@@ -1730,6 +1915,7 @@ local function render_ass(now)
             d.lx, d.ly, math.floor(H * 0.022), ass_escape(d.name))
     end
     for _, a in ipairs(actors) do
+        if a.ass and not a.leaving then a.ass(out, t) end   -- (its own drawing: sparks, smoke)
         if a.thread and a.sx then
             local tx, ty = a.sx + a.spr.w / 2, a.sy
             out[#out + 1] = string.format(
@@ -2061,7 +2247,7 @@ end)
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
---   m = the mummy next, z = the zombie next
+--   m = the mummy next, z = the zombie next, k = the frankenstein next
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -2110,6 +2296,11 @@ end)
 mp.add_forced_key_binding("z", "theme-preview-zombie", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "zombie" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("k", "theme-preview-frankenstein", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "frankenstein" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
