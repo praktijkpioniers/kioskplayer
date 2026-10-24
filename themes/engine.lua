@@ -215,11 +215,34 @@ local function tick_decor(t)
     end
 end
 
+-- Exclusive groups ("group": "spider" or a list, on an element or on a visitor's cast entry):
+-- nothing starts while something of the same group is on screen. One spider, one bat...
+local function groups_of(x)
+    local g = x and x.group
+    if type(g) == "string" then return { g } end
+    local copy = {}
+    for _, v in ipairs(g or {}) do copy[#copy + 1] = v end
+    return copy
+end
+
+local function group_busy(groups)
+    if #groups == 0 then return false end
+    for _, a in ipairs(actors) do
+        for _, g in ipairs(a.groups or {}) do
+            for _, want in ipairs(groups) do if g == want then return true end end
+        end
+    end
+    return false
+end
+
 -- ── transient actors ───────────────────────────────────────────────────────
 
 local spawn = {}
 
--- particles: fall from top, sway sideways, optional spin frames; respawn while element is on
+-- particles: fall from top, sway sideways, optional spin frames; respawn while element is on.
+-- "rest": [lo, hi] → land on the bottom and lie there that many seconds, then fade out (sprite
+-- "fade" steps) over "fade_time"; at most "rest_max" lying at once (the others fall through).
+-- Lying ones no longer count, so new ones keep falling.
 function spawn.particles(el, spr)
     local a = { el = el, spr = spr }
     a.x = band_x(el, spr.w)
@@ -228,11 +251,34 @@ function spawn.particles(el, spr)
     a.sway = (el.sway or 0.02) * W
     a.phase = rnd(0, 6.28)
     a.spin = math.random(0, math.max(0, spr.frames - 1))
+    local land = H - spr.h * rnd(0.55, 0.95)
+    local st = elements[el]
+    local frame, x = 0, a.x
     function a.update(dt, t)
+        if a.left then      -- lying on the ground
+            a.left = a.left - dt
+            if a.left <= 0 then return false end
+            local fade_time = el.fade_time or 4
+            local v = false
+            if a.left < fade_time and spr.fades > 0 then
+                v = 1 + math.min(spr.fades, math.ceil((1 - a.left / fade_time) * (spr.fades + 1)))
+                if v > spr.fades + 1 then return false end
+            end
+            return true, x, land, frame, v
+        end
         a.y = a.y + a.vy * dt
+        frame = spr.spin > 1 and math.floor(a.spin + t * (el.spin_speed or 6)) or math.floor(t * spr.fps)
+        x = a.x + math.sin(t * 0.9 + a.phase) * a.sway
+        if el.rest and a.y >= land and st and (st.lying or 0) < scaled(el, el.rest_max, 6) then
+            a.left = rnd(range(el.rest, 60))
+            st.lying = (st.lying or 0) + 1
+            st.active = st.active - 1
+            a.uncounted = true
+            a.release = function() st.lying = st.lying - 1 end
+            return true, x, land, frame, false
+        end
         if a.y > H then return false end
-        local frame = spr.spin > 1 and math.floor(a.spin + t * (el.spin_speed or 6)) or math.floor(t * spr.fps)
-        return true, a.x + math.sin(t * 0.9 + a.phase) * a.sway, a.y, frame, false
+        return true, x, a.y, frame, false
     end
     return a
 end
@@ -477,7 +523,7 @@ function spawn.visitor(el, _)
     local options = {}
     for _, c in ipairs(el.cast or {}) do
         local names = c.sprites or { c.sprite }
-        if M.sprites[names[1]] then
+        if M.sprites[names[1]] and not group_busy(groups_of(c)) then
             for _, pl in ipairs(c.places or { { 0.02, 0 } }) do
                 local key = string.format("%s:%.3f:%.3f", c.anchor or "bottom-right", pl[1], pl[2])
                 if not busy_places[key] then options[#options + 1] = { c = c, names = names, pl = pl, key = key } end
@@ -499,6 +545,8 @@ function spawn.visitor(el, _)
     end
     busy_places[o.key] = true
     local a = { el = el, spr = spr, key = o.key, mirror = o.pl[3] == true, phase = rnd(0, 6.28) }
+    a.groups = groups_of(o.c)
+    for _, g in ipairs(groups_of(el)) do a.groups[#a.groups + 1] = g end
     local tin, tout = el["in"] or 1.5, el.out or 1.5
     local stay = rnd(range(el.stay, 60))
     local tt = 0
@@ -603,10 +651,15 @@ local function try_spawn(el, now)
         st.next = now + 1
         return
     end
+    if group_busy(groups_of(el)) then
+        st.next = now + rnd(2, 6)
+        return
+    end
     local spr = el.cast and {} or sprite_of(el)   -- visitors pick their own sprite
     if not spr or not spawn[el.type] then return end
     local a = spawn[el.type](el, spr)
     if not a then st.next = now + 5 return end
+    a.groups = a.groups or groups_of(el)
     a.id = take_id(); st.active = st.active + 1
     actors[#actors + 1] = a
     local lo, hi = range(el.every, 30)
@@ -858,7 +911,7 @@ local function tick()
             if a.release then a.release() end
             give_id(a.id)
             local st = elements[a.el]
-            if st then st.active = st.active - 1 end
+            if st and not a.uncounted then st.active = st.active - 1 end
         end
     end
     actors = keep

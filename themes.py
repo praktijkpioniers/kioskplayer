@@ -360,7 +360,7 @@ VARIANTS_DIRECTIONS = ["right", "left", "up", "down"]
 
 
 def _variant(im: "Image.Image", name: str) -> "Image.Image":
-    if name in ("normal", "right"):
+    if name in ("normal", "right") or name.startswith("fade"):
         return im
     if name == "mirror":
         return im.transpose(Image.FLIP_LEFT_RIGHT)
@@ -398,14 +398,19 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         frames = _sprite_frames(theme_dir, sdef, height_px)
     directions = bool(sdef.get("directions"))
     variants = VARIANTS_DIRECTIONS if directions else VARIANTS_MIRROR
+    # "fade": N → N more and more transparent copies after the mirror variant (for fading out:
+    # overlay bitmaps have no alpha of their own)
+    fades = 0 if directions else int(sdef.get("fade", 0))
+    variants = variants + [f"fade{k}" for k in range(1, fades + 1)]
     frames = _cells(frames, square=directions)
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
     with tmp.open("wb") as fh:
         for v in variants:
+            o = opacity * (1 - int(v[4:]) / (fades + 1)) if v.startswith("fade") else opacity
             for f in frames:
-                fh.write(_premultiplied_bgra(_variant(f, v), opacity))
+                fh.write(_premultiplied_bgra(_variant(f, v), o))
     tmp.replace(out)
     # drop atlases of older versions of this sprite (baked animations are ~100 MB each)
     for old in CACHE_DIR.glob(f"{theme_dir.name}_{name}_*"):
@@ -420,6 +425,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "variants": variants,
         "fps": float(sdef.get("fps", 0)),
         "spin": int(sdef.get("spin", 0)),
+        "fades": fades,
         "clips": clips,
     }
     meta_path.write_text(json.dumps(meta), encoding="utf-8")

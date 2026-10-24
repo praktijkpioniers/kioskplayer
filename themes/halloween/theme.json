@@ -10,7 +10,8 @@
     "say = speech balloon (only when themes_text is on).",
     "Types: decor (always there), visitor (comes and goes: cast of sprite+anchor+places), particles, flyer, walker,",
     "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker,",
-    "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom)."
+    "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom).",
+    "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time."
   ],
   "sprites": {
     "pumpkin": {
@@ -27,7 +28,8 @@
         "leaf_yellow.png"
       ],
       "height": 0.035,
-      "spin": 8
+      "spin": 8,
+      "fade": 6
     },
     "tombstone": {
       "file": "tombstone.png",
@@ -226,7 +228,8 @@
               0.55,
               0.0
             ]
-          ]
+          ],
+          "group": "bat"
         },
         {
           "sprite": "owl",
@@ -311,7 +314,8 @@
         0.4
       ],
       "hold": 5,
-      "video_min": 5
+      "video_min": 5,
+      "group": "spider"
     },
     {
       "type": "particles",
@@ -329,7 +333,16 @@
       ],
       "sway": 0.03,
       "band": true,
-      "hz": 10
+      "hz": 10,
+      "rest": [
+        20,
+        90
+      ],
+      "rest_max": [
+        3,
+        6
+      ],
+      "fade_time": 5
     },
     {
       "type": "crawler",
@@ -355,7 +368,8 @@
         3
       ],
       "wave_chance": 0.5,
-      "video_min": 6
+      "video_min": 6,
+      "group": "spider"
     },
     {
       "type": "flyer",
@@ -375,7 +389,11 @@
         0.05,
         0.3
       ],
-      "amp": 0.04
+      "amp": 0.04,
+      "group": [
+        "flying",
+        "bat"
+      ]
     },
     {
       "type": "flyer",
@@ -394,7 +412,8 @@
         0.1,
         0.4
       ],
-      "amp": 0.03
+      "amp": 0.03,
+      "group": "flying"
     },
     {
       "type": "decor",
@@ -432,14 +451,15 @@
         "zombie",
         "vampire",
         "mummy"
-      ]
+      ],
+      "group": "monster"
     },
     {
       "type": "decor",
       "sprite": "tombstone",
       "anchor": "bottom-left",
       "min": 8,
-      "count": 2,
+      "count": 1,
       "places": [
         [
           0.3,
@@ -461,7 +481,13 @@
         0.1
       ],
       "sway": 0.03,
-      "hz": 10
+      "hz": 10,
+      "rest": [
+        20,
+        90
+      ],
+      "rest_max": 8,
+      "fade_time": 5
     },
     {
       "type": "flyer",
@@ -481,7 +507,11 @@
         0.35
       ],
       "amp": 0.04,
-      "video_min": 8
+      "video_min": 8,
+      "group": [
+        "flying",
+        "bat"
+      ]
     },
     {
       "type": "dropper",
@@ -497,7 +527,8 @@
         0.45
       ],
       "hold": 4,
-      "video_min": 8
+      "video_min": 8,
+      "group": "spider"
     },
     {
       "type": "flyer",
@@ -516,7 +547,8 @@
         0.4
       ],
       "amp": 0.03,
-      "video_min": 8
+      "video_min": 8,
+      "group": "flying"
     },
     {
       "type": "performer",
@@ -552,7 +584,8 @@
       ],
       "say": true,
       "joke_chance": 0.3,
-      "video_min": 8
+      "video_min": 8,
+      "group": "skeleton"
     },
     {
       "type": "peeker",
@@ -574,7 +607,8 @@
         "zombie",
         "vampire",
         "mummy"
-      ]
+      ],
+      "group": "monster"
     },
     {
       "type": "peeker",
@@ -594,7 +628,8 @@
         "zombie",
         "vampire",
         "mummy"
-      ]
+      ],
+      "group": "monster"
     },
     {
       "type": "crawler",
@@ -624,7 +659,8 @@
         2.5
       ],
       "wave_chance": 0.5,
-      "video_min": 8
+      "video_min": 8,
+      "group": "spider"
     },
     {
       "type": "flyer",
@@ -643,7 +679,8 @@
         0.25
       ],
       "amp": 0.05,
-      "video_min": 8
+      "video_min": 8,
+      "group": "flying"
     },
     {
       "type": "visitor",
@@ -677,7 +714,8 @@
               0.55,
               0.0
             ]
-          ]
+          ],
+          "group": "bat"
         },
         {
           "sprite": "owl",
