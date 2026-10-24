@@ -240,49 +240,139 @@ local ANCHORS = {
     ["bottom"]       = function(spr, dx, dy) return dx * W, H - spr.h - dy * H end,
 }
 
-local function build_decor()
-    for _, d in ipairs(decor) do hide(d.id) end
-    decor = {}
+-- Decor comes up out of the ground (or down from the top edge, for things up there) and goes
+-- back the same way, instead of popping in and out.
+local DECOR_MOVE_S = 1.4
+
+-- the offset that puts a thing just off the screen: below the bottom edge for things in the
+-- lower half, above the top for the upper half
+local function off_screen_dy(y, h)
+    if y + h / 2 > H / 2 then return H - y + 2 end
+    return -(y + h) - 2
+end
+
+local function decor_move(d, to)
+    d.anim = { from = d.dy or 0, to = to, p = 0 }
+end
+
+-- decor that stands (not on its way out)
+local function standing_decor()
+    local list = {}
+    for _, d in ipairs(decor) do if not d.leaving then list[#list + 1] = d end end
+    return list
+end
+
+-- soft: keep what may stay, let the rest sink and new pieces rise (mode change, room); else start
+-- over (theme loaded, screen resized)
+local function build_decor(soft)
+    if not soft or not M or mode == "hidden" then
+        for _, d in ipairs(decor) do hide(d.id) end
+        decor = {}
+    end
     if not M or mode == "hidden" or holding() then return end
-    -- decor with a "group" (e.g. "pumpkins"): one element of the group per screen, picked at
-    -- random among those this screen may show
+    local items = {}
+    for _, d in ipairs(decor) do
+        if not d.leaving then
+            items[d.el] = items[d.el] or {}
+            table.insert(items[d.el], d)
+        end
+    end
+    local function want_n(el)
+        return math.min(math.floor(scaled(el, el.count, 1) + 0.5), #(el.places or { 0 }))
+    end
+    local function keeps(el)
+        local list = items[el]
+        if not list or not element_on(el) or #list ~= want_n(el) then return false end
+        for _, d in ipairs(list) do if taken(d.spr) then return false end end
+        return true
+    end
+    -- decor with a "group" (e.g. "pumpkins"): one element of the group per screen; the one that
+    -- is there stays, else one picked at random among those this screen may show
     local pick, seen = {}, {}
     for _, el in ipairs(M.elements) do
-        if el.type == "decor" and el.group and element_on(el) and free_sprite_of(el) then
-            seen[el.group] = (seen[el.group] or 0) + 1
-            if math.random(seen[el.group]) == 1 then pick[el.group] = el end
+        if el.type == "decor" and el.group and keeps(el) then pick[el.group] = el end
+    end
+    for _, el in ipairs(M.elements) do
+        local g = el.group
+        if el.type == "decor" and g and not (pick[g] and keeps(pick[g])) and element_on(el) and free_sprite_of(el) then
+            seen[g] = (seen[g] or 0) + 1
+            if math.random(seen[g]) == 1 then pick[g] = el end
+        end
+    end
+    local used, make = {}, {}
+    for _, d in ipairs(decor) do if d.leaving then used[d.id] = true end end
+    for _, el in ipairs(M.elements) do
+        if el.type == "decor" then
+            local wanted = element_on(el) and (not el.group or pick[el.group] == el)
+            if wanted and keeps(el) then
+                for _, d in ipairs(items[el]) do used[d.id] = true end
+            else
+                for _, d in ipairs(items[el] or {}) do
+                    d.leaving = true
+                    decor_move(d, off_screen_dy(d.y, d.spr.h))
+                    used[d.id] = true
+                end
+                if wanted then make[#make + 1] = el end
+            end
         end
     end
     local id = DECOR_IDS.last
-    for _, el in ipairs(M.elements) do
-        if el.type == "decor" and element_on(el) and (not el.group or pick[el.group] == el) then
-            local n = math.floor(scaled(el, el.count, 1) + 0.5)
-            local places = el.places or { { el.x or 0.02, el.y or 0 } }
-            for k = 1, math.min(n, #places) do
-                local spr = free_sprite_of(el)
-                if spr and id >= DECOR_IDS.first then
-                    local fx = ANCHORS[el.anchor or "bottom-left"] or ANCHORS["bottom-left"]
-                    local x, y = fx(spr, places[k][1], places[k][2])
-                    decor[#decor + 1] = {
-                        id = id, spr = spr, x = x, y = y, el = el,
-                        mirror = places[k][3] == true, phase = rnd(0, 6.28),
-                    }
-                    id = id - 1
-                end
+    local function next_id()
+        while id >= DECOR_IDS.first and used[id] do id = id - 1 end
+        if id < DECOR_IDS.first then return nil end
+        used[id] = true
+        return id
+    end
+    for _, el in ipairs(make) do
+        local places = el.places or { { el.x or 0.02, el.y or 0 } }
+        for k = 1, want_n(el) do
+            local spr = free_sprite_of(el)
+            local did = spr and next_id()
+            if did then
+                local fx = ANCHORS[el.anchor or "bottom-left"] or ANCHORS["bottom-left"]
+                local x, y = fx(spr, places[k][1], places[k][2])
+                local d = {
+                    id = did, spr = spr, x = x, y = y, el = el,
+                    mirror = places[k][3] == true, phase = rnd(0, 6.28),
+                }
+                d.dy = off_screen_dy(y, spr.h)
+                decor_move(d, 0)
+                d.anim.p = -rnd(0, 0.4)          -- not all at once
+                decor[#decor + 1] = d
             end
         end
     end
     room.claim_t = 0
 end
 
-local function tick_decor(t)
+local function tick_decor(t, dt)
+    local keep = {}
     for _, d in ipairs(decor) do
-        local frame = 0
-        if d.spr.fps > 0 then frame = math.floor((t + d.phase) * d.spr.fps) end
-        local by = 0
-        if d.el.bob then by = math.sin(t * (d.el.bob_speed or 2) + d.phase) * d.el.bob * H end
-        draw(d.id, d.spr, frame, d.mirror, d.x, d.y + by)
+        local gone = false
+        if d.anim then
+            local A = d.anim
+            A.p = A.p + dt / DECOR_MOVE_S
+            local p = clamp(A.p, 0, 1)
+            -- sinking speeds up, rising slows down at the end
+            local e = d.leaving and p * p or (1 - (1 - p) * (1 - p))
+            d.dy = A.from + (A.to - A.from) * e
+            if A.p >= 1 then
+                d.anim = nil
+                gone = d.leaving
+            end
+        end
+        if gone then
+            hide(d.id)
+        else
+            local frame = 0
+            if d.spr.fps > 0 then frame = math.floor((t + d.phase) * d.spr.fps) end
+            local by = 0
+            if d.el.bob then by = math.sin(t * (d.el.bob_speed or 2) + d.phase) * d.el.bob * H end
+            draw(d.id, d.spr, frame, d.mirror, d.x, d.y + by + (d.dy or 0))
+            keep[#keep + 1] = d
+        end
     end
+    decor = keep
 end
 
 -- Exclusive groups ("group": "spider" or a list, on an element or on a visitor's cast entry):
@@ -328,6 +418,7 @@ function spawn.particles(el, spr)
     a.spin = math.random(0, math.max(0, spr.frames - 1))
     local land = H - spr.h * rnd(0.55, 0.95)
     local st = elements[el]
+    a.leave = function() end            -- falls / lies on as it would, and is done
     local frame, x = 0, a.x
     function a.update(dt, t)
         if a.left then      -- lying on the ground
@@ -428,13 +519,20 @@ function spawn.flyer(el, spr, h)
         local front = (h.lead or 0) * H + a.v * depth(now) * late - room.gap
         a.x = ltr and (front - spr.w) or (W - front)
     end
+    a.leave = function() a.exit = 0 end      -- up and away, getting smaller
     function a.update(dt, t)
         local d = depth(t)
+        if a.exit then
+            a.exit = a.exit + dt
+            d = d + (far - d) * math.min(1, a.exit / 1.5)
+            a.y0 = a.y0 - H * (0.04 + 0.3 * a.exit) * dt
+            a.bend = a.bend * (1 - math.min(1, dt * 2))
+        end
         a.x = a.x + a.dir * a.v * d * dt
         -- the front reaches the edge it flies to: the neighbour takes over from here (for a
         -- moment both show a part)
         local lead = (a.dir > 0) and (a.x + spr.w - W) or (-a.x)
-        if lead >= 0 and not a.handed_on then
+        if lead >= 0 and not a.handed_on and not a.exit then
             a.handed_on = true
             hand_over(a.dir > 0 and "right" or "left", {
                 kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, lead = lead / H,
@@ -444,6 +542,7 @@ function spawn.flyer(el, spr, h)
         if a.x < -spr.w - 2 or a.x > W + 2 then return false end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
         local y = a.y0 + a.bend * side * side + math.sin(t * a.freq + a.ph) * a.amp * d
+        if y < -spr.h - 2 then return false end
         return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), variant(d)
     end
     return a
@@ -459,6 +558,7 @@ function spawn.dropper(el, spr)
     a.y = -spr.h
     a.v = (el.speed or 0.12) * H
     a.state, a.wait = "down", el.hold or 3
+    a.leave = function() a.state, a.v = "up", a.v * 1.8 end
     function a.update(dt, t)
         if a.state == "down" then
             a.y = a.y + a.v * dt
@@ -481,6 +581,7 @@ end
 -- look around or wave before walking on.
 local DIR_INDEX = { right = 0, left = 1, up = 2, down = 3 }
 local DIR_VEC = { right = { 1, 0 }, left = { -1, 0 }, up = { 0, -1 }, down = { 0, 1 } }
+local OPPOSITE = { right = "left", left = "right", up = "down", down = "up" }
 
 function spawn.crawler(el, spr)
     local walk = spr.clips and spr.clips.walk
@@ -506,6 +607,49 @@ function spawn.crawler(el, spr)
     a.clip, a.tc = "walk", 0
     a.walk_left = rnd(range(el.walk, 3))
 
+    -- "wander": [8, 16] → an erratic path: a new direction every el.turn seconds, turning back
+    -- in at the sides; after the wander time it heads for the nearer of top and bottom, and once
+    -- out there it is done
+    local wander = el.wander and not (mode == "video" and level() < PRIME)
+    local wander_s = wander and rnd(range(el.wander, 12)) or 0
+    local age, seg, entered = 0, 0, false
+    local function set_dir(d)
+        a.dir = d
+        a.dx, a.dy = DIR_VEC[d][1], DIR_VEC[d][2]
+        a.variant = (#(spr.variants or {}) >= 4) and DIR_INDEX[d] or (d == "left")
+    end
+    local function steer(dt)
+        age, seg = age + dt, seg - dt
+        if not entered then
+            entered = a.x > 0 and a.y > 0 and a.x + spr.w < W and a.y + spr.h < H
+            if not entered then return end
+            seg = rnd(range(el.turn, 0.8))
+        end
+        local going = age > wander_s
+        if going and seg > 1e8 then return end
+        -- about to cross an edge it may not leave by: turn now
+        local m = 0.02 * H
+        local at_edge = (a.dx < 0 and a.x < m) or (a.dx > 0 and a.x + spr.w > W - m)
+            or (not going and ((a.dy < 0 and a.y < m) or (a.dy > 0 and a.y + spr.h > H - m)))
+        if seg > 0 and not at_edge then return end
+        if going then
+            set_dir((a.y + spr.h / 2 < H / 2) and "up" or "down")
+            seg = 1e9
+            return
+        end
+        local choices = {}
+        for _, d in ipairs({ "right", "left", "up", "down" }) do
+            local ok = d ~= OPPOSITE[a.dir] or math.random() < 0.25
+            if d == "left" and a.x < W * 0.12 then ok = false end
+            if d == "right" and a.x + spr.w > W * 0.88 then ok = false end
+            if d == "up" and a.y < H * 0.12 then ok = false end
+            if d == "down" and a.y + spr.h > H * 0.88 then ok = false end
+            if ok then choices[#choices + 1] = d end
+        end
+        if #choices > 0 then set_dir(choices[math.random(#choices)]) end
+        seg = rnd(range(el.turn, 0.8))
+    end
+
     local function onscreen()
         return a.x > 0 and a.y > 0 and a.x + spr.w < W and a.y + spr.h < H
     end
@@ -519,6 +663,7 @@ function spawn.crawler(el, spr)
         a.tc = a.tc + dt
         local c = spr.clips[a.clip]
         if a.clip == "walk" then
+            if wander then steer(dt) end
             a.x = a.x + a.dx * a.v * dt
             a.y = a.y + a.dy * a.v * dt
             a.walk_left = a.walk_left - dt
@@ -564,8 +709,9 @@ function spawn.performer(el, spr)
     local exit = pick(el.exit, { "sink", "walk" })
     if not enter or not exit then return nil end
 
-    local behind = (enter == "rise" and el.from_decor ~= false and #decor > 0 and math.random() < (el.from_decor or 0.5))
-        and decor[math.random(#decor)] or nil
+    local standing = standing_decor()
+    local behind = (enter == "rise" and el.from_decor ~= false and #standing > 0 and math.random() < (el.from_decor or 0.5))
+        and standing[math.random(#standing)] or nil
     local ground = H + spr.h * (el.sink or 0.0)  -- feet line (sprite bottom)
     a.mirror = math.random() < 0.5
     if behind then
@@ -895,6 +1041,10 @@ function spawn.visitor(el, _)
         return true, hx + (x - hx) * p, hy + (y - hy) * p, frame, a.mirror
     end
     a.release = function() busy_places[a.key] = nil end
+    a.leave = function()                 -- go back now (from where it is)
+        if tt < tin then stay, tt = 0, tin + (1 - tt / tin) * tout
+        elseif tt < tin + stay then stay = tt - tin end
+    end
     return a
 end
 
@@ -904,7 +1054,8 @@ function spawn.peeker(el, spr)
     local edge = el.edge or "bottom"
     local reveal = rnd(range(el.reveal, 0.8))
     local behind = nil
-    if el.from == "decor" and #decor > 0 then behind = decor[math.random(#decor)] end
+    local standing = standing_decor()
+    if el.from == "decor" and #standing > 0 then behind = standing[math.random(#standing)] end
 
     if behind then
         edge = "bottom"
@@ -931,6 +1082,10 @@ function spawn.peeker(el, spr)
     end
     a.t, a.tin, a.thold, a.tout = 0, el["in"] or 1.2, el.hold or 4, el.out or 0.8
     a.line = pick_line(el)
+    a.leave = function()                 -- back behind its edge now
+        if a.t < a.tin then a.thold, a.t = 0, a.tin + (1 - a.t / a.tin) * a.tout
+        elseif a.t < a.tin + a.thold then a.thold = a.t - a.tin end
+    end
 
     local function ease(p) return p * p * (3 - 2 * p) end
     function a.update(dt, t)
@@ -957,6 +1112,74 @@ function spawn.peeker(el, spr)
         return true, x, y, math.floor(t * math.max(spr.fps, 1)), mirror
     end
     return a
+end
+
+-- ── leaving ───────────────────────────────────────────────────────────────────
+-- An actor that has to go (its element is off now, another screen shows it, a grave) leaves the
+-- way it fits instead of vanishing: its own a.leave (flyers climb away, a spider climbs its
+-- thread, visitors and peekers go back) or else it stands still and sinks into the ground (in
+-- the lower half of the screen) or rises out of sight (upper half).
+local function leave(a, how)
+    if a.leaving then return end
+    a.leaving = { t = 0, dir = how == "grave" and 1 or nil }
+    if a.leave and how ~= "grave" then a.leave() else a.leaving.generic = true end
+end
+
+-- the generic way out, applied to what a.update returned (one sprite, or layers)
+local function leaving_step(a, dt, x, y)
+    local L = a.leaving
+    L.t = L.t + dt
+    local x0, top, bot
+    if a.ids then
+        for k = 1, #a.ids do
+            local l = x[k]
+            if l then
+                x0 = x0 or l.x
+                top = math.min(top or l.y, l.y)
+                bot = math.max(bot or (l.y + l.spr.h), l.y + l.spr.h)
+            end
+        end
+    else
+        x0, top, bot = x, y, y + a.spr.h
+    end
+    if not x0 then return false end
+    if not L.dir then L.dir = ((top + bot) / 2 > H / 2) and 1 or -1 end
+    L.x0 = L.x0 or x0
+    L.dy = (L.dy or 0) + L.dir * H * (0.05 + 0.25 * L.t) * dt     -- slowly, then faster
+    if (L.dir > 0 and top + L.dy > H) or (L.dir < 0 and bot + L.dy < 0) then return false end
+    local dx = L.x0 - x0                                           -- standing still
+    if a.ids then
+        local out = {}
+        for k = 1, #a.ids do
+            local l = x[k]
+            if l then
+                out[k] = { spr = l.spr, frame = l.frame, variant = l.variant, x = l.x + dx, y = l.y + L.dy }
+            end
+        end
+        return true, out
+    end
+    return true, x + dx, y + L.dy
+end
+
+-- tombstones: a creep walking past one now and then drops into the grave (once per tombstone)
+local GRAVE_TYPES = { walker = true, crawler = true, performer = true }
+local function grave_check(a, x, y)
+    if a.leaving or not GRAVE_TYPES[a.el.type] or a.el.graves == false or a.ids then return end
+    local cx, bot = x + a.spr.w / 2, y + a.spr.h
+    if bot < H * 0.97 then return end
+    for _, d in ipairs(decor) do
+        if not d.leaving and not d.anim and (d.spr.name or ""):find("tombstone")
+                and cx > d.x + d.spr.w * 0.25 and cx < d.x + d.spr.w * 0.75 then
+            a.graves = a.graves or {}
+            if not a.graves[d] then
+                a.graves[d] = true
+                if math.random() < (a.el.grave_chance or 0.35) then
+                    msg.verbose("grave: " .. tostring(a.spr.name) .. " drops in")
+                    leave(a, "grave")
+                end
+            end
+        end
+    end
 end
 
 local function try_spawn(el, now)
@@ -1084,7 +1307,7 @@ local function bottom_things()
                                 x = x, y = y, w = spr.w, h = spr.h, profile = spr.profile, mirror = mirror }
         end
     end
-    for _, d in ipairs(decor) do add(d.spr, d.x, d.y, d.mirror) end
+    for _, d in ipairs(standing_decor()) do add(d.spr, d.x, d.y + (d.dy or 0), d.mirror) end
     for _, a in ipairs(actors) do
         if a.el.type == "visitor" and a.sx then add(a.spr, a.sx, a.sy, a.mirror) end
         if a.solid then add(a.solid.spr, a.solid.x, a.solid.y, a.solid.variant == true) end
@@ -1253,7 +1476,7 @@ local function tick()
         render_ass(now)
         return
     end
-    tick_decor(t)
+    tick_decor(t, dt)
     tick_webs(dt, now)
     tick_cats(dt, now)
 
@@ -1285,7 +1508,11 @@ local function tick()
     local keep = {}
     for _, a in ipairs(actors) do
         local alive, x, y, frame, mirror = a.update(dt, t)
-        if alive and (a.handed or element_on(a.el)) then
+        if alive and not a.leaving then
+            if not a.handed and not element_on(a.el) then leave(a) else grave_check(a, x, y) end
+        end
+        if alive and a.leaving and a.leaving.generic then alive, x, y = leaving_step(a, dt, x, y) end
+        if alive then
             -- every overlay-add costs an OSD redraw, so slow actors (particles) redraw less often
             local hz = a.el.hz or (a.el.type == "particles" and 12 or DRAW_HZ)
             if not a.next_draw or now >= a.next_draw then
@@ -1317,7 +1544,7 @@ local function tick()
         if room.claim_t <= 0 then
             room.claim_t = 1
             local set, keys = {}, {}
-            for _, d in ipairs(decor) do set[claim_key(d.spr)] = true end
+            for _, d in ipairs(standing_decor()) do set[claim_key(d.spr)] = true end
             for _, a in ipairs(actors) do if a.unique and a.spr then set[claim_key(a.spr)] = true end end
             if #cats > 0 then set["spr:cat"] = true end
             for k in pairs(set) do keys[#keys + 1] = k end
@@ -1375,7 +1602,7 @@ local sub_pos0 = mp.get_property_number("sub-pos", 100)
 local function update_sub_pos()
     local lift = 0
     if M and mode == "video" and level() < DEMO and H > 0 then
-        for _, d in ipairs(decor) do
+        for _, d in ipairs(standing_decor()) do
             if d.el.lift_subs ~= false and d.y + d.spr.h > H * 0.8 then lift = math.max(lift, H - d.y) end
         end
         -- visitors come and go; reserve their room for as long as the element is on
@@ -1418,6 +1645,25 @@ local function refresh()
         timer:kill()
         timer = nil
     end
+end
+
+-- idle <-> video: nothing is wiped; what may not show now leaves (see leave), decor that changes
+-- sinks and rises
+local function soft_refresh()
+    if not M or level() >= DEMO then return refresh() end
+    build_decor(true)
+    update_sub_pos()
+    draw_watermark()
+    -- over a video, flyers keep to the top strip below the full level: the others climb away
+    if mode == "video" and level() < PRIME then
+        for _, a in ipairs(actors) do if a.el.type == "flyer" then leave(a) end end
+    end
+end
+
+local function set_mode(new)
+    local old = mode
+    mode = new
+    if old == "hidden" or new == "hidden" then refresh() else soft_refresh() end
 end
 
 mp.register_script_message("theme-load", function(path)
@@ -1470,14 +1716,12 @@ mp.register_script_message("theme-room-claims", function(js)
     for _, k in ipairs(v.taken or {}) do room.taken[k] = true end
     room.ready = v.ready ~= false
     local lost = false
-    for _, d in ipairs(decor) do if room.taken[claim_key(d.spr)] then lost = true end end
-    -- an actor that started at the same moment as the same one on another screen: still coming
-    -- in from off-screen, so it can quietly go
-    local now = mp.get_time()
+    for _, d in ipairs(standing_decor()) do if room.taken[claim_key(d.spr)] then lost = true end end
+    -- an actor that started at the same moment as the same one on another screen: it goes again
     for _, a in ipairs(actors) do
-        if a.unique and a.spr and room.taken[claim_key(a.spr)] and now - (a.born or 0) < 3 then
-            a.update = function() return false end
-            msg.verbose("room: " .. tostring(a.spr.name) .. " is on another screen, not here")
+        if a.unique and a.spr and room.taken[claim_key(a.spr)] and not a.leaving then
+            leave(a)
+            msg.verbose("room: " .. tostring(a.spr.name) .. " is on another screen, leaving")
         end
     end
     if was_holding and not holding() then
@@ -1486,7 +1730,7 @@ mp.register_script_message("theme-room-claims", function(js)
         update_sub_pos()
     elseif lost then
         msg.verbose("room: another screen shows our decor, picking again")
-        build_decor()
+        build_decor(true)
         update_sub_pos()
     end
 end)
@@ -1510,8 +1754,7 @@ mp.register_script_message("theme-mode", function(m)
     real_mode = m
     local new = (m ~= "hidden" and preview.mode) or m
     if new == mode then return end
-    mode = new
-    refresh()
+    set_mode(new)
 end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
@@ -1538,8 +1781,8 @@ mp.add_forced_key_binding("0", "theme-preview-auto", function()
 end)
 mp.add_forced_key_binding("v", "theme-preview-mode", function()
     preview.mode = (mode == "video") and "idle" or "video"
-    mode = preview.mode
-    refresh(); preview_osd()
+    set_mode(preview.mode)
+    preview_osd()
 end)
 mp.add_forced_key_binding("f", "theme-preview-fast", function()
     preview.fast = not preview.fast
