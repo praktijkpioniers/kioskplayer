@@ -443,6 +443,15 @@ local function zombie_near(x, dist)
     end
 end
 
+-- something frightful near x (a.fright = {x, r, till}: sparks, a bang): its x, or nil
+local function fright_near(x)
+    local now = mp.get_time()
+    for _, a in ipairs(actors) do
+        local f = a.fright
+        if f and now < f.till and math.abs(f.x - x) < f.r then return f.x end
+    end
+end
+
 -- walkers with their arms out push a coffin lying shut in their way (the vampire in it), from
 -- the near side: true while pushing. reach = from their origin to their hands.
 local function push_coffins(x, dir, reach, v)
@@ -1326,12 +1335,20 @@ function spawn.zombie(el, spr, h)
             think, think_t, crossed = true, 0, true
         end
         if state == "react" then
-            if target then react_side = target > x and 1 or -1 react_t = 0 else react_t = react_t + dt end
+            if target then react_side, react_t, a.last_tx = target > x and 1 or -1, 0, target else react_t = react_t + dt end
             think, crossed = true, false
             c, m = C.reach, react_side < 0
             if react_t > 1.2 or tc > 6 then        -- gone (or out of reach): walking on
                 state, tc, think, calm = "walk", 0, false, t + 6
                 face_front = false
+                -- it got away over the edge to a screen next door: after it!
+                local tx = a.last_tx
+                if tx and react_t > 1.2 and (tx < 2 * u or tx > W - 2 * u) and (tx > x) == (react_side > 0)
+                        and can_walk_on(a, react_side) then
+                    dir, stops, k = react_side, { react_side > 0 and W + 1.5 * u or -1.5 * u }, 1
+                    think, think_t, crossed = true, 0, false
+                    msg.verbose("zombie: after it, next door")
+                end
             end
         elseif state == "walk" then
             local to = stops[k]
@@ -1490,6 +1507,7 @@ function spawn.frankenstein(el, spr, h)
         elseif state == "shock" then
             c, m = C.shock, false
             local big = last_stop()
+            a.fright = { x = x, r = (big and 0.45 or 0.3) * H, till = mp.get_time() + 1.5 }   -- cats keep off
             jx, jy = rnd(-1, 1) * u * (big and 0.06 or 0.035), rnd(-1, 1) * u * 0.02
             if math.random() < dt * 6 then
                 local nx, ny = neck()
@@ -1517,6 +1535,7 @@ function spawn.frankenstein(el, spr, h)
                         local hd = pieces[1]
                         hd.vx, hd.vy, hd.over = side * (far + 4.5 * u) / 1.1, -8.5 * u, side
                     end
+                    a.fright = { x = x, r = 0.6 * H, till = mp.get_time() + 5 }
                     msg.verbose("frankenstein: boom")
                 else
                     state, tc, dur = "smoking", 0, rnd(1.2, 2.2)
@@ -1674,7 +1693,10 @@ function spawn.piece(el, spr, h)
             f = f + spin * dt
             if dy >= ground and vy > 0 then
                 if not bounced then bounced, vy, vx, spin = true, -vy * 0.35, vx * 0.5, spin * 0.4
-                else dy, still_t = ground, t end
+                else
+                    dy, still_t = ground, t
+                    a.fright = { x = x, r = 0.25 * H, till = mp.get_time() + 3 }
+                end
             end
             if x < -u * 2 or x > W + u * 2 then return false end
         end
@@ -2049,6 +2071,7 @@ end
 local prowler = load_module("prowler.lua")
 local cats = {}
 local cat_next = {}  -- element name -> time the next cat may come
+local cat_dir        -- (preview key) the next cat walks this way
 
 -- things standing on the bottom edge (decor and visitors): the cat doesn't stop behind them,
 -- and sharpens its claws on the pumpkins
@@ -2071,6 +2094,20 @@ local function bottom_things()
 end
 
 hooks.cats = function() return cats end
+hooks.cat_in = function(el, h)          -- a cat come over from next door (see theme-room-in)
+    if not prowler or #cats > 0 then return end
+    local late = clamp(tonumber(h.late) or 0, 0, 1)
+    local u0 = H * 0.0088 * (el.size or 1)
+    local speed = clamp(tonumber(h.speed) or 6, 2, 10)
+    local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things, dir = h.dir == 1 and 1 or -1,
+        speed = speed, lead = (tonumber(h.lead) or 0) + speed * late - room.gap / u0,
+        scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end })
+    c.name, c.hops = el.name or "prowler", tonumber(h.hops) or 1
+    cats[#cats + 1] = c
+    room.claim_t = 0
+    cat_next[c.name] = math.huge
+    msg.verbose("room: a cat in from next door")
+end
 hooks.call_cat = function(after)        -- (a zombie's guest) the next cat soon
     for name, t in pairs(cat_next) do cat_next[name] = math.min(t, mp.get_time() + after) end
 end
@@ -2092,12 +2129,26 @@ local function tick_cats(dt, now)
         end
     end
     cats = keep
+    -- a cat walking off towards a screen next door goes on there (its nose at our edge)
+    for _, c in ipairs(cats) do
+        if not c.handed_on and c.u then
+            local nose = c.p.x + c.dir * prowler.NOSE * c.u
+            if (c.dir > 0 and nose > W) or (c.dir < 0 and nose < 0) then
+                c.handed_on = true
+                local el = on[c.name]
+                if el and (c.hops or 0) < MAX_HOPS then
+                    hand_over(c.dir > 0 and "right" or "left", { kind = "cat", el = el.index, dir = c.dir, speed = c.speed,
+                        lead = (c.dir > 0 and nose - W or -nose) / c.u, hops = (c.hops or 0) + 1 })
+                end
+            end
+        end
+    end
     for name, el in pairs(on) do
         cat_next[name] = cat_next[name] or now + rnd(range(el.delay, 10))
         if (count[name] or 0) < 1 and now >= cat_next[name] and not holding() and not room.taken["spr:cat"] then
-            local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things,
-                scare = function(x) return zombie_near(x, 0.46 * H) end })
-            c.name = name
+            local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things, dir = cat_dir,
+                scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end })
+            c.name, cat_dir = name, nil
             cats[#cats + 1] = c
             room.claim_t = 0
             cat_next[name] = math.huge
@@ -2253,6 +2304,7 @@ local function tick()
             local h = w.h
             h.late = (tonumber(h.late) or 0) + (now - w.at)
             local el = M.elements[h.el or 0]
+            if h.kind == "cat" and el and el.type == "prowler" and hooks.cat_in then hooks.cat_in(el, h) end
             local spr = M.sprites[h.sprite or ""]
             if el and spr and spawn[h.kind] and (el.type == h.kind or HANDED_ONLY[h.kind]) and #free_ids > 0 then
                 local a = spawn[h.kind](el, spr, h)
@@ -2565,6 +2617,7 @@ mp.add_forced_key_binding("w", "theme-preview-web", function()
 end)
 mp.add_forced_key_binding("c", "theme-preview-cat", function()
     cats = {}
+    if room.right ~= room.left then cat_dir = room.right and 1 or -1 end
     for name in pairs(cat_next) do cat_next[name] = 0 end
 end)
 mp.add_forced_key_binding("d", "theme-preview-vampire", function()

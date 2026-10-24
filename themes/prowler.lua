@@ -112,13 +112,15 @@ end
 
 -- ── the cat ─────────────────────────────────────────────────────────────────
 
+local NOSE = 12            -- hip to the tip of the nose, walking (u)
+
 local function new_cat(o)
     local self = setmetatable({}, C)
     self.W, self.H = o.W, o.H
     self.u = o.H * 0.0088 * (o.size or 1)
     self.ground = o.H * 0.988
-    self.dir = (math.random() < 0.5) and 1 or -1
-    self.speed = rnd(5.5, 7.0)            -- u/s
+    self.dir = o.dir or ((math.random() < 0.5) and 1 or -1)
+    self.speed = o.speed or rnd(5.5, 7.0) -- u/s
     self.obstacles = o.obstacles or function() return {} end   -- {x1, x2, pumpkin, x, y, w, h, profile, mirror}
     self.scare = o.scare or function() end                        -- (x) → x of a zombie near x, or nil
     self.elev, self.air = 0, false        -- u above the ground: standing on something / in a jump
@@ -133,6 +135,9 @@ local function new_cat(o)
     self.p = p
     self:neutral_feet(p)
     p.x = (self.dir == 1) and -14 * self.u or (self.W + 14 * self.u)
+    if o.lead then          -- come over from the screen next door: its nose this far (u) in already
+        p.x = (self.dir == 1) and (o.lead - NOSE) * self.u or (self.W - (o.lead - NOSE) * self.u)
+    end
     self:plan()
     self.co = coroutine.create(function() self:program() end)
     return self
@@ -742,4 +747,4 @@ function C:render(now, out, hz)
     for _, e in ipairs(self.drawn) do out[#out + 1] = e end
 end
 
-return { new = new_cat, poses = { STAND = STAND, SIT = SIT, SCRATCH = SCRATCH, TAILS = TAILS } }
+return { new = new_cat, NOSE = NOSE, poses = { STAND = STAND, SIT = SIT, SCRATCH = SCRATCH, TAILS = TAILS } }
