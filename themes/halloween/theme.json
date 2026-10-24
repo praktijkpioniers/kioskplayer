@@ -2,7 +2,7 @@
   "_doc": [
     "Sprites: height is a fraction of screen height; frames animate at fps; spin = pre-rendered rotation steps;",
     "anim = folder of baked clips (tools/bake), directions = 4 rotated variants instead of a mirror;",
-    "flap / flicker = fake wing beat / candle light from a single drawing.",
+    "flap / flicker = fake wing beat / candle light from a single drawing (flicker_min: from that level on; 99 = off).",
     "Elements: min/max = level range where it appears: 1 = now and then one decoration … 7 = the day before,",
     "8 = the day itself (9 = demo grid of all sprites). count/max_active/every grow from min to 'full' (default 8).",
     "video_min = from which level it also shows over a playing video (default never).",
@@ -22,7 +22,7 @@
       "file": "pumpkin.png",
       "height": 0.12,
       "flicker": 8,
-      "flicker_min": 8,
+      "flicker_min": 99,
       "fps": 5,
       "solid": true
     },
@@ -99,7 +99,7 @@
       "file": "pumpkin_group.png",
       "height": 0.16,
       "flicker": 8,
-      "flicker_min": 8,
+      "flicker_min": 99,
       "fps": 5,
       "solid": true
     },
@@ -107,7 +107,7 @@
       "file": "pumpkin_group_2.png",
       "height": 0.16,
       "flicker": 8,
-      "flicker_min": 8,
+      "flicker_min": 99,
       "fps": 5,
       "solid": true
     },
@@ -115,7 +115,7 @@
       "file": "pumpkin_group_3.png",
       "height": 0.16,
       "flicker": 8,
-      "flicker_min": 8,
+      "flicker_min": 99,
       "fps": 5,
       "solid": true
     },
