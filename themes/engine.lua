@@ -204,11 +204,14 @@ local function claim_key(spr) return "spr:" .. tostring(spr and spr.name) end
 local function taken(spr) return room.taken[claim_key(spr)] == true end
 local function holding() return room.active and not room.ready end
 
--- a sprite of the element that no other screen shows (nil when all are)
+-- a sprite of the element that no other screen shows, nor this one (one come over from next
+-- door); nil when all are
 local function free_sprite_of(el)
+    local here = {}
+    for _, a in ipairs(actors) do if a.spr and not a.leaving then here[a.spr] = true end end
     for _ = 1, 8 do
         local spr = sprite_of(el)
-        if not spr or not taken(spr) then return spr end
+        if not spr or not (taken(spr) or here[spr]) then return spr end
     end
 end
 
@@ -246,7 +249,15 @@ local function walk_out(a, x, dir, front, h)
     h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, (a.hops or 0) + 1, lead / H
     h.sprite = h.sprite or a.spr.name
     if h.unique == nil then h.unique = a.unique end
-    if hand_over(dir > 0 and "right" or "left", h) then a.handed_on = "yes" end
+    if hand_over(dir > 0 and "right" or "left", h) then
+        a.handed_on = "yes"
+        -- it's theirs now: no longer ours to claim, and not to be started here again meanwhile
+        if a.unique and a.spr and h.unique then
+            a.unique = false
+            room.taken[claim_key(a.spr)] = true
+            room.claim_t = 0
+        end
+    end
     return a.handed_on == "yes"
 end
 local function walk_in_x(h, v, front)
@@ -418,11 +429,11 @@ local function groups_of(x)
     return copy
 end
 
-local function group_busy(groups, el)
+local function group_busy(groups, el, me)
     if #groups == 0 then return false end
     local busy = {}
     for _, a in ipairs(actors) do
-        if not (el and a.invites and a.invites[el]) then busy[#busy + 1] = a end   -- (the zombie's guests)
+        if a ~= me and not (el and a.invites and a.invites[el]) then busy[#busy + 1] = a end   -- (the zombie's guests)
     end
     for _, w in ipairs(webs) do      -- a web counts while its spider is in it
         if not w.sp.gone then busy[#busy + 1] = w end
@@ -452,15 +463,18 @@ local function fright_near(x)
     end
 end
 
--- walkers with their arms out push a coffin lying shut in their way (the vampire in it), from
--- the near side: true while pushing. reach = from their origin to their hands.
+-- walkers with their arms out push a coffin lying shut in their way (the vampire in it) a few
+-- steps (push_budget), then stop by it and turn back (or so), from
+-- the near side: true while pushing (and whether it hangs over an edge: then it has to go on
+-- till it's off). reach = from their origin to their hands; v = walking speed.
 local function push_coffins(x, dir, reach, v)
     for _, b in ipairs(actors) do
         local sp = b.span
         if sp and b.push and not b.leaving then
             local mid = (sp[1] + sp[2]) / 2
-            if dir > 0 and x + reach > sp[1] and x < mid then b.push(x + reach - sp[1], v) return true end
-            if dir < 0 and x - reach < sp[2] and x > mid then b.push(x - reach - sp[2], v) return true end
+            local over = sp[1] < 0 or sp[2] > W
+            if dir > 0 and x + reach > sp[1] and x < mid then b.push(x + reach - sp[1], v) return true, over end
+            if dir < 0 and x - reach < sp[2] and x > mid then b.push(x - reach - sp[2], v) return true, over end
         end
     end
     return false
@@ -1027,14 +1041,19 @@ function spawn.vampire(el, spr, h)
     function a.update(dt, t)
         local s = steps[si]
         if not s then return false end
-        if s.hide and not a.hiding then   -- hidden in the coffin: walkers may come by meanwhile
+        if s.hide and not a.hiding then   -- hidden in the coffin: the others may come by meanwhile
             a.hiding, a.groups = a.groups, {}
-            for _, g in ipairs(a.hiding) do if g ~= "walker" then a.groups[#a.groups + 1] = g end end
         end
         if si ~= a.logged then a.logged = si msg.verbose(s.log or ("vampire step " .. tostring(s.clip or "hidden"))) end
         if s.wake and a.hiding then
-            if group_busy(a.hiding) then tc = 0 dt = 0   -- someone else walks about: stay in
-            else a.groups, a.hiding = a.hiding, nil end
+            local st = elements[el]
+            if group_busy({ "walker" }, nil, a) then
+                tc = 0 dt = 0                    -- someone else walks about: stay in (and next in turn)
+                if st then st.wait_since, st.wait_seen = st.wait_since or mp.get_time(), mp.get_time() end
+            else
+                a.groups, a.hiding = a.hiding, nil
+                if st then st.wait_since = nil end
+            end
         end
         tc = tc + dt
         local c = s.clip and (s.lie and L[s.clip] or C[s.clip])
@@ -1301,6 +1320,7 @@ function spawn.zombie(el, spr, h)
     stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
 
     local state, tc, k = "walk", 0, 1       -- walk | turn_front | stop | turn_side | react
+    local push_left, turn_back = rnd(2, 6) * u, false
     local stop_clip, stop_dur
     local think, think_t, crossed = false, 0, false
     local react_side, react_t, seen, calm = 1, 0, {}, 0
@@ -1354,16 +1374,24 @@ function spawn.zombie(el, spr, h)
             local to = stops[k]
             c, m = C.walk, dir < 0
             x = x + dir * v * (a.pushing and 0.7 or 1) * dt
-            a.pushing = push_coffins(x, dir, 0.6 * u, v * 0.7)
+            local over
+            a.pushing, over = push_coffins(x, dir, 0.6 * u, v * 0.7)
+            if a.pushing then push_left = push_left - v * 0.7 * dt end
             if k == #stops then walk_out(a, x, dir, 0.6 * u) end
-            if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
+            if over and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- it has to go off first
+            local fed_up = a.pushing and not over and push_left <= 0
+            if fed_up then       -- enough pushing: a sniff at it (a brain in there!), then back the way it came
+                table.insert(stops, k, x)
+                to, push_left, turn_back = x, math.huge, true
+                msg.verbose("zombie: done pushing, a sniff at the coffin")
+            end
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
                 k = k + 1
                 state, tc = C.turn_front and "turn_front" or "stop", 0
                 local r = math.random()
-                if r < 0.6 then stop_clip, stop_dur = "sniff", rnd(2.5, 4) else stop_clip, stop_dur = "idle", rnd(1.5, 3) end
+                if r < 0.6 or fed_up then stop_clip, stop_dur = "sniff", rnd(2.5, 4) else stop_clip, stop_dur = "idle", rnd(1.5, 3) end
             end
         elseif state == "turn_front" then
             c, m = C.turn_front, dir < 0
@@ -1374,6 +1402,10 @@ function spawn.zombie(el, spr, h)
             if tc >= stop_dur then
                 state, tc = C.turn_side and "turn_side" or "walk", 0
                 if not crossed then think = false end
+                if turn_back then
+                    turn_back, dir = false, -dir
+                    stops, k = { dir > 0 and W + 1.5 * u or -1.5 * u }, 1
+                end
             end
         elseif state == "turn_side" then
             c, m = C.turn_side, dir < 0
@@ -1478,6 +1510,7 @@ function spawn.frankenstein(el, spr, h)
     if math.abs(stops[#stops] - (stops[#stops - 1] or -1e9)) < 3 * u then table.remove(stops, 1) end
     stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
     local state, tc, k, dur = "walk", 0, 1, 0
+    local push_left, turn_back = rnd(2, 6) * u, false
     local smoke = {}                        -- {x, y, r, t, life}
     local pieces, bang_t, still_t
     local function last_stop() return k == #stops - 1 and explode end
@@ -1490,9 +1523,17 @@ function spawn.frankenstein(el, spr, h)
             c = C.walk
             local to = stops[k]
             x = x + dir * v * (a.pushing and 0.7 or 1) * dt
-            a.pushing = push_coffins(x, dir, 0.65 * u, v * 0.7)
+            local over
+            a.pushing, over = push_coffins(x, dir, 0.65 * u, v * 0.7)
+            if a.pushing then push_left = push_left - v * 0.7 * dt end
             if k == #stops then walk_out(a, x, dir, 0.65 * u) end
-            if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
+            if over and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- it has to go off first
+            if a.pushing and not over and push_left <= 0 then
+                -- enough pushing: it makes him blow his top (here, if he was to), or turn back after
+                stops, k, to, push_left = { x, dir > 0 and W + 1.5 * u or -1.5 * u }, 1, x, math.huge
+                turn_back = not explode
+                msg.verbose("frankenstein: done pushing")
+            end
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
@@ -1545,6 +1586,7 @@ function spawn.frankenstein(el, spr, h)
             c, m = C.idle, false
             if tc >= dur then
                 k = k + 1
+                if turn_back then turn_back, dir, stops, k = false, -dir, { dir > 0 and -1.5 * u or W + 1.5 * u }, 1 end
                 state, tc = C.turn_side and "turn_side" or "walk", 0
             end
         elseif state == "turn_side" then
@@ -2312,6 +2354,7 @@ local function tick()
                     a.uncounted, a.handed = true, true
                     a.hops = tonumber(h.hops) or 1
                     a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
+                    if a.unique then room.claim_t = 0 end
                     a.groups = a.groups or groups_of(el)
                     a.id = take_id()
                     if a.layers then
