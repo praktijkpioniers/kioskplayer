@@ -16,6 +16,7 @@
       "file": "pumpkin.png",
       "height": 0.12,
       "flicker": 8,
+      "flicker_min": 8,
       "fps": 5
     },
     "leaf": {
@@ -67,27 +68,29 @@
       "file": "pumpkin_group.png",
       "height": 0.16,
       "flicker": 8,
+      "flicker_min": 8,
       "fps": 5
     },
     "pumpkin_group2": {
       "file": "pumpkin_group_2.png",
       "height": 0.16,
       "flicker": 8,
+      "flicker_min": 8,
       "fps": 5
     },
     "pumpkin_group3": {
       "file": "pumpkin_group_3.png",
       "height": 0.16,
       "flicker": 8,
+      "flicker_min": 8,
       "fps": 5
     },
     "bat_hanging": {
       "file": "bat_hanging.png",
-      "height": 0.11,
+      "height": 0.15,
       "sway": 24,
-      "sway_deg": 6,
-      "fps": 8,
-      "sway_top": 0.28
+      "sway_deg": 5,
+      "fps": 8
     },
     "vampire": {
       "file": "vampire.png",

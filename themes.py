@@ -284,7 +284,8 @@ def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> lis
 
     # Cheap motion from a single drawing (image generation is poor at pose variants):
     #   "flap": N  → wing beat, the frame squashed vertically around its centre over N steps
-    #   "flicker": N → candle light, brightness wobbling over N steps
+    #   "flicker": N → candle light, brightness wobbling over N steps ("flicker_min": only from that
+    #   level on, see build_manifest)
     flap = int(sdef.get("flap", 0))
     if flap > 1 and frames:
         base = frames[0]
@@ -431,6 +432,8 @@ def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: b
     tdef = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
     sprites = {}
     for name, sdef in (tdef.get("sprites") or {}).items():
+        if level < int(sdef.get("flicker_min", 0)):
+            sdef = {k: v for k, v in sdef.items() if k not in ("flicker", "flicker_min")}
         try:
             sprites[name] = build_sprite(theme_dir, name, sdef, screen_h)
         except Exception as e:
