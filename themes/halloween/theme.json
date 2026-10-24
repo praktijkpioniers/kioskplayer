@@ -19,6 +19,8 @@
     "vampire, mummy, zombie: baked scenes (themes/engine.lua). zombie: thought = its brain thought sprite; invite =",
     "[{type, sprite, chance, after}]: when it comes, maybe one of these comes soon too, walker group or not (the",
     "vampire and the cat run past a zombie, it reaches for them; a skeleton gets a crossed-out brain).",
+  "Several screens in a room: walkers (zombie, frankenstein, a skeleton: walk_on = chance, default 0.5) and the cat",
+  "walking off towards a screen next door go on there; so do a coffin pushed off, frankenstein's head, the mummy's helper.",
     "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
     "a sprite with depth = {min, steps} drifts nearer and farther while it flies (smaller = farther = slower).",
     "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo.",
