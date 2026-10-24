@@ -13,6 +13,7 @@ Windows: /tmp/kiosksim/k<i>/ (socket, log). Ctrl+C closes them all.
 import argparse
 import json
 import os
+import signal
 import socket
 import subprocess
 import sys
@@ -34,8 +35,8 @@ SCREEN_W, SCREEN_H = 1920, 1080
 
 
 def geometry(i, n, cols):
-    """Window i of n in a grid of cols columns filling the screen (read like text: the room's
-    left-to-right order goes on at the start of the next row)."""
+    """Window i of n in a grid of cols columns filling the screen; each row is a row of screens
+    in the room (flyers cross within a row)."""
     gap = 4
     rows = -(-n // cols)
     w = min((SCREEN_W - gap * (cols + 1)) // cols, ((SCREEN_H - gap * (rows + 1)) // rows) * 16 // 9)
@@ -71,7 +72,8 @@ class Kiosk:
         peers = [f"127.0.0.1:{PORT + j}" for j in range(n) if j != i]
         self.bus = roombus.Bus("sim", node=f"kiosk{i}", port=PORT + i,
                                transports=[{"udp-peers": peers}]).start()
-        self.room = themes.ThemeRoom(self.bus, [f"kiosk{j}" for j in range(n)], gap_px, send=self.cmd,
+        rows = [[f"kiosk{j}" for j in range(r, min(r + cols, n))] for r in range(0, n, cols)]
+        self.room = themes.ThemeRoom(self.bus, rows, gap_px, send=self.cmd,
                                      log=lambda m: print(f"kiosk{i}: {m}"))
         threading.Thread(target=self._events, args=(sock,), daemon=True).start()
 
@@ -150,6 +152,7 @@ def main():
     ap.add_argument("--mode", default="idle")
     ap.add_argument("--cols", type=int, default=2, help="windows per row (n for one row)")
     a = ap.parse_args()
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))     # kill: close the windows too
     kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n))) for i in range(a.n)]
     for k in kiosks:
         k.load(a.level, a.mode)

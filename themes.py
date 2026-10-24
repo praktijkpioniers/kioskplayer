@@ -541,7 +541,9 @@ class ThemeRoom:
     """The theme engine's link with the other screens in the room (over roombus).
 
     Hand-overs: layout = node names left to right as a visitor sees the screens (config
-    room.layout); an actor crossing an edge towards a neighbour goes on there, gap_px further.
+    room.layout), or a list of such rows (screens above each other: no hand-over between rows,
+    nothing wraps around); an actor crossing an edge towards a neighbour goes on there, gap_px
+    further.
     The engine says theme-room-out {side, ...}; we publish theme/handoff {to: <that neighbour>,
     sent: wall ms}; the neighbour's ThemeRoom gives it to its engine as theme-room-in {late: s}.
 
@@ -549,27 +551,42 @@ class ThemeRoom:
     (sprite keys of its decor and unique actors); we announce them (theme/claims, every few
     seconds, with the time each was first shown) and tell the engine theme-room-claims
     {ready, taken}: keys other screens show, including ones we show too but they had first (the
-    engine then gives those up). ready: we listened long enough after starting to know the room.
+    engine then gives those up).
+
+    Starting takes turns, so screens started together don't pick the same things at once: ready
+    (the engine may show things) once we listened LISTEN_S and every live screen before us in the
+    room order (layout, then name) is on: it started SETTLE_S ago, so its claims are out. Our
+    state goes along with the claims as "_state": wait / start / on.
     """
 
     ANNOUNCE_S = 2.0
-    LISTEN_S = 2.5          # + a random bit, so screens started together don't decide at once
+    LISTEN_S = 2.5          # hear the room before deciding anything
+    SETTLE_S = 2.0          # after starting: our decor and first actors are claimed by then
+    MAX_WAIT_S = 25.0       # a screen before us that never gets going doesn't hold us forever
 
     def __init__(self, bus: Any, layout: list[str], gap_px: float, send: Callable[..., Any],
                  log: Callable[[str], None] = print):
         import random
         self.bus, self.send, self.log = bus, send, log
         self.gap_px = float(gap_px)
-        layout = [str(n) for n in layout or []]
-        i = layout.index(bus.node) if bus.node in layout else -1
-        self.left = layout[i - 1] if i > 0 else None
-        self.right = layout[i + 1] if 0 <= i < len(layout) - 1 else None
-        if i < 0 and layout:
-            log(f"room: {bus.node} is not in the layout {layout}; no hand-overs")
+        rows = [[str(n) for n in r] if isinstance(r, list) else [str(r)] for r in layout or []]
+        if rows and all(len(r) == 1 for r in rows):
+            rows = [[r[0] for r in rows]]                   # a plain list: one row
+        self.order = [n for r in rows for n in r]
+        row = next((r for r in rows if bus.node in r), [])
+        i = row.index(bus.node) if row else -1
+        self.left = row[i - 1] if i > 0 else None
+        self.right = row[i + 1] if 0 <= i < len(row) - 1 else None
+        if i < 0 and rows:
+            log(f"room: {bus.node} is not in the layout {rows}; no hand-overs")
         self._lock = threading.Lock()
         self.mine: dict[str, int] = {}                      # key → wall ms first shown
         self.others: dict[str, tuple[float, dict]] = {}     # node → (monotonic heard, {key: ms})
-        self._ready_at = time.monotonic() + self.LISTEN_S + random.uniform(0, 1.5)
+        self.states: dict[str, str] = {}                    # node → its "_state"
+        t0 = time.monotonic()
+        self._listen_until = t0 + self.LISTEN_S + random.uniform(0, 0.5)
+        self._give_up_at = t0 + self.MAX_WAIT_S
+        self._started: Optional[float] = None               # monotonic, when we became ready
         self._told: Optional[str] = None
         bus.subscribe("theme/handoff", self._handoff_from_bus)
         bus.subscribe("theme/claims", self._claims_from_bus)
@@ -577,7 +594,42 @@ class ThemeRoom:
 
     @property
     def ready(self) -> bool:
-        return time.monotonic() >= self._ready_at
+        return self._started is not None
+
+    def state(self) -> str:
+        if self._started is None:
+            return "wait"
+        return "on" if time.monotonic() - self._started >= self.SETTLE_S else "start"
+
+    def _rank(self, node: str) -> tuple[int, str]:
+        return (self.order.index(node) if node in self.order else len(self.order), node)
+
+    def _my_turn(self) -> Optional[str]:
+        """None when we may start, else the screen we wait for."""
+        now = time.monotonic()
+        if now < self._listen_until:
+            return "listening"
+        if now >= self._give_up_at:
+            return None
+        me = self._rank(self.bus.node)
+        alive_s = self.ANNOUNCE_S * 3.5
+        with self._lock:
+            for node, (heard, _) in sorted(self.others.items()):
+                if now - heard <= alive_s and self._rank(node) < me and self.states.get(node, "on") != "on":
+                    return node
+        return None
+
+    def _step(self) -> None:
+        """Start when it's our turn; tell the room when our state changes."""
+        before = self.state()
+        if self._started is None:
+            waiting = self._my_turn()
+            if waiting is None:
+                self._started = time.monotonic()
+                self.log("room: our turn, starting")
+        if self.state() != before:
+            self._publish_claims()
+            self._tell_engine()
 
     def announce(self) -> None:
         """Tell the engine about the room (after mpv or the engine started)."""
@@ -618,8 +670,12 @@ class ThemeRoom:
     def _claims_from_bus(self, topic: str, p: Any, env: dict) -> None:
         if isinstance(p, dict):
             with self._lock:
-                self.others[str(env.get("n"))] = (time.monotonic(), {str(k): int(v) for k, v in p.items()
-                                                                     if isinstance(v, (int, float))})
+                node = str(env.get("n"))
+                self.others[node] = (time.monotonic(), {str(k): int(v) for k, v in p.items()
+                                                        if isinstance(v, (int, float))})
+                if isinstance(p.get("_state"), str):
+                    self.states[node] = p["_state"]
+            self._step()
             self._tell_engine()
 
     # ── bookkeeping ──
@@ -640,7 +696,8 @@ class ThemeRoom:
 
     def _publish_claims(self) -> None:
         with self._lock:
-            claims = dict(self.mine)
+            claims: dict[str, Any] = dict(self.mine)
+        claims["_state"] = self.state()
         self.bus.publish("theme/claims", claims)
 
     def _tell_engine(self, force: bool = False) -> None:
@@ -652,11 +709,13 @@ class ThemeRoom:
     def _loop(self) -> None:
         k = 0
         while True:
-            time.sleep(self.ANNOUNCE_S / 2)
+            time.sleep(0.25)
+            self._step()
             k += 1
-            if k % 2 == 0:
+            if k % 8 == 0:
                 self._publish_claims()        # repeated: lost packets, screens that come later
-            self._tell_engine()               # ready flips, silent screens drop out
+            if k % 4 == 0:
+                self._tell_engine()           # silent screens drop out
 
 
 # ─────────────────────────────────────────────────────────────────────────────

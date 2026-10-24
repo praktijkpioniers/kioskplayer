@@ -191,7 +191,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # from screen to screen). See roombus.py. transports: "udp-broadcast", {"udp-multicast": ip},
     # {"udp-peers": [host, ...]} (other subnets, tailnet); several at once is fine.
     # layout: node names (hostnames) left to right as a visitor sees the screens, for animations
-    # moving from screen to screen; gap_px: the space between two screens, in pixels (at 1080p)
+    # moving from screen to screen (or a list of such rows, nothing crosses between rows; the
+    # order is also the order in which screens start showing things); gap_px: the space between two screens, in pixels (at 1080p)
     "room": {"enabled": False, "group": "", "node": "", "port": 47800,
              "transports": ["udp-broadcast"], "key_file": "", "layout": [], "gap_px": 16},
 }

@@ -263,6 +263,7 @@ local function build_decor()
             end
         end
     end
+    room.claim_t = 0
 end
 
 local function tick_decor(t)
@@ -990,6 +991,7 @@ local function try_spawn(el, now)
     end
     if not a or #free_ids < (a.layers or 1) then st.next = now + 5 return end
     a.unique, a.born = unique, now
+    if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
     a.id = take_id(); st.active = st.active + 1
     if a.layers then
@@ -1104,6 +1106,7 @@ local function tick_cats(dt, now)
             local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things })
             c.name = name
             cats[#cats + 1] = c
+            room.claim_t = 0
             cat_next[name] = math.huge
         end
     end
