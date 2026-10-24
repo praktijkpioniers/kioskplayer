@@ -230,6 +230,39 @@ local function hand_over(side, h)
     return room_send("theme-room-out", h)
 end
 
+-- Walkers across screens: one walking off towards a neighbour goes on there (up to MAX_HOPS
+-- screens). Handed over when its front reaches our edge; the neighbour starts it with its front
+-- that far in (minus the gap, plus what it walked meanwhile). x: its middle (screen), front: from
+-- the middle to its front. h: what it takes along (kind defaults to the element's type).
+local MAX_HOPS = 3
+local HANDED_ONLY = { piece = true, passer = true }    -- kinds that only come in from a neighbour
+local function walk_out(a, x, dir, front, h)
+    if a.handed_on then return a.handed_on == "yes" end
+    local lead = dir > 0 and (x + front - W) or (front - x)
+    if lead < 0 then return false end
+    a.handed_on = "no"
+    if (a.hops or 0) >= MAX_HOPS then return false end
+    h = h or {}
+    h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, (a.hops or 0) + 1, lead / H
+    h.sprite = h.sprite or a.spr.name
+    if h.unique == nil then h.unique = a.unique end
+    if hand_over(dir > 0 and "right" or "left", h) then a.handed_on = "yes" end
+    return a.handed_on == "yes"
+end
+local function walk_in_x(h, v, front)
+    local late = clamp(tonumber(h.late) or 0, 0, 1)
+    local f = (tonumber(h.lead) or 0) * H + v * late - room.gap    -- its front this far in
+    return (h.dir or 1) > 0 and (f - front) or (W - f + front)
+end
+-- may one walking towards that side go on to a neighbour there
+-- which way a walker crosses: at random; started by a preview key, towards a screen next door
+local function walk_dir(el)
+    local st = elements[el]
+    if st and st.force and room.right ~= room.left then return room.right and 1 or -1 end
+    return math.random() < 0.5 and 1 or -1
+end
+local function can_walk_on(a, dir) return room[dir > 0 and "right" or "left"] and (a.hops or 0) < MAX_HOPS end
+
 -- ── decor (static, optionally bobbing / animated) ───────────────────────────
 
 local ANCHORS = {
@@ -717,7 +750,7 @@ end
 --   acts:  1..n clips from el.acts facing the viewer ("idle" loops for a while), saying a shout
 --   exit:  "sink" (rise played backwards) or "walk" ("turn_side", then off-screen)
 -- Clips are baked facing right; the mirror variant makes the whole scene face left.
-function spawn.performer(el, spr)
+function spawn.performer(el, spr, h)
     local C = spr.clips
     if not (C and C.rise or C and C.walk) then return nil end
     local a = { el = el, spr = spr }
@@ -729,7 +762,8 @@ function spawn.performer(el, spr)
         end
         return ok[math.random(math.max(1, #ok))]
     end
-    local enter = pick(el.enter, { "rise", "walk" })
+    local forced = elements[el] and elements[el].force
+    local enter = (h or forced and C.walk) and "walk" or pick(el.enter, { "rise", "walk" })
     local exit = pick(el.exit, { "sink", "walk" })
     if not enter or not exit then return nil end
 
@@ -737,7 +771,8 @@ function spawn.performer(el, spr)
     local behind = (enter == "rise" and el.from_decor ~= false and #standing > 0 and math.random() < (el.from_decor or 0.5))
         and standing[math.random(#standing)] or nil
     local ground = H + spr.h * (el.sink or 0.0)  -- feet line (sprite bottom)
-    a.mirror = math.random() < 0.5
+    a.mirror = walk_dir(el) < 0
+    if h then a.mirror = h.dir ~= 1 end
     if behind then
         ground = behind.y + behind.spr.h * 0.92
         a.x = behind.x + (behind.spr.w - spr.w) / 2
@@ -778,6 +813,10 @@ function spawn.performer(el, spr)
     local v = walk and walk.stride_px * walk.fps / walk.count * (el.speed or 1.0) or 0
     local dir = a.mirror and -1 or 1
     local si, tc = 1, 0
+    local front = spr.w * 0.3                -- (its middle is the sprite's)
+    if h then a.x = walk_in_x(h, v, front) - spr.w / 2 end
+    -- walking off towards a screen next door, half the time it goes on there
+    local go_on = forced or math.random() < (el.walk_on or 0.5)
 
     function a.update(dt, t)
         local s = steps[si]
@@ -788,6 +827,7 @@ function spawn.performer(el, spr)
         if s.clip == "walk" then
             a.x = a.x + dir * v * dt
             if s.off then
+                if go_on then walk_out(a, a.x + spr.w / 2, dir, front) end
                 if a.x < -spr.w - 2 or a.x > W + 2 then return false end
             elseif (dir > 0 and a.x >= s.to) or (dir < 0 and a.x <= s.to) then
                 done = true
@@ -1173,16 +1213,18 @@ end
 -- for zombie_near). A skeleton gets a crossed-out brain: nothing to eat there. Two sprites on
 -- two overlay ids: the zombie and its thought above it. When it comes, it may invite one of
 -- el.invite ({type, chance} per entry): that one comes in soon, zombie or not.
-function spawn.zombie(el, spr)
+function spawn.zombie(el, spr, h)
     local C, th = spr.clips, M.sprites[el.thought or ""]
     if not (C and C.walk and C.idle and C.sniff and C.reach and spr.origin and spr.unit and th) then return nil end
     local u = spr.unit * H
     local a = { el = el, spr = spr, layers = 2 }
-    local dir = math.random() < 0.5 and 1 or -1
+    local dir = walk_dir(el)
     local x = dir > 0 and -1.2 * u or W + 1.2 * u
-    -- stops along the way, then off the other side
+    local v = C.walk.stride_px * C.walk.fps / C.walk.count * (el.speed or 1.0)
+    if h then dir = h.dir == 1 and 1 or -1 x = walk_in_x(h, v, 0.6 * u) end   -- from the screen next door
+    -- stops along the way, then off the other side (and on to the next screen)
     local stops = {}
-    for _ = 1, math.random(2, 3) do stops[#stops + 1] = rnd(0.12, 0.88) * W end
+    for _ = 1, math.random(h and 1 or 2, h and 2 or 3) do stops[#stops + 1] = rnd(0.12, 0.88) * W end
     table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
     stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
 
@@ -1231,9 +1273,10 @@ function spawn.zombie(el, spr)
         elseif state == "walk" then
             local to = stops[k]
             c, m = C.walk, dir < 0
-            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0) * (a.pushing and 0.7 or 1)
-            x = x + dir * v * dt
+            x = x + dir * v * (a.pushing and 0.7 or 1) * dt
             a.pushing = push_coffins(x, dir, 0.6 * u)
+            if k == #stops then walk_out(a, x, dir, 0.6 * u) end
+            if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
@@ -1280,20 +1323,22 @@ function spawn.zombie(el, spr)
     end
 
     -- now and then someone with a brain (or a skeleton) is invited along
-    for _, inv in ipairs(el.invite or {}) do
-        if math.random() < (inv.chance or 0.5) then
-            for _, other in ipairs(M.elements) do
-                if other.type == inv.type and (not inv.sprite or other.sprite == inv.sprite) and element_on(other) then
-                    a.invites = a.invites or {}
-                    a.invites[other] = true
-                    local soon = mp.get_time() + rnd(range(inv.after, 6))
-                    local st = elements[other]
-                    if st then st.next = math.min(st.next, soon) else elements[other] = { next = soon, active = 0 } end
-                    msg.verbose("zombie invites " .. (other.sprite or other.type))
+    function a.on_spawn()
+        for _, inv in ipairs(el.invite or {}) do
+            if math.random() < (inv.chance or 0.5) then
+                for _, other in ipairs(M.elements) do
+                    if other.type == inv.type and (not inv.sprite or other.sprite == inv.sprite) and element_on(other) then
+                        a.invites = a.invites or {}
+                        a.invites[other] = true
+                        local soon = mp.get_time() + rnd(range(inv.after, 6))
+                        local st = elements[other]
+                        if st then st.next = math.min(st.next, soon) else elements[other] = { next = soon, active = 0 } end
+                        msg.verbose("zombie invites " .. (other.sprite or other.type))
+                    end
                 end
+                if inv.type == "prowler" then hooks.call_cat(rnd(range(inv.after, 6))) end
+                break
             end
-            if inv.type == "prowler" then hooks.call_cat(rnd(range(inv.after, 6))) end
-            break
         end
     end
     return a
@@ -1334,15 +1379,19 @@ local PIECES = { -- clip, flying off (x: outwards, y: up, in u/s), height of its
     { "piece_arm_l", -2.4, 5.5, 1.45, 0.15 }, { "piece_arm_r", 2.4, 5.5, 1.45, 0.15 },
     { "piece_leg_l", -1.6, 3.5, 0.45, 0.2 }, { "piece_leg_r", 1.6, 3.5, 0.45, 0.2 },
 }
-function spawn.frankenstein(el, spr)
+function spawn.frankenstein(el, spr, h)
     local C = spr.clips
     if not (C and C.walk and C.idle and C.shock and spr.origin and spr.unit) then return nil end
     for _, p in ipairs(PIECES) do if not C[p[1]] then return nil end end
     local u = spr.unit * H
     local a = { el = el, spr = spr, layers = 1 + #PIECES, brainy = true }
-    local dir = math.random() < 0.5 and 1 or -1
+    local dir = walk_dir(el)
     local x = dir > 0 and -1.2 * u or W + 1.2 * u
+    local v = C.walk.stride_px * C.walk.fps / C.walk.count * (el.speed or 1.0)
+    if h then dir, a.hops = h.dir == 1 and 1 or -1, tonumber(h.hops) x = walk_in_x(h, v, 0.65 * u) end
     local explode = el.explode ~= false
+    -- with a screen next door he may first walk over there (and blow up there)
+    if explode and can_walk_on(a, dir) and math.random() < 0.5 then explode = false end
     local stops = {}
     for _ = 1, explode and 2 or math.random(1, 2) do stops[#stops + 1] = rnd(0.15, 0.85) * W end
     table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
@@ -1360,8 +1409,10 @@ function spawn.frankenstein(el, spr)
         if state == "walk" then
             c = C.walk
             local to = stops[k]
-            x = x + dir * c.stride_px * c.fps / c.count * (el.speed or 1.0) * (a.pushing and 0.7 or 1) * dt
+            x = x + dir * v * (a.pushing and 0.7 or 1) * dt
             a.pushing = push_coffins(x, dir, 0.65 * u)
+            if k == #stops then walk_out(a, x, dir, 0.65 * u) end
+            if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
@@ -1395,6 +1446,13 @@ function spawn.frankenstein(el, spr)
                         pieces[i] = { c = pc, dx = 0, dy = 0, vx = (p[2] + rnd(-1, 1)) * u, vy = -(p[3] + rnd(-1, 1)) * 1.5 * u,
                                       ground = (p[4] - p[5]) * u, spin = rnd(10, 18) * (math.random() < 0.5 and 1 or -1),
                                       f = math.random(0, pc.count - 1), bounced = false, landed = false }
+                    end
+                    -- near the side of a screen next door his head may fly over there
+                    local side = (x > W / 2) and 1 or -1
+                    local far = side > 0 and (W - x) or x
+                    if room[side > 0 and "right" or "left"] and far < 0.45 * W and math.random() < 0.75 then
+                        local hd = pieces[1]
+                        hd.vx, hd.vy, hd.over = side * (far + 4.5 * u) / 1.1, -8.5 * u, side
                     end
                     msg.verbose("frankenstein: boom")
                 else
@@ -1451,6 +1509,16 @@ function spawn.frankenstein(el, spr)
                     end
                 end
                 local fr = math.floor(p.f) % p.c.count
+                if p.over and not p.handed then        -- the head goes over the edge: on next door
+                    local px = x + p.dx
+                    if (p.over > 0 and px > W) or (p.over < 0 and px < 0) then
+                        p.handed = true
+                        hand_over(p.over > 0 and "right" or "left", {
+                            kind = "piece", el = el.index, sprite = spr.name, clip = PIECES[i][1], dir = p.over,
+                            lead = 0, vx = p.vx / u, vy = p.vy / u, dy = p.dy / u, ground = p.ground / u,
+                            f = p.f, spin = p.spin, bounced = p.bounced, unit = u / H })
+                    end
+                end
                 local sink = (still_t and t - still_t > 2.5) and (t - still_t - 2.5) * 0.8 * u or 0
                 layers[1 + i] = { spr = spr, frame = p.c.start + fr, variant = false,
                                   x = x - spr.origin[1] + p.dx, y = y0 + p.dy + sink }
@@ -1481,6 +1549,61 @@ function spawn.frankenstein(el, spr)
                 spark(out, nx, ny + 0.6 * u, nx + math.cos(ang) * 2.2 * u, ny + 0.6 * u + math.sin(ang) * 2.2 * u, "&H40F0FF&", 4)
             end
         end
+    end
+    return a
+end
+
+-- piece: one of the frankenstein's pieces (his head) come flying over from the screen next door:
+-- down, a bounce, a while on the ground (still smoking; it has a brain: zombies want it), then
+-- into the ground.
+function spawn.piece(el, spr, h)
+    local C = spr.clips
+    local c = C and C[h.clip or ""]
+    if not (c and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, brainy = true, groups = {}, layers = 1 }
+    local late = clamp(tonumber(h.late) or 0, 0, 1)
+    local dir = h.dir == 1 and 1 or -1
+    local vx, vy = (tonumber(h.vx) or 3) * u, (tonumber(h.vy) or 0) * u
+    local dy, ground = (tonumber(h.dy) or 0) * u, (tonumber(h.ground) or 2) * u
+    local f, spin, bounced = tonumber(h.f) or 0, tonumber(h.spin) or 10, h.bounced == true
+    local x = (dir > 0 and 0 or W) + vx * late - dir * room.gap        -- its middle
+    vy = vy + 14 * u * late
+    dy = dy + vy * late
+    local still_t, puff_t, smoke = nil, 0, {}
+    local y0 = H - spr.origin[2]
+    function a.update(dt, t)
+        if not still_t then
+            vy = vy + 14 * u * dt
+            x, dy = x + vx * dt, dy + vy * dt
+            f = f + spin * dt
+            if dy >= ground and vy > 0 then
+                if not bounced then bounced, vy, vx, spin = true, -vy * 0.35, vx * 0.5, spin * 0.4
+                else dy, still_t = ground, t end
+            end
+            if x < -u * 2 or x > W + u * 2 then return false end
+        end
+        if still_t and t - still_t > 7 then return false end
+        -- still smoking a little
+        if still_t and t > puff_t then
+            puff_t = t + rnd(0.6, 1.4)
+            smoke[#smoke + 1] = { x = x + rnd(-0.1, 0.1) * u, y = y0 + dy + spr.origin[2] - (2.3 - 0.0) * u, r = 0.12 * u, t = 0 }
+        end
+        local keep = {}
+        for _, p in ipairs(smoke) do
+            p.t, p.y = p.t + dt, p.y - 0.4 * u * dt
+            if p.t < 1.4 then keep[#keep + 1] = p end
+        end
+        smoke = keep
+        local sink = (still_t and t - still_t > 4.5) and (t - still_t - 4.5) * 0.8 * u or 0
+        a.cx = still_t and t - still_t < 4.5 and x or nil
+        local layer = { spr = spr, frame = c.start + math.floor(f) % c.count, variant = false,
+                        x = x - spr.origin[1], y = y0 + dy + sink }
+        a.sx, a.sy = layer.x, layer.y
+        return true, { layer }
+    end
+    function a.ass(out)
+        for _, p in ipairs(smoke) do puff(out, p.x, p.y, p.r * (1 + p.t), 0.5 + 0.5 * p.t / 1.4) end
     end
     return a
 end
@@ -1692,6 +1815,22 @@ local function grave_check(a, x, y)
     end
 end
 
+-- another element sharing a group with el waited for it longer (and still waits)
+local function queued_before(el, now)
+    for _, a in ipairs(actors) do if a.invites and a.invites[el] then return false end end   -- a guest
+    local mine = elements[el] and elements[el].wait_since or now
+    local groups = groups_of(el)
+    for other, st in pairs(elements) do
+        if other ~= el and st.wait_since and st.wait_since < mine and now - (st.wait_seen or 0) < 10
+                and element_on(other) then
+            for _, g in ipairs(groups_of(other)) do
+                for _, want in ipairs(groups) do if g == want then return true end end
+            end
+        end
+    end
+    return false
+end
+
 local function try_spawn(el, now)
     if holding() then return end        -- (the first-spawn timers start once the room is heard)
     local st = elements[el]
@@ -1718,10 +1857,14 @@ local function try_spawn(el, now)
         st.next = now + 1
         return
     end
-    if not st.force and group_busy(groups_of(el), el) then
+    -- a group takes turns: who waited for it first goes first (else the frequent skeletons and
+    -- peekers would keep the rare acts out for good)
+    if not st.force and (group_busy(groups_of(el), el) or queued_before(el, now)) then
+        st.wait_since, st.wait_seen = st.wait_since or now, now
         st.next = now + rnd(2, 6)
         return
     end
+    st.wait_since = nil
     local unique = el.room_unique ~= false and not NOT_UNIQUE[el.type]
     local spr = el.cast and {} or (unique and free_sprite_of(el) or sprite_of(el))   -- visitors pick their own sprite
     if not spr then st.next = now + rnd(5, 15) return end
@@ -1731,7 +1874,12 @@ local function try_spawn(el, now)
         if a.release then a.release() end
         a = nil                         -- another screen in the room shows it now
     end
-    if not a or #free_ids < (a.layers or 1) then st.next = now + 5 return end
+    if not a or #free_ids < (a.layers or 1) then
+        if a then msg.verbose(string.format("no room for %s: %d ids free, %d wanted", tostring(el.type), #free_ids, a.layers or 1)) end
+        if a and a.release then a.release() end
+        st.next = now + 5
+        return
+    end
     a.unique, a.born = unique, now
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
@@ -1744,6 +1892,7 @@ local function try_spawn(el, now)
         table.sort(a.ids)
     end
     actors[#actors + 1] = a
+    if a.on_spawn then a.on_spawn() end
     local lo, hi = range(el.every, 30)
     -- higher level → shorter pauses (down to a third at the element's full level)
     local f = 1 - 0.66 * growth(el)
@@ -2010,14 +2159,22 @@ local function tick()
             h.late = (tonumber(h.late) or 0) + (now - w.at)
             local el = M.elements[h.el or 0]
             local spr = M.sprites[h.sprite or ""]
-            if el and spr and spawn[h.kind] and el.type == h.kind and #free_ids > 0 then
+            if el and spr and spawn[h.kind] and (el.type == h.kind or HANDED_ONLY[h.kind]) and #free_ids > 0 then
                 local a = spawn[h.kind](el, spr, h)
-                if a then
+                if a and #free_ids >= (a.layers or 1) then
                     a.uncounted, a.handed = true, true
-                    a.groups = groups_of(el)
+                    a.hops = tonumber(h.hops) or 1
+                    a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
+                    a.groups = a.groups or groups_of(el)
                     a.id = take_id()
+                    if a.layers then
+                        a.ids = { a.id }
+                        for k = 2, a.layers do a.ids[k] = take_id() end
+                        table.sort(a.ids)
+                    end
                     actors[#actors + 1] = a
-                end
+                    msg.verbose("room: in from the " .. (h.dir == 1 and "left" or "right") .. ": " .. tostring(h.kind) .. " " .. tostring(h.sprite))
+                elseif a and a.release then a.release() end
             end
         end
     end
@@ -2237,7 +2394,7 @@ mp.register_script_message("theme-room-claims", function(js)
     for _, d in ipairs(standing_decor()) do if room.taken[claim_key(d.spr)] then lost = true end end
     -- an actor that started at the same moment as the same one on another screen: it goes again
     for _, a in ipairs(actors) do
-        if a.unique and a.spr and room.taken[claim_key(a.spr)] and not a.leaving then
+        if a.unique and a.spr and room.taken[claim_key(a.spr)] and not a.leaving and not a.handed then
             leave(a)
             msg.verbose("room: " .. tostring(a.spr.name) .. " is on another screen, leaving")
         end
@@ -2278,7 +2435,8 @@ end)
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
---   m = the mummy next, z = the zombie next, k = the frankenstein next
+--   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next
+--   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -2327,6 +2485,11 @@ end)
 mp.add_forced_key_binding("z", "theme-preview-zombie", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "zombie" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("s", "theme-preview-skeleton", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "performer" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("k", "theme-preview-frankenstein", function()
