@@ -385,10 +385,12 @@ local function groups_of(x)
     return copy
 end
 
-local function group_busy(groups)
+local function group_busy(groups, el)
     if #groups == 0 then return false end
     local busy = {}
-    for _, a in ipairs(actors) do busy[#busy + 1] = a end
+    for _, a in ipairs(actors) do
+        if not (el and a.invites and a.invites[el]) then busy[#busy + 1] = a end   -- (the zombie's guests)
+    end
     for _, w in ipairs(webs) do      -- a web counts while its spider is in it
         if not w.sp.gone then busy[#busy + 1] = w end
     end
@@ -398,6 +400,14 @@ local function group_busy(groups)
         end
     end
     return false
+end
+
+-- the zombie and its neighbours: a zombie's x (screen) within dist of x, or nil
+local hooks = { cats = function() return {} end }   -- (filled in where the cats live)
+local function zombie_near(x, dist)
+    for _, a in ipairs(actors) do
+        if a.zx and not a.leaving and math.abs(a.zx - x) < dist then return a.zx end
+    end
 end
 
 -- ── transient actors ───────────────────────────────────────────────────────
@@ -808,7 +818,7 @@ function spawn.vampire(el, spr)
     local sink = (el.sink or 0.45) * u  -- in the coffin he stands/lies this much lower (hidden by the box)
     local hop = 1.3 * u                 -- jump height (clears the box)
     if W < 2 * box.w + 6 * u then return nil end
-    local a = { el = el, spr = spr, layers = 3 }
+    local a = { el = el, spr = spr, layers = 3, brainy = true }
     local d = math.random() < 0.5 and 1 or -1
     local open = lid.frames - 1
 
@@ -923,6 +933,13 @@ function spawn.vampire(el, spr)
         local c = s.clip and (s.lie and L[s.clip] or C[s.clip])
         local rate = s.rate or 1
         local done
+        -- a zombie about: no standing around, and walking becomes running
+        local scared = not s.hide and zombie_near((d > 0) and vx or (W - vx), 4.5 * u)
+        if scared and C.run and s.to and not s.carry and not s.lie then
+            c, rate = C.run, 1.5
+            if not a.ran then a.ran = true msg.verbose("vampire runs past the zombie") end
+        end
+        if scared and s.dur and not s.lid and not s.hide and not s.wake then tc = math.max(tc, s.dur) end
         local dy = s.sink or 0
         if s.jump then
             local x0, x1, y0, y1 = s.jump[1], s.jump[2], s.jump[3], s.jump[4]
@@ -965,6 +982,9 @@ function spawn.vampire(el, spr)
             local l = place(s.lie and lie or spr, vx, c.start + k, s.m, dy)
             layers[2] = l
             a.sx, a.sy = l.x, l.y
+            a.cx = (d > 0) and vx or (W - vx)
+        else
+            a.cx = nil
         end
         a.talking = a.line and s.act and true or false
         if a.talking and not a.say_t then a.say_t = t end
@@ -1113,6 +1133,138 @@ function spawn.mummy(el, spr)
         if a.talking and not a.say_t then a.say_t = t end
         if da and db and tc >= (s.dur or 0) then si, tc = si + 1, 0 end
         return true, layers
+    end
+    return a
+end
+
+-- zombie: a baked character shuffling across with its arms out, stopping now and then to sniff
+-- the air (a thought: puffs and a cloud with a brain in it, el.thought, frames see
+-- tools/bake/thought.py). Whoever has a brain and comes close (the vampire, the cat) makes it
+-- turn and reach for them, thinking of brains; the vampire and the cat run past (they look
+-- for zombie_near). A skeleton gets a crossed-out brain: nothing to eat there. Two sprites on
+-- two overlay ids: the zombie and its thought above it. When it comes, it may invite one of
+-- el.invite ({type, chance} per entry): that one comes in soon, zombie or not.
+function spawn.zombie(el, spr)
+    local C, th = spr.clips, M.sprites[el.thought or ""]
+    if not (C and C.walk and C.idle and C.sniff and C.reach and spr.origin and spr.unit and th) then return nil end
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, layers = 2 }
+    local dir = math.random() < 0.5 and 1 or -1
+    local x = dir > 0 and -1.2 * u or W + 1.2 * u
+    -- stops along the way, then off the other side
+    local stops = {}
+    for _ = 1, math.random(2, 3) do stops[#stops + 1] = rnd(0.12, 0.88) * W end
+    table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
+    stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
+
+    local state, tc, k = "walk", 0, 1       -- walk | turn_front | stop | turn_side | react
+    local stop_clip, stop_dur
+    local think, think_t, crossed = false, 0, false
+    local react_side, react_t, seen, calm = 1, 0, {}, 0
+    local face_front = false               -- standing towards the viewer (yaw 15) rather than sideways
+    local function brainy()
+        -- the nearest one with a brain (vampire, cat) within 3u, and its side; or a skeleton (no brain)
+        local best, bd, skel
+        for _, b in ipairs(actors) do
+            local bx = b.cx
+            if bx and b ~= a then
+                local dd = math.abs(bx - x)
+                if b.brainy and dd < 3 * u and (not bd or dd < bd) then best, bd = bx, dd end
+                if b.spr and (b.spr.name or ""):find("skeleton") and dd < 3 * u then skel = b end
+            end
+        end
+        for _, c in ipairs(hooks.cats()) do
+            local dd = math.abs(c.p.x - x)
+            if dd < 3 * u and (not bd or dd < bd) then best, bd = c.p.x, dd end
+        end
+        return best, skel
+    end
+
+    function a.update(dt, t)
+        tc = tc + dt
+        local c, m, frame
+        local target, skel = brainy()
+        if target and t > calm and state ~= "react" and state ~= "turn_front" and state ~= "turn_side" then
+            state, tc, react_t = "react", 0, 0
+        end
+        if skel and not seen[skel] and not target then
+            seen[skel] = true
+            think, think_t, crossed = true, 0, true
+        end
+        if state == "react" then
+            if target then react_side = target > x and 1 or -1 react_t = 0 else react_t = react_t + dt end
+            think, crossed = true, false
+            c, m = C.reach, react_side < 0
+            if react_t > 1.2 or tc > 6 then        -- gone (or out of reach): walking on
+                state, tc, think, calm = "walk", 0, false, t + 6
+                face_front = false
+            end
+        elseif state == "walk" then
+            local to = stops[k]
+            c, m = C.walk, dir < 0
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            x = x + dir * v * dt
+            if (to - x) * dir <= 0 then
+                x = to
+                if k == #stops then return false end
+                k = k + 1
+                state, tc = C.turn_front and "turn_front" or "stop", 0
+                local r = math.random()
+                if r < 0.6 then stop_clip, stop_dur = "sniff", rnd(2.5, 4) else stop_clip, stop_dur = "idle", rnd(1.5, 3) end
+            end
+        elseif state == "turn_front" then
+            c, m = C.turn_front, dir < 0
+            if tc >= c.count / c.fps then state, tc, face_front = "stop", 0, true end
+        elseif state == "stop" then
+            c, m = C[stop_clip], false
+            if stop_clip == "sniff" and tc > 0.6 and not think then think, think_t, crossed = true, 0, false end
+            if tc >= stop_dur then
+                state, tc = C.turn_side and "turn_side" or "walk", 0
+                if not crossed then think = false end
+            end
+        elseif state == "turn_side" then
+            c, m = C.turn_side, dir < 0
+            if tc >= c.count / c.fps then state, tc, face_front = "walk", 0, false end
+        end
+        frame = math.floor(tc * c.fps)
+        if c.loop then frame = frame % c.count else frame = math.min(frame, c.count - 1) end
+
+        local mi = m and true or false
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local layers = { { spr = spr, frame = c.start + frame, variant = mi, x = x - ox, y = H - spr.origin[2] } }
+        a.zx, a.sx, a.sy = x, layers[1].x, layers[1].y
+        -- the thought: up beside the head, on the side it faces (or the side of the one it wants)
+        if think then
+            think_t = think_t + dt
+            if crossed and think_t > 3 then think, crossed = false, false end
+        end
+        if think then
+            local side = state == "react" and react_side or (state == "stop" and 1 or dir)
+            local f = think_t < 0.45 and math.floor(think_t / 0.15) or (3 + ({ 0, 1, 2, 1 })[math.floor(think_t * 4) % 4 + 1])
+            if crossed and f >= 3 then f = f + 3 end
+            local head = H - spr.origin[2] + spr.h - 2.15 * u
+            local tx = side > 0 and (x + 0.25 * u - th.w * 0.08) or (x - 0.25 * u - th.w * 0.92)
+            layers[2] = { spr = th, frame = f, variant = side < 0, x = tx, y = head - th.h * 0.95 }
+        end
+        return true, layers
+    end
+
+    -- now and then someone with a brain (or a skeleton) is invited along
+    for _, inv in ipairs(el.invite or {}) do
+        if math.random() < (inv.chance or 0.5) then
+            for _, other in ipairs(M.elements) do
+                if other.type == inv.type and (not inv.sprite or other.sprite == inv.sprite) and element_on(other) then
+                    a.invites = a.invites or {}
+                    a.invites[other] = true
+                    local soon = mp.get_time() + rnd(range(inv.after, 6))
+                    local st = elements[other]
+                    if st then st.next = math.min(st.next, soon) else elements[other] = { next = soon, active = 0 } end
+                    msg.verbose("zombie invites " .. (other.sprite or other.type))
+                end
+            end
+            if inv.type == "prowler" then hooks.call_cat(rnd(range(inv.after, 6))) end
+            break
+        end
     end
     return a
 end
@@ -1350,7 +1502,7 @@ local function try_spawn(el, now)
         st.next = now + 1
         return
     end
-    if group_busy(groups_of(el)) then
+    if not st.force and group_busy(groups_of(el), el) then
         st.next = now + rnd(2, 6)
         return
     end
@@ -1365,6 +1517,7 @@ local function try_spawn(el, now)
     end
     if not a or #free_ids < (a.layers or 1) then st.next = now + 5 return end
     a.unique, a.born = unique, now
+    st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
     a.id = take_id(); st.active = st.active + 1
@@ -1457,6 +1610,11 @@ local function bottom_things()
     return list
 end
 
+hooks.cats = function() return cats end
+hooks.call_cat = function(after)        -- (a zombie's guest) the next cat soon
+    for name, t in pairs(cat_next) do cat_next[name] = math.min(t, mp.get_time() + after) end
+end
+
 local function tick_cats(dt, now)
     if not prowler then return end
     local on = {}
@@ -1477,7 +1635,8 @@ local function tick_cats(dt, now)
     for name, el in pairs(on) do
         cat_next[name] = cat_next[name] or now + rnd(range(el.delay, 10))
         if (count[name] or 0) < 1 and now >= cat_next[name] and not holding() and not room.taken["spr:cat"] then
-            local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things })
+            local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things,
+                scare = function(x) return zombie_near(x, 0.46 * H) end })
             c.name = name
             cats[#cats + 1] = c
             room.claim_t = 0
@@ -1667,7 +1826,7 @@ local function tick()
                     end
                 else
                     draw(a.id, a.spr, frame, mirror, x, y)
-                    a.sx, a.sy = x, y
+                    a.sx, a.sy, a.cx = x, y, x + a.spr.w / 2
                 end
             end
             keep[#keep + 1] = a
@@ -1902,7 +2061,7 @@ end)
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
---   m = the mummy next
+--   m = the mummy next, z = the zombie next
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -1940,12 +2099,17 @@ mp.add_forced_key_binding("c", "theme-preview-cat", function()
 end)
 mp.add_forced_key_binding("d", "theme-preview-vampire", function()
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "vampire" and elements[el] then elements[el].next = 0 end
+        if el.type == "vampire" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("m", "theme-preview-mummy", function()
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "mummy" and elements[el] then elements[el].next = 0 end
+        if el.type == "mummy" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("z", "theme-preview-zombie", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "zombie" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

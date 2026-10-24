@@ -120,6 +120,7 @@ local function new_cat(o)
     self.dir = (math.random() < 0.5) and 1 or -1
     self.speed = rnd(5.5, 7.0)            -- u/s
     self.obstacles = o.obstacles or function() return {} end   -- {x1, x2, pumpkin, x, y, w, h, profile, mirror}
+    self.scare = o.scare or function() end                        -- (x) → x of a zombie near x, or nil
     self.elev, self.air = 0, false        -- u above the ground: standing on something / in a jump
     self.phase, self.bob = 0, 0
     self.T = 0
@@ -371,8 +372,13 @@ function C:walk_to(tx, noleap)
             rem = (tx - p.x) * self.dir / u
             if rem <= 0.05 then break end
         end
-        local want = math.min(self.speed, sqrt(2 * acc * rem) + 0.3)
-        v = (v < want) and math.min(want, v + acc * dt) or want
+        -- a zombie near: dash past it (no slowing down for the stop), looking back at it once past
+        local zx = self.scare(p.x)
+        local want = zx and self.speed * 2.4 or math.min(self.speed, sqrt(2 * acc * rem) + 0.3)
+        v = (v < want) and math.min(want, v + acc * 3 * dt) or want
+        if zx then self.face_want = ((zx - p.x) * self.dir < 0) and -1 or 1 glance = rnd(4, 8) end
+        if self.scared and not zx then self.face_want = 1 end
+        self.scared = zx
         local step = math.min(v * dt, rem)
         p.x = p.x + self.dir * step * u
         self.phase = (self.phase + step * DUTY / STRIDE) % 1
@@ -500,22 +506,28 @@ function C:program()
     log.verbose(string.format("cat from the %s: %s", self.dir == 1 and "left" or "right", table.concat(plan, " ")))
     self:wait(0.01)
     for _, s in ipairs(self.stops) do
-        self:walk_to(s.x, s.kind == "scratch")
-        log.verbose(string.format("cat: %s at %d (%.0f s)", s.kind, s.x, self.T))
-        if s.kind == "sit" then
-            self:sit_down()
-            self:wait(rnd(0.5, 1.5))
-            if math.random() < 0.5 then self:groom(); self:look_around()
-            else self:look_around(); self:groom() end
-            if math.random() < 0.4 then self:groom() end
-            self:wait(rnd(0.5, 2))
-            self:stand_up()
-        elseif s.kind == "scratch" then
-            if self.elev < 1 and self:pumpkin_there(s.edge) then self:scratch() end   -- (then up it goes, unless it turns)
-        else
-            self:pause_here()
+        local zombie = self.scare(s.x)               -- no stopping by a zombie
+        if not zombie then
+            self:walk_to(s.x, s.kind == "scratch")
+            zombie = self.scare(self.p.x)
         end
-        if s.turn then self:turn() end
+        if not zombie then
+            log.verbose(string.format("cat: %s at %d (%.0f s)", s.kind, s.x, self.T))
+            if s.kind == "sit" then
+                self:sit_down()
+                self:wait(rnd(0.5, 1.5))
+                if math.random() < 0.5 then self:groom(); self:look_around()
+                else self:look_around(); self:groom() end
+                if math.random() < 0.4 then self:groom() end
+                self:wait(rnd(0.5, 2))
+                self:stand_up()
+            elseif s.kind == "scratch" then
+                if self.elev < 1 and self:pumpkin_there(s.edge) then self:scratch() end   -- (then up it goes, unless it turns)
+            else
+                self:pause_here()
+            end
+            if s.turn then self:turn() end
+        end
     end
     self:walk_to(self.dir == 1 and self.W + 14 * self.u or -14 * self.u)
 end

@@ -24,6 +24,8 @@
 #   per clip "hold": {"from": "Interact", "frame": 10, "bones": ["upperarm.r", ...]}  freeze those
 #              bones in the pose of another action (e.g. arms forward while walking = pushing);
 #              a list of such holds combines several
+#   per clip "turn": {"upperarm.l": [x, y, z]}  turn bones further (degrees, the bone's own axes) on
+#              top of the animation (and holds): arms straight out, a tilted head
 #   per clip "speed": 0.6  play slower (or faster): fps, and so the walking speed, scaled
 #   "shell":   {"meshes": [...], "thickness": 0.05, "color": "#e6dfc8", "stripe": "#a99d82"}  a
 #              bandage wrapping over those meshes (a mummy); per clip "wrap": 1 wrapped (default),
@@ -232,9 +234,34 @@ def held(c):
     return b
 
 
+def turned(a, c):
+    """The action with some bones turned further (per clip "turn": {bone: [x, y, z] degrees}, on
+    top of the animation, in the bone's own axes), keyed on every frame."""
+    turns = c.get("turn")
+    if not turns:
+        return a
+    from mathutils import Euler, Quaternion
+    b = a.copy()
+    f0, f1 = (int(round(x)) for x in a.frame_range)
+    for bone, deg in turns.items():
+        path = f'pose.bones["{bone}"].rotation_quaternion'
+        old = {fc.array_index: fc for fc in b.fcurves if fc.data_path == path}
+        qs = []
+        for f in range(f0, f1 + 1):
+            q = Quaternion([old[i].evaluate(f) if i in old else (1, 0, 0, 0)[i] for i in range(4)])
+            qs.append(q @ Euler([math.radians(v) for v in deg]).to_quaternion())
+        for fc in old.values():
+            b.fcurves.remove(fc)
+        for i in range(4):
+            nf = b.fcurves.new(path, index=i, action_group=bone)
+            for k, q in enumerate(qs):
+                nf.keyframe_points.insert(f0 + k, q[i])
+    return b
+
+
 def clip_frames(c):
     """[(action_frame, yaw_deg)] for one clip."""
-    a = held(c)
+    a = turned(held(c), c)
     f0, f1 = (int(round(x)) for x in a.frame_range)
     step = c.get("step", 1)
     n = c.get("frames")

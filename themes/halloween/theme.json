@@ -15,6 +15,9 @@
     "on decor: one element of the group per screen (one pumpkin set, left or right corner).",
     "crawler wander = [s, s]: an erratic path (a new direction every 'turn' s), then out at the top or bottom.",
     "walker/crawler/performer passing a tombstone: grave_chance (0.35) to drop into the grave; graves = false: never.",
+    "vampire, mummy, zombie: baked scenes (themes/engine.lua). zombie: thought = its brain thought sprite; invite =",
+    "[{type, sprite, chance, after}]: when it comes, maybe one of these comes soon too, walker group or not (the",
+    "vampire and the cat run past a zombie, it reaches for them; a skeleton gets a crossed-out brain).",
     "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
     "a sprite with depth = {min, steps} drifts nearer and farther while it flies (smaller = farther = slower).",
     "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo.",
@@ -96,6 +99,16 @@
     "coffin_lid": {
       "anim": "anim/coffin_lid",
       "unit": 0.115
+    },
+    "zombie3d": {
+      "anim": "anim/zombie",
+      "unit": 0.115
+    },
+    "thought": {
+      "frames": ["thought/thought_0.png", "thought/thought_1.png", "thought/thought_2.png",
+                 "thought/thought_3.png", "thought/thought_4.png", "thought/thought_5.png",
+                 "thought/thought_6.png", "thought/thought_7.png", "thought/thought_8.png"],
+      "height": 0.12
     },
     "mummy3d": {
       "anim": "anim/mummy",
@@ -667,6 +680,30 @@
         90
       ],
       "say": true,
+      "group": [
+        "monster",
+        "walker"
+      ]
+    },
+    {
+      "type": "zombie",
+      "sprite": "zombie3d",
+      "thought": "thought",
+      "min": 8,
+      "video_min": 8,
+      "every": [
+        180,
+        360
+      ],
+      "delay": [
+        20,
+        90
+      ],
+      "invite": [
+        {"type": "vampire", "chance": 0.3, "after": [4, 10]},
+        {"type": "prowler", "chance": 0.3, "after": [3, 12]},
+        {"type": "performer", "sprite": "skeleton3d", "chance": 0.4, "after": [3, 10]}
+      ],
       "group": [
         "monster",
         "walker"
