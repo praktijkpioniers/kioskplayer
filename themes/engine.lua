@@ -244,9 +244,18 @@ local function build_decor()
     for _, d in ipairs(decor) do hide(d.id) end
     decor = {}
     if not M or mode == "hidden" or holding() then return end
+    -- decor with a "group" (e.g. "pumpkins"): one element of the group per screen, picked at
+    -- random among those this screen may show
+    local pick, seen = {}, {}
+    for _, el in ipairs(M.elements) do
+        if el.type == "decor" and el.group and element_on(el) and free_sprite_of(el) then
+            seen[el.group] = (seen[el.group] or 0) + 1
+            if math.random(seen[el.group]) == 1 then pick[el.group] = el end
+        end
+    end
     local id = DECOR_IDS.last
     for _, el in ipairs(M.elements) do
-        if el.type == "decor" and element_on(el) then
+        if el.type == "decor" and element_on(el) and (not el.group or pick[el.group] == el) then
             local n = math.floor(scaled(el, el.count, 1) + 0.5)
             local places = el.places or { { el.x or 0.02, el.y or 0 } }
             for k = 1, math.min(n, #places) do

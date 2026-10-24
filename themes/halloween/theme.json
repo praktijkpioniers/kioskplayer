@@ -11,9 +11,10 @@
     "Types: decor (always there), visitor (comes and goes: cast of sprite+anchor+places), particles, flyer, walker,",
     "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker,",
     "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom).",
-    "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time.",
+    "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time;",
+    "on decor: one element of the group per screen (one pumpkin set, left or right corner).",
     "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
-    "a sprite with sizes = [0.8, 0.62] flies at a random depth (smaller = farther = slower).",
+    "a sprite with depth = {min, steps} drifts nearer and farther while it flies (smaller = farther = slower).",
     "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo.",
     "solid: true = the cat can climb onto it (pumpkins, tombstones, the coffin)."
   ],
@@ -196,6 +197,7 @@
     {
       "type": "decor",
       "sprite": "pumpkin",
+      "group": "pumpkins",
       "anchor": "bottom-right",
       "min": 3,
       "full": 6,
@@ -443,6 +445,7 @@
     },
     {
       "type": "decor",
+      "group": "pumpkins",
       "anchor": "bottom-left",
       "min": 7,
       "count": 1,
