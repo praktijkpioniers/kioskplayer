@@ -160,6 +160,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
     "subtitle_remember_s": 120.0,  # remember selection for 2 minutes
     "subtitle_default_on": False,
+    # "room": a language chosen on one screen goes for every player in the room (needs "room"
+    # enabled below) and lasts room_lang_remember_s; "screen": each screen on its own
+    "subtitle_scope": "room",
+    "room_lang_remember_s": 1200.0,
 
     # Seasonal themes (calendar in themes/events.json, artwork in themes/<theme>/)
     "themes_enabled": True,
@@ -782,6 +786,9 @@ class App:
         self._subtitle_pref_set_t: Optional[float] = None
 
         self.subtitle_default_on = bool(cfg.get("subtitle_default_on", False))
+        self.subtitle_scope = str(cfg.get("subtitle_scope", "room")).lower()
+        self.room_lang_remember_s = float(cfg.get("room_lang_remember_s", 1200.0))
+        self._room_q: "queue.Queue[tuple[str, Any, dict]]" = queue.Queue()
 
 
 
@@ -800,8 +807,7 @@ class App:
         try:
             self.room_bus = roombus.bus_from_config(cfg.get("room") or {}, info={"host": socket.gethostname()})
             if self.room_bus:
-                self.room = roombus.SharedState(
-                    self.room_bus, on_change=lambda k, v, e: log(f"ROOM {k} = {v!r} (by {e.get('n')})"))
+                self.room = roombus.SharedState(self.room_bus, on_change=lambda k, v, e: self._room_q.put((k, v, e)))
         except Exception as e:
             log(f"room bus not started: {e}")
 
@@ -1106,10 +1112,47 @@ class App:
         return "OFF" if v == "off" else v.upper()
 
 
+    def _room_lang_shared(self) -> bool:
+        return self.subtitle_scope == "room" and self.room is not None
+
+    def _subtitle_remember_now(self) -> float:
+        return self.room_lang_remember_s if self._room_lang_shared() else self.subtitle_remember_s
+
+    def _handle_room_change(self, key: str, value: Any, e: dict) -> None:
+        """A room state change (runs in the main loop). lang: another screen or a selector chose a
+        language for the room; this screen follows it."""
+        log(f"ROOM {key} = {value!r} (by {e.get('by') or e.get('n')}, {e.get('src', '?')})")
+        if key != "lang" or not self._room_lang_shared():
+            return
+        if self.room_bus and e.get("n") == self.room_bus.node and not e.get("by"):
+            return                                   # our own press, already applied
+        age = time.time() - float(e.get("ts") or 0)
+        if age > self.room_lang_remember_s:
+            return                                   # an old choice (heard after a reboot)
+        options = ["off"] + [str(x).lower() for x in self.subtitle_lang_prefer]
+        lang = str(value or "off").lower()
+        if lang not in options:
+            log(f"ROOM lang {lang!r} is not offered on this screen; kept {options[self._subtitle_pref_index % len(options)]}")
+            return
+        self._subtitle_pref_index = options.index(lang)
+        self._subtitle_pref_set_t = time.time() - max(0.0, age)
+        try:
+            self.renderer.ipc.show_text(f"Language: {'OFF' if lang == 'off' else lang.upper()}", 1200)
+        except Exception:
+            pass
+        if self.state == "PLAYING" and (not self._is_slideshow_mode()):
+            if self._apply_preferred_subtitle_now():
+                self._subtitle_changed_t = time.time()
+
     def _handle_subtitle_press(self, t: float) -> None:
         # Always cycle preferred language selection, even in IDLE.
         # In PLAYING (video), we also try to apply immediately.
         label = self._cycle_preferred_language(t)
+        if self._room_lang_shared():
+            try:
+                self.room.set("lang", label.lower(), src="button")
+            except Exception as e:
+                log(f"ROOM lang not shared: {e}")
 
         # Always show feedback
         try:
@@ -1222,7 +1265,7 @@ class App:
     def _preferred_language_active(self, now: float) -> Optional[str]:
         if self._subtitle_pref_set_t is None:
             return None
-        if (now - self._subtitle_pref_set_t) > self.subtitle_remember_s:
+        if (now - self._subtitle_pref_set_t) > self._subtitle_remember_now():
             return None
 
         prefer = [str(x).lower() for x in self.subtitle_lang_prefer]
@@ -1494,6 +1537,9 @@ class App:
         #self._pending_preferred_lang = self._preferred_language_active(time.time())
         #keep undefined untill used
         self._pending_preferred_lang: Optional[str] = None
+        if self._room_lang_shared():
+            # the room's language (chosen here or on another screen) goes for this video too
+            self._pending_preferred_lang = self._preferred_language_active(time.time())
 
 
 
@@ -2037,6 +2083,8 @@ class App:
 
         # Subtitles: default mode may have changed
         self.subtitle_default_on = bool(new_cfg.get("subtitle_default_on", getattr(self, "subtitle_default_on", False)))
+        self.subtitle_scope = str(new_cfg.get("subtitle_scope", self.subtitle_scope)).lower()
+        self.room_lang_remember_s = float(new_cfg.get("room_lang_remember_s", self.room_lang_remember_s))
 
 
         # Paths (optional but usually desired)
@@ -2130,6 +2178,12 @@ class App:
 
                     elif ev.kind == "sub_up":
                         self._handle_subtitle_press(ev.t)
+
+                while True:
+                    try:
+                        self._handle_room_change(*self._room_q.get_nowait())
+                    except queue.Empty:
+                        break
 
 
                 # Only read mpv events when mpv is expected to be responsive

@@ -327,8 +327,9 @@ class SharedState:
     def set(self, key: str, value: Any, **meta: Any) -> dict:
         e = {"v": value, "c": self.bus.tick(), "n": self.bus.node, "ts": time.time(), **meta}
         with self._lock:
+            old = self._entries.get(key)
             self._entries[key] = e
-        self._changed(key, e)
+        self._changed(key, e, old)
         self._announce()
         return e
 
@@ -342,12 +343,13 @@ class SharedState:
         won = []
         with self._lock:
             for k, e in payload.items():
-                if isinstance(e, dict) and "c" in e and self._newer(e, self._entries.get(k)):
+                old = self._entries.get(k)
+                if isinstance(e, dict) and "c" in e and self._newer(e, old):
                     self._entries[k] = e
-                    won.append((k, e))
-        for k, e in won:
+                    won.append((k, e, old))
+        for k, e, old in won:
             self.bus._observe(int(e.get("c") or 0))
-            self._changed(k, e)
+            self._changed(k, e, old)
 
     def _on_set(self, topic, payload, env) -> None:
         """A write asked for by a device without state (every player hearing it applies it; the
@@ -356,7 +358,13 @@ class SharedState:
             meta = {k: v for k, v in payload.items() if k not in ("key", "value", "v", "c", "n", "ts")}
             self.set(payload["key"], payload.get("value"), by=env.get("n"), **meta)
 
-    def _changed(self, key, e) -> None:
+    REPEAT_S = 5.0
+
+    def _changed(self, key, e, old) -> None:
+        # several players writing the same room/set, or an echo: no news. The same value chosen
+        # again later is (it restarts how long a choice lasts).
+        if old and old.get("v") == e.get("v") and float(e.get("ts") or 0) - float(old.get("ts") or 0) < self.REPEAT_S:
+            return
         if self.on_change:
             try:
                 self.on_change(key, e["v"], e)

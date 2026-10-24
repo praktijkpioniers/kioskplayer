@@ -221,6 +221,11 @@ def render_page(cfg: dict, msg: str = "") -> str:
         active_video = 0
 
     subtitle_default_on = bool(cfg.get("subtitle_default_on", False))
+    subtitle_scope = str(cfg.get("subtitle_scope", "room")).lower()
+    room = dict(cfg.get("room") or {})
+    room_on = bool(room.get("enabled"))
+    room_group = html.escape(str(room.get("group") or ""))
+    room_mins = int(round(float(cfg.get("room_lang_remember_s", 1200)) / 60))
 
     if vids:
         if active_video < 0:
@@ -372,6 +377,24 @@ a.buttonlink {{
   <option value="0" {"selected" if not subtitle_default_on else ""}>OFF</option>
   <option value="1" {"selected" if subtitle_default_on else ""}>ON</option>
 </select>
+<label>Language choice applies to</label>
+<select name="subtitle_scope">
+  <option value="room" {"selected" if subtitle_scope == "room" else ""}>the whole room (needs Room on)</option>
+  <option value="screen" {"selected" if subtitle_scope == "screen" else ""}>this screen only</option>
+</select>
+<label>Room language lasts (minutes)</label>
+<input name="room_lang_remember_min" type="number" min="1" max="240" value="{room_mins}">
+</fieldset>
+
+<fieldset>
+<legend>Room</legend>
+<label>Share with the other players in the room (takes effect after a restart)</label>
+<select name="room_enabled">
+  <option value="0" {"selected" if not room_on else ""}>OFF</option>
+  <option value="1" {"selected" if room_on else ""}>ON</option>
+</select>
+<label>Room name (empty: every player that can hear this one)</label>
+<input name="room_group" value="{room_group}">
 </fieldset>
 
 <fieldset>
@@ -861,6 +884,15 @@ class Handler(BaseHTTPRequestHandler):
         # default subtitle mode (0/1)
         subdef = str(get("subtitle_default_on", str)).strip()
         cfg["subtitle_default_on"] = (subdef == "1")
+        cfg["subtitle_scope"] = "screen" if str(get("subtitle_scope", str) or "").strip() == "screen" else "room"
+        try:
+            cfg["room_lang_remember_s"] = max(1, min(240, int(get("room_lang_remember_min", str) or 20))) * 60.0
+        except (TypeError, ValueError):
+            pass
+        room = dict(cfg.get("room") or {})
+        room["enabled"] = str(get("room_enabled", str) or "0").strip() == "1"
+        room["group"] = str(get("room_group", str) or "").strip()
+        cfg["room"] = room
 
         # seasonal themes: unchecked type boxes are simply absent from the POST
         cfg["themes_enabled"] = (str(get("themes_enabled", str) or "1").strip() == "1")
