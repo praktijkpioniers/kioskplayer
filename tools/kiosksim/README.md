@@ -3,7 +3,7 @@
 A test mpv that behaves roughly like the kiosk: the idle logo, SPACE plays a video (themes in
 video mode, a test subtitle on it) and returns to the logo at the end. Quit keys are disabled, so
 a stray `q` over remote desktop doesn't close it. Theme preview keys work here (they don't on the
-real players): 1–9 level, 0 calendar, v idle/video, t balloons, f web ×8, w new web, c send the cat, d the vampire next.
+real players): 1–9 level, 0 calendar, v idle/video, t balloons, f web ×8, w new web, c send the cat, d the vampire next, m the mummy next.
 
     tools/kiosksim/run.sh [video]          # starts mpv on :0 with the theme engine
     python3 tools/kiosksim/drive.py 4 idle # load level 4 (manifest built by themes.py)

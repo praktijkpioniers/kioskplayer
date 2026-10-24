@@ -975,6 +975,148 @@ function spawn.vampire(el, spr)
     return a
 end
 
+-- mummy: an upright sarcophagus (tools/bake/sarcophagus.py) rises out of the ground, the lid
+-- swings open, the mummy walks out, faces the viewer and loses all its bandages (they drop into a
+-- heap at its feet). A bare skeleton (the helper) comes in, winds the bandages back on while the
+-- mummy spins, they cheer, the helper goes off, the mummy goes back in, the lid shuts and the
+-- sarcophagus sinks. Four sprites on four overlay ids, bottom to top: box, mummy, helper, lid
+-- (shut, the lid hides the mummy). Planned coming out to the right, mirrored half the time.
+-- Each step has a part for the mummy (a) and for the helper (b): a clip, walking to x (to),
+-- for dur, mirrored (m); or hide. A step ends when both parts did; a missing part rests.
+function spawn.mummy(el, spr)
+    local S = M.sprites
+    local helper, box, lid = S[el.helper or ""], S[el.box or ""], S[el.lid or ""]
+    local C, B = spr.clips, helper and helper.clips
+    if not (C and C.walk and C.unwrap and C.spin and C.shy and B and B.walk and B.wind
+            and box and lid and spr.origin and helper.origin and box.origin and lid.origin and spr.unit) then
+        return nil
+    end
+    local u = spr.unit * H
+    -- the sarcophagus, where the mummy unwraps and where the helper stands: not behind decoration
+    -- on the ground (decor is drawn over actors); planned in scene space, see place()
+    local d, cx, out
+    local function free(x, half)
+        local sx = d > 0 and x or W - x
+        for _, dc in ipairs(standing_decor()) do
+            if dc.y + dc.spr.h > H * 0.8 and sx + half > dc.x and sx - half < dc.x + dc.spr.w then return false end
+        end
+        return true
+    end
+    for _ = 1, 16 do
+        d = math.random() < 0.5 and 1 or -1
+        local x = rnd(math.max(1.8 * u, W * 0.1), math.max(1.8 * u, W * 0.35))
+        local o = x + rnd(2.2, 3.0) * u
+        if o + 3 * u <= W and free(x, box.w / 2 + 0.3 * u) and free(o, 0.7 * u) and free(o + 1.3 * u, 0.6 * u) then
+            cx, out = x, o
+            break
+        end
+    end
+    if not cx then return nil end
+    local a = { el = el, spr = spr, layers = 4 }
+    local open = lid.frames - 1
+
+    local steps = {}
+    local A = { x = cx, face = 0, rest = { clip = "idle", rest = true }, clips = C }
+    local Bt = { x = W + 1.2 * u, face = -1, rest = { hide = true, rest = true }, clips = B }
+    local function add(s)   -- (a missing part rests as planned at this point)
+        s.a, s.b = s.a or A.rest, s.b or Bt.rest
+        steps[#steps + 1] = s
+        return s
+    end
+    local function turn(t, f, key)
+        if f == t.face then return end
+        local s = {}
+        if t.face ~= 0 and t.clips.turn_front then s[key] = { clip = "turn_front", m = t.face < 0 } add(s) end
+        s = {}
+        if f ~= 0 and t.clips.turn_side then s[key] = { clip = "turn_side", m = f < 0 } add(s) end
+        t.face = f
+    end
+    local function go(t, key, to, rate)
+        turn(t, to > t.x and 1 or -1, key)
+        add { [key] = { clip = "walk", to = to, m = t.face < 0, rate = rate } }
+        t.x = to
+    end
+
+    -- up out of the ground, the lid opens, out and to the middle, facing the viewer
+    add { a = { hide = true }, rise = { 1, 0 }, dur = DECOR_MOVE_S }
+    add { a = { hide = true }, dur = rnd(0.5, 1.5) }
+    add { lid = { 0, open }, dur = 1.0 }
+    add { dur = rnd(0.4, 0.9) }
+    go(A, "a", out)
+    turn(A, 0, "a")
+    add { dur = rnd(0.8, 1.5) }
+    -- off they go; embarrassed (one of the shouts, maybe); the helper comes
+    add { a = { clip = "unwrap" } }
+    A.rest = { clip = "shy", rest = true }
+    add { a = { clip = "shy", dur = rnd(2, 3), act = true } }
+    Bt.rest = { clip = "idle", m = true, rest = true }
+    go(Bt, "b", out + 1.3 * u, 2.4)
+    turn(Bt, 0, "b")
+    add { a = C.shy_turn and { clip = "shy_turn" } or nil, b = { clip = "wind", m = true, dur = 0.6 } }
+    A.rest = { clip = "idle", rest = true }
+    add { a = { clip = "spin" }, b = { clip = "wind", m = true } }
+    add { a = { clip = C.cheer and "cheer" or "idle", dur = (not C.cheer) and 1.5 or nil },
+          b = { clip = B.cheer and "cheer" or "idle", m = true, dur = (not B.cheer) and 1.5 or nil } }
+    -- the helper goes off, the mummy back in, the lid shuts, down it goes
+    go(Bt, "b", W + 1.5 * u, 2.4)
+    Bt.rest = { hide = true, rest = true }
+    go(A, "a", cx)
+    turn(A, 0, "a")
+    add { lid = { open, 0 }, dur = 1.0 }
+    add { a = { hide = true }, dur = rnd(0.5, 1.2) }
+    add { a = { hide = true }, rise = { 0, 1 }, dur = DECOR_MOVE_S }
+
+    -- play
+    local si, tc = 1, 0
+    local lf, rise = 0, 1
+    A.x, Bt.x = cx, W + 1.2 * u
+    a.line = pick_line(el)
+    local function place(sp, x, frame, mirror, dy)
+        local m = (mirror and true or false) ~= (d < 0)
+        local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] + dy }
+    end
+    -- one actor's part of the step: its layer (or nil) and whether that part is done
+    local function part(t, sp, p, dt, dy)
+        local rest = p.rest
+        if p.hide then return nil, rest or tc >= (p.dur or 0) end
+        local c = t.clips[p.clip]
+        local rate = p.rate or 1
+        local done
+        if p.to then
+            local v = c.stride_px * c.fps / c.count * rate * (el.speed or 1.0)
+            local dir = p.to > t.x and 1 or -1
+            t.x = t.x + dir * v * dt
+            if (dir > 0 and t.x >= p.to) or (dir < 0 and t.x <= p.to) then t.x, done = p.to, true end
+        else
+            done = rest or tc >= (p.dur or (c.loop and 0 or c.count / c.fps))
+        end
+        local k = math.floor(tc * c.fps * rate)
+        if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
+        return place(sp, t.x, c.start + k, p.m, dy), done
+    end
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        if si ~= a.logged then a.logged = si msg.verbose("mummy step " .. si) end
+        tc = tc + dt
+        local p = s.dur and clamp(tc / s.dur, 0, 1) or 1
+        if s.lid then lf = math.floor(s.lid[1] + (s.lid[2] - s.lid[1]) * p + 0.5) end
+        if s.rise then rise = s.rise[1] + (s.rise[2] - s.rise[1]) * (s.rise[2] > s.rise[1] and p * p or 1 - (1 - p) ^ 2) end
+        local dy = rise * box.h
+        local la, da = part(A, spr, s.a, dt, A.x == cx and dy or 0)
+        local lb, db = part(Bt, helper, s.b, dt, 0)
+        local layers = { place(box, cx, 0, false, dy), la, lb, place(lid, cx, lf, false, dy) }
+        if la then a.sx, a.sy = la.x, la.y end
+        a.talking = a.line and s.a and s.a.act and true or false
+        if a.talking and not a.say_t then a.say_t = t end
+        if da and db and tc >= (s.dur or 0) then si, tc = si + 1, 0 end
+        return true, layers
+    end
+    return a
+end
+
 -- visitor: a decoration that comes and goes (low levels: "now and then a pumpkin").
 -- el.cast = list of { sprite, anchor, places } like decor; one entry is picked per visit.
 -- It slides in from its corner/edge, stays el.stay seconds, slides out again. Two visitors
@@ -1759,7 +1901,8 @@ end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
---   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next
+--   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
+--   m = the mummy next
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -1798,6 +1941,11 @@ end)
 mp.add_forced_key_binding("d", "theme-preview-vampire", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "vampire" and elements[el] then elements[el].next = 0 end
+    end
+end)
+mp.add_forced_key_binding("m", "theme-preview-mummy", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "mummy" and elements[el] then elements[el].next = 0 end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

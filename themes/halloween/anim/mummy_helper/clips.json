@@ -1,0 +1,53 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 19,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.383400160074234
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "wind": {
+   "files": "wind_*.png",
+   "count": 16,
+   "fps": 24.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "cheer": {
+   "files": "cheer_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 137.14285714285714,
+ "origin_px": [
+  171.5,
+  384
+ ]
+}

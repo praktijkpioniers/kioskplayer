@@ -1,0 +1,74 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 13,
+   "fps": 7.199999999999999,
+   "loop": true,
+   "stride": 0.33607023656368257
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "unwrap": {
+   "files": "unwrap_*.png",
+   "count": 30,
+   "fps": 19.200000000000003,
+   "loop": false,
+   "stride": 0.0
+  },
+  "shy": {
+   "files": "shy_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "shy_turn": {
+   "files": "shy_turn_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "spin": {
+   "files": "spin_*.png",
+   "count": 48,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "cheer": {
+   "files": "cheer_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 137.14285714285714,
+ "origin_px": [
+  171.5,
+  384
+ ]
+}

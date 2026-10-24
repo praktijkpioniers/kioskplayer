@@ -1,0 +1,135 @@
+{
+ "_doc": "The mummy of the mummy scene: KayKit Skeleton Minion (CC0, see skeleton_minion.json) without its hood, wrapped in a bandage shell that drops (unwrap) and is wound on again (spin); a heap of bandage at its feet in between. Bare clips (wrap 0) show the skeleton underneath.",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "hide": [
+  "Icosphere",
+  "Skeleton_Minion_Cloak"
+ ],
+ "shell": {
+  "meshes": [
+   "Skeleton_Minion_Body",
+   "Skeleton_Minion_ArmLeft",
+   "Skeleton_Minion_ArmRight",
+   "Skeleton_Minion_LegLeft",
+   "Skeleton_Minion_LegRight",
+   "Skeleton_Minion_Head",
+   "Skeleton_Minion_Jaw"
+  ],
+  "thickness": 0.05,
+  "color": "#e8e1cc",
+  "stripe": "#a89b80",
+  "stripes": 5,
+  "edge": 0.05
+ },
+ "heap": {
+  "color": "#e8e1cc"
+ },
+ "outline": 0.008,
+ "frame": {
+  "x": [
+   -1.25,
+   1.25
+  ],
+  "h": 2.8
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "speed": 0.6,
+   "hold": {
+    "from": "Interact",
+    "frame": 10,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   }
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6
+  },
+  "unwrap": {
+   "action": "Hit_B",
+   "yaw": 15,
+   "frames": 30,
+   "step": 1,
+   "wrap": [
+    1,
+    0
+   ],
+   "heap": [
+    0,
+    1
+   ],
+   "speed": 0.8
+  },
+  "shy": {
+   "action": "Blocking",
+   "yaw": 15,
+   "loop": true,
+   "step": 2,
+   "wrap": 0,
+   "heap": 1
+  },
+  "shy_turn": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    60
+   ],
+   "frames": 6,
+   "wrap": 0,
+   "heap": 1
+  },
+  "spin": {
+   "action": "Idle",
+   "yaw": [
+    60,
+    780
+   ],
+   "frames": 48,
+   "wrap": [
+    0,
+    1
+   ],
+   "heap": [
+    1,
+    0
+   ]
+  },
+  "cheer": {
+   "action": "Cheer",
+   "yaw": 15,
+   "step": 2
+  }
+ }
+}

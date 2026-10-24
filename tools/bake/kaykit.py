@@ -25,6 +25,12 @@
 #              bones in the pose of another action (e.g. arms forward while walking = pushing);
 #              a list of such holds combines several
 #   per clip "speed": 0.6  play slower (or faster): fps, and so the walking speed, scaled
+#   "shell":   {"meshes": [...], "thickness": 0.05, "color": "#e6dfc8", "stripe": "#a99d82"}  a
+#              bandage wrapping over those meshes (a mummy); per clip "wrap": 1 wrapped (default),
+#              0 bare, [from, to] (un)wrapping during the clip: the bandage shows below a level
+#              that rises from the feet to the head (with a spiral edge)
+#   "heap":    {"color": "#e6dfc8"}  a pile of bandage at the feet; per clip "heap": 0 (default),
+#              1 or [from, to] (its size)
 #
 # yaw 0 = facing the viewer, 90 = walking to the right. A [from, to] yaw turns during the clip.
 # The camera is orthographic, level, and identical for all clips (framed on the union of all
@@ -92,12 +98,105 @@ for o in meshes:
         o.hide_render = True
 meshes = [o for o in meshes if not o.hide_render]
 
+def hexrgb(h):
+    return [(int(h[i:i + 2], 16) / 255) ** 2.2 for i in (1, 3, 5)]
+
+
+SHELL, HEAP = R.get("shell"), R.get("heap")
+level_nodes, shell_objs = [], []
+
+
+def bandage_mat(name, base, stripe=None, clip=True):
+    """Flat cloth; with stripe: diagonal bands. clip: only below the level (world z), whose edge
+    climbs around the body (a spiral as the level moves)."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt, N = m.node_tree, m.node_tree.nodes
+    bsdf = N["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 1
+    if stripe:
+        tc, wave, ramp = N.new("ShaderNodeTexCoord"), N.new("ShaderNodeTexWave"), N.new("ShaderNodeValToRGB")
+        wave.wave_type, wave.bands_direction = "BANDS", "DIAGONAL"
+        wave.inputs["Scale"].default_value = SHELL.get("stripes", 5)
+        wave.inputs["Distortion"].default_value = 1.5
+        nt.links.new(tc.outputs["Object"], wave.inputs["Vector"])
+        ramp.color_ramp.elements[0].color = (*hexrgb(stripe), 1)
+        ramp.color_ramp.elements[1].color = (*hexrgb(base), 1)
+        ramp.color_ramp.elements[0].position, ramp.color_ramp.elements[1].position = 0.2, 0.45
+        nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
+        nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    else:
+        bsdf.inputs["Base Color"].default_value = (*hexrgb(base), 1)
+    if clip:
+        m.blend_method, m.shadow_method = "CLIP", "CLIP"
+        geo, sep = N.new("ShaderNodeNewGeometry"), N.new("ShaderNodeSeparateXYZ")
+        nt.links.new(geo.outputs["Position"], sep.inputs[0])
+        neg = N.new("ShaderNodeMath"); neg.operation = "MULTIPLY"; neg.inputs[1].default_value = -1
+        nt.links.new(sep.outputs["Y"], neg.inputs[0])
+        ang = N.new("ShaderNodeMath"); ang.operation = "ARCTAN2"    # the seam at the back
+        nt.links.new(sep.outputs["X"], ang.inputs[0]); nt.links.new(neg.outputs[0], ang.inputs[1])
+        wig = N.new("ShaderNodeMath"); wig.operation = "MULTIPLY"; wig.inputs[1].default_value = SHELL.get("edge", 0.04)
+        nt.links.new(ang.outputs[0], wig.inputs[0])
+        lvl = N.new("ShaderNodeValue"); lvl.outputs[0].default_value = 100.0
+        add = N.new("ShaderNodeMath"); add.operation = "ADD"
+        nt.links.new(lvl.outputs[0], add.inputs[0]); nt.links.new(wig.outputs[0], add.inputs[1])
+        lt = N.new("ShaderNodeMath"); lt.operation = "LESS_THAN"
+        nt.links.new(sep.outputs["Z"], lt.inputs[0]); nt.links.new(add.outputs[0], lt.inputs[1])
+        nt.links.new(lt.outputs[0], bsdf.inputs["Alpha"])
+        level_nodes.append(lvl)
+    return m
+
+
+if SHELL:
+    import bmesh
+    cloth = bandage_mat("bandage", SHELL.get("color", "#e6dfc8"), SHELL.get("stripe", "#a99d82"))
+    for o in list(meshes):
+        if o.name.split(".")[0] in SHELL["meshes"]:
+            c = o.copy()
+            c.data = o.data.copy()
+            c.name = o.name + "_shell"
+            scene.collection.objects.link(c)
+            bm = bmesh.new()
+            bm.from_mesh(c.data)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)   # one skin: no gaps when inflated
+            bm.to_mesh(c.data)
+            bm.free()
+            c.data.materials.clear()
+            c.data.materials.append(cloth)
+            for poly in c.data.polygons:
+                poly.material_index = 0
+                poly.use_smooth = True
+            d = c.modifiers.new("inflate", "DISPLACE")   # after the armature: along the posed normals
+            d.direction, d.strength, d.mid_level = "NORMAL", SHELL.get("thickness", 0.05), 0.0
+            shell_objs.append(c)
+    meshes += shell_objs
+    body_top = max((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices)
+
 # Turntable parent so yaw does not fight the imported rig transform.
 pivot = bpy.data.objects.new("pivot", None)
 scene.collection.objects.link(pivot)
 for o in scene.objects:
     if o.parent is None and o is not pivot:
         o.parent = pivot
+
+heap = None
+if HEAP:
+    pile = bandage_mat("heap", HEAP.get("color", "#e6dfc8"), clip=False)
+    rings = []
+    for k, (r, x, y, z) in enumerate([(0.42, 0, 0, 0.05), (0.34, 0.08, -0.04, 0.13), (0.26, -0.06, 0.02, 0.2),
+                                      (0.2, 0.1, 0.05, 0.27), (0.3, -0.1, -0.05, 0.09)]):
+        bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.075, location=(x, y - 0.15, z),
+                                         rotation=(math.radians(8 * (k % 3 - 1)), math.radians(6 * (k % 2)), 0))
+        rings.append(bpy.context.active_object)
+    for o in rings:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = rings[0]
+    bpy.ops.object.join()
+    heap = rings[0]
+    heap.name = "heap"
+    heap.data.materials.append(pile)
+    heap.hide_render = True
+    meshes.append(heap)
 
 actions = {a.name: a for a in bpy.data.actions}
 
@@ -221,8 +320,12 @@ if R.get("outline", 0.012):
     bsdf = ink.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Base Color"].default_value = (0.02, 0.02, 0.03, 1)
     bsdf.inputs["Roughness"].default_value = 1
+    ink_clip = None
+    if shell_objs:
+        ink_clip = bandage_mat("ink_shell", "#050508")
+        ink_clip.use_backface_culling = True
     for o in meshes:
-        o.data.materials.append(ink)
+        o.data.materials.append(ink_clip if o in shell_objs else ink)
         sol = o.modifiers.new("outline", "SOLIDIFY")
         sol.thickness = -R.get("outline", 0.012) * frame_h
         sol.use_flip_normals = True
@@ -261,10 +364,31 @@ for f in os.listdir(OUT):
     if f.endswith(".png"):
         os.remove(os.path.join(OUT, f))
 meta = {}
+def along(v, i, n):
+    """A clip value: a number, or [from, to] eased over the clip."""
+    if isinstance(v, list):
+        q = 0.5 - 0.5 * math.cos(math.pi * i / max(1, n - 1))
+        return v[0] + (v[1] - v[0]) * q
+    return v
+
+
+def wrap_state(c, i, n):
+    if SHELL:
+        w = along(c.get("wrap", 1), i, n)
+        level = -0.3 + w * (body_top + 0.6)      # 0: below the feet (with the edge), 1: over the head
+        for node in level_nodes:
+            node.outputs[0].default_value = level
+    if heap:
+        s = along(c.get("heap", 0), i, n)
+        heap.hide_render = s < 0.03
+        heap.scale = (s, s, max(0.05, s))
+
+
 for name, (a, fr) in clips.items():
     c = R["clips"][name]
     for i, (f, yaw) in enumerate(fr):
         pose(a, f, yaw)
+        wrap_state(c, i, len(fr))
         scene.render.filepath = os.path.join(OUT, f"{name}_{i:04d}.png")
         bpy.ops.render.render(write_still=True)
     meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1) * c.get("speed", 1),

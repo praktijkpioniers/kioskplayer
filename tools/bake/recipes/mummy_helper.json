@@ -1,0 +1,58 @@
+{
+ "_doc": "The helper of the mummy scene: the same skeleton, bare (a mummy without its bandages), who comes to wrap the other one up.",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "hide": [
+  "Icosphere",
+  "Skeleton_Minion_Cloak"
+ ],
+ "outline": 0.008,
+ "frame": {
+  "x": [
+   -1.25,
+   1.25
+  ],
+  "h": 2.8
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_D_Skeletons",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6
+  },
+  "wind": {
+   "action": "Spellcasting",
+   "yaw": 70,
+   "loop": true,
+   "step": 1
+  },
+  "cheer": {
+   "action": "Cheer",
+   "yaw": 40,
+   "step": 2
+  }
+ }
+}

@@ -97,6 +97,23 @@
       "anim": "anim/coffin_lid",
       "unit": 0.115
     },
+    "mummy3d": {
+      "anim": "anim/mummy",
+      "unit": 0.115
+    },
+    "mummy_helper3d": {
+      "anim": "anim/mummy_helper",
+      "unit": 0.115
+    },
+    "sarcophagus_box": {
+      "anim": "anim/sarcophagus_box",
+      "unit": 0.145,
+      "solid": true
+    },
+    "sarcophagus_lid": {
+      "anim": "anim/sarcophagus_lid",
+      "unit": 0.145
+    },
     "pumpkin_group": {
       "file": "pumpkin_group.png",
       "height": 0.16,
@@ -648,6 +665,28 @@
       "stay": [
         30,
         90
+      ],
+      "say": true,
+      "group": [
+        "monster",
+        "walker"
+      ]
+    },
+    {
+      "type": "mummy",
+      "sprite": "mummy3d",
+      "helper": "mummy_helper3d",
+      "box": "sarcophagus_box",
+      "lid": "sarcophagus_lid",
+      "min": 8,
+      "video_min": 8,
+      "every": [
+        300,
+        600
+      ],
+      "delay": [
+        30,
+        120
       ],
       "say": true,
       "group": [

@@ -1,0 +1,18 @@
+{
+ "view": "front",
+ "model": "sarcophagus.py",
+ "clips": {
+  "box": {
+   "files": "box_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 137.14285714285714,
+ "origin_px": [
+  219.52000000000004,
+  384
+ ]
+}
