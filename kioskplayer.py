@@ -46,6 +46,7 @@ CONTROL_MAGIC = b"CONFIG_CHANGED\n"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+import roombus
 from themes import ENGINE_LUA, ThemeController
 
 # GPIO optional (PC dev mode)
@@ -181,6 +182,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "watermark_height": 0.08,           # fraction of screen height
     "watermark_opacity": 0.6,
     "watermark_margin": 0.025,
+
+    # Room: players of one room share state (later: one language for the room, animations moving
+    # from screen to screen). See roombus.py. transports: "udp-broadcast", {"udp-multicast": ip},
+    # {"udp-peers": [host, ...]} (other subnets, tailnet); several at once is fine.
+    "room": {"enabled": False, "group": "", "node": "", "port": 47800,
+             "transports": ["udp-broadcast"], "key_file": ""},
 }
 
 
@@ -787,6 +794,16 @@ class App:
             log=log,
         )
         self.themes.configure(cfg)
+
+        self.room_bus: Optional[roombus.Bus] = None
+        self.room: Optional[roombus.SharedState] = None
+        try:
+            self.room_bus = roombus.bus_from_config(cfg.get("room") or {}, info={"host": socket.gethostname()})
+            if self.room_bus:
+                self.room = roombus.SharedState(
+                    self.room_bus, on_change=lambda k, v, e: log(f"ROOM {k} = {v!r} (by {e.get('n')})"))
+        except Exception as e:
+            log(f"room bus not started: {e}")
 
         self.state = "IDLE"  # SLEEP | IDLE | PASSKEY | MENU | PLAYING
         self.last_activity = time.time()
