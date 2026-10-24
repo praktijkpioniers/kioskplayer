@@ -19,8 +19,12 @@
 #              of the 8×4 texture grid), keeping each swatch's shading
 #   "frame":   {"x": [lo, hi], "h": units}  fixed framing (world units) instead of the union of all
 #              poses; bakes with the same "h" share a scale (see "unit" in theme.json)
+#   "bone_scale": {"head": 0.8, "upperleg.l": [1, 1.3, 1]}  scale bones in every pose (a smaller
+#              head, longer legs: less of a toy); the feet are put back on the ground
 #   per clip "hold": {"from": "Interact", "frame": 10, "bones": ["upperarm.r", ...]}  freeze those
-#              bones in the pose of another action (e.g. arms forward while walking = pushing)
+#              bones in the pose of another action (e.g. arms forward while walking = pushing);
+#              a list of such holds combines several
+#   per clip "speed": 0.6  play slower (or faster): fps, and so the walking speed, scaled
 #
 # yaw 0 = facing the viewer, 90 = walking to the right. A [from, to] yaw turns during the clip.
 # The camera is orthographic, level, and identical for all clips (framed on the union of all
@@ -97,6 +101,14 @@ for o in scene.objects:
 
 actions = {a.name: a for a in bpy.data.actions}
 
+# bone_scale: drop the bones' scale keys everywhere, then the pose scale stays put
+for bone, sc in R.get("bone_scale", {}).items():
+    paths = (f'pose.bones["{bone}"].scale',)
+    for a in actions.values():
+        for fc in [fc for fc in a.fcurves if fc.data_path in paths]:
+            a.fcurves.remove(fc)
+    rig.pose.bones[bone].scale = (sc, sc, sc) if isinstance(sc, (int, float)) else sc
+
 
 def action(name):
     return actions.get(name) or actions.get(name + "_Rig") or next(a for n, a in actions.items() if n.startswith(name))
@@ -105,18 +117,19 @@ def action(name):
 def held(c):
     """The clip's action, or a copy with some bones frozen in the pose of another action."""
     a = action(c["action"])
-    h = c.get("hold")
-    if not h:
+    holds = c.get("hold")
+    if not holds:
         return a
-    src, f = action(h["from"]), h.get("frame", 0)
     b = a.copy()
-    paths = [f'pose.bones["{n}"].{k}' for n in h["bones"] for k in ("rotation_quaternion", "location", "scale")]
-    for fc in [fc for fc in b.fcurves if fc.data_path in paths]:
-        b.fcurves.remove(fc)
-    for fc in src.fcurves:
-        if fc.data_path in paths:
-            nf = b.fcurves.new(fc.data_path, index=fc.array_index)
-            nf.keyframe_points.insert(a.frame_range[0], fc.evaluate(f))
+    for h in holds if isinstance(holds, list) else [holds]:
+        src, f = action(h["from"]), h.get("frame", 0)
+        paths = [f'pose.bones["{n}"].{k}' for n in h["bones"] for k in ("rotation_quaternion", "location", "scale")]
+        for fc in [fc for fc in b.fcurves if fc.data_path in paths]:
+            b.fcurves.remove(fc)
+        for fc in src.fcurves:
+            if fc.data_path in paths:
+                nf = b.fcurves.new(fc.data_path, index=fc.array_index)
+                nf.keyframe_points.insert(a.frame_range[0], fc.evaluate(f))
     return b
 
 
@@ -144,6 +157,14 @@ def pose(a, f, yaw):
 
 
 clips = {n: clip_frames(c) for n, c in R["clips"].items()}
+
+if R.get("bone_scale"):
+    # longer legs lift the body: put the feet back on the ground (lowest point standing idle)
+    pose(action("Idle"), int(action("Idle").frame_range[0]), 0)
+    dg = bpy.context.evaluated_depsgraph_get()
+    low = min((o.evaluated_get(dg).matrix_world @ v.co).z for o in meshes for v in o.evaluated_get(dg).to_mesh().vertices)
+    pivot.location.z -= low
+    print("GROUND lift %.3f" % -low)
 
 # ---- framing: union bbox over every pose, as seen by a camera looking along +Y ----
 dg = bpy.context.evaluated_depsgraph_get()
@@ -246,7 +267,7 @@ for name, (a, fr) in clips.items():
         pose(a, f, yaw)
         scene.render.filepath = os.path.join(OUT, f"{name}_{i:04d}.png")
         bpy.ops.render.render(write_still=True)
-    meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1),
+    meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1) * c.get("speed", 1),
                   "loop": bool(c.get("loop", False)),
                   "stride": stride(a, fr) if c.get("stride") == "auto" else float(c.get("stride", 0))}
 json.dump({"view": "front", "model": R["model"], "clips": meta,

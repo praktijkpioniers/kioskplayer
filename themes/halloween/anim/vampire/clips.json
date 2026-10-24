@@ -7,21 +7,21 @@
    "count": 13,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.48010033794811796
+   "stride": 0.5636397631544816
   },
   "pull": {
    "files": "pull_*.png",
    "count": 13,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.43790954990046366
+   "stride": 0.5170741716497823
   },
   "push": {
    "files": "push_*.png",
    "count": 13,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.48010033794811796
+   "stride": 0.5636397631544816
   },
   "reach": {
    "files": "reach_*.png",
@@ -57,11 +57,32 @@
    "fps": 24.0,
    "loop": false,
    "stride": 0.0
+  },
+  "sneak": {
+   "files": "sneak_*.png",
+   "count": 19,
+   "fps": 8.399999999999999,
+   "loop": true,
+   "stride": 0.6378433108329773
+  },
+  "run": {
+   "files": "run_*.png",
+   "count": 10,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 1.0870951570962606
+  },
+  "jump": {
+   "files": "jump_*.png",
+   "count": 15,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
- "unit_px": 156.734693877551,
+ "unit_px": 147.69230769230768,
  "origin_px": [
-  125.25714285714287,
+  133.10526315789474,
   384
  ]
 }

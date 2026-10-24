@@ -14,9 +14,9 @@ import bpy, bmesh, json, math, os, sys
 argv = sys.argv[sys.argv.index("--") + 1:]
 OUT = os.path.abspath(argv[0])
 SIZE = int(argv[1]) if len(argv) > 1 else 384
-FRAME_H = float(argv[2]) if len(argv) > 2 else 2.45
+FRAME_H = float(argv[2]) if len(argv) > 2 else 2.6
 
-L, Wd, H = 2.6, 1.1, 1.12        # length (x), depth (y), box height (z); head end at -x
+L, Wd, H = 2.7, 1.1, 0.8         # length (x), depth (y), box height (z); head end at -x
 LID_T, LID_N = 0.12, 12           # lid thickness, opening frames
 X_LO, X_HI = -1.5, 1.5
 

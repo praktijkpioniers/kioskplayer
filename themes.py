@@ -440,6 +440,17 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         if old.stem != out.stem:
             old.unlink(missing_ok=True)
 
+    # "solid": things the cat can climb onto: the top edge per column (fraction of the height)
+    profile = None
+    if sdef.get("solid"):
+        a = frames[0].getchannel("A").point(lambda v: 255 if v > 128 else 0)
+        n = 32
+        profile = []
+        for i in range(n):
+            x0 = i * a.width // n
+            b = a.crop((x0, 0, max(x0 + 1, (i + 1) * a.width // n), a.height)).getbbox()
+            profile.append(round(b[1] / a.height, 3) if b else 1.0)
+
     meta = {
         "file": str(out),
         "w": frames[0].width,
@@ -453,6 +464,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "clips": clips,
         "origin": origin,
         "unit": float(sdef["unit"]) if origin else None,
+        "profile": profile,
     }
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
     return meta

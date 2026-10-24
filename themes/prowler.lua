@@ -1,6 +1,8 @@
 -- Prowler: a black cat strolls along the bottom edge of the screen. It stops now and then to
 -- look around, sits down halfway to lick a paw and wash, sharpens its claws on a pumpkin that
--- stands in its way, and walks off (sometimes back the way it came). Drawn as ASS vectors from
+-- stands in its way, and walks off (sometimes back the way it came). Solid things (pumpkins,
+-- tombstones, the coffin: sprites with a "profile") it walks over: small steps it just takes,
+-- higher ones it jumps up onto and down from; if the thing under it goes away, it drops down. Drawn as ASS vectors from
 -- a small skeleton (body line, two-bone legs, tail chain), so every pose is computed, not baked.
 -- Loaded by engine.lua.
 --
@@ -26,6 +28,7 @@ local FL1, FL2 = 2.9, 2.9            -- front leg: upper arm, forearm (to the wr
 local HL1, HL2, HL3 = 2.8, 2.8, 1.9  -- hind leg: thigh, shin, foot (hock to toes)
 local TAIL_N, TAIL_SEG = 12, 0.85
 local STRIDE, DUTY = 4.4, 0.62
+local CLIMB, MAX_UP = 3, 22          -- steps up to this it walks; jumps no higher than that
 
 -- poses: only the keys a pose sets are tweened
 local STAND = { hh = 6.4, ba = 0.02, bl = 8.6, nx = 2.2, ny = -2.9, hp = 0, fold = 0 }
@@ -116,7 +119,8 @@ local function new_cat(o)
     self.ground = o.H * 0.988
     self.dir = (math.random() < 0.5) and 1 or -1
     self.speed = rnd(5.5, 7.0)            -- u/s
-    self.obstacles = o.obstacles or function() return {} end   -- {x1, x2, pumpkin} on the ground
+    self.obstacles = o.obstacles or function() return {} end   -- {x1, x2, pumpkin, x, y, w, h, profile, mirror}
+    self.elev, self.air = 0, false        -- u above the ground: standing on something / in a jump
     self.phase, self.bob = 0, 0
     self.T = 0
     self.blink_at, self.blink = rnd(1, 4), 1
@@ -139,6 +143,37 @@ function C:neutral_feet(t, pose)
     t.nfx, t.nfy, t.ffx, t.ffy = sx + 0.4, 0, sx - 0.2, 0
     t.nhx, t.nhy, t.fhx, t.fhy = -0.1, 0, -0.6, 0
     return t
+end
+
+-- height (u above the ground) of the solid things between screen x a and b
+function C:surface(a, b)
+    if a > b then a, b = b, a end
+    local top = 0
+    for _, ob in ipairs(self.obstacles()) do
+        local pr = ob.profile
+        if pr and ob.x + ob.w > a and ob.x < b then
+            local n = #pr
+            for i = 1, n do
+                local cx = ob.x + (i - 0.5) / n * ob.w
+                local j = ob.mirror and (n + 1 - i) or i
+                -- the lowest of five columns: no standing on a pumpkin stem
+                local f = pr[j]
+                for m = math.max(1, j - 2), math.min(n, j + 2) do f = math.max(f, pr[m]) end
+                if cx >= a and cx <= b and f < 1 then
+                    local e = (self.ground - (ob.y + f * ob.h)) / self.u - 0.35   -- paws a bit into the edge
+                    if e > top and e <= MAX_UP then top = e end
+                end
+            end
+        end
+    end
+    return top
+end
+
+-- what the cat stands on, with the hip at screen x: the higher of under its hind and front paws
+-- (the body may hang over an edge, the paws may not)
+function C:support(x)
+    local d = self.dir * self.u
+    return math.max(self:surface(x - 1.5 * d, x + 1.5 * d), self:surface(x + 7.5 * d, x + 10.5 * d))
 end
 
 -- stops along the way, in screen x of the hip
@@ -180,9 +215,12 @@ function C:plan()
     local function hidden(x)
         local lo, hi = math.min(x - dir * 4 * u, x + dir * 13 * u), math.max(x - dir * 4 * u, x + dir * 13 * u)
         for _, ob in ipairs(self.obstacles()) do
-            if ob.x2 > lo and ob.x1 < hi then return true end
+            if not ob.profile and ob.x2 > lo and ob.x1 < hi then return true end
         end
-        return false
+        -- astride an edge (half on something, half not) is no place to sit either
+        local back = self:surface(x - dir * u, x + dir * 4 * u)
+        local front = self:surface(x + dir * 5 * u, x + dir * 10 * u)
+        return math.abs(back - front) > CLIMB
     end
     local function free(x)
         for k = 0, 60 do
@@ -264,7 +302,58 @@ function C:settle(dur)
     self:tween(self:neutral_feet({}), dur or 0.3)
 end
 
-function C:walk_to(tx)
+-- a jump of dist u forward, up or down to whatever is there
+function C:leap(dist)
+    local p, u = self.p, self.u
+    self.face_want = 1
+    local crouch = self:neutral_feet({}, STAND)
+    crouch.hh, crouch.ba = STAND.hh - 1.5, 0
+    self.bob = 0
+    self:tween(crouch, 0.22)
+    local x0, e0 = p.x, self.elev
+    local x1 = x0 + self.dir * dist * u
+    local e1 = self:support(x1)
+    require("mp.msg").verbose(string.format("cat: leap %.1f u, %.1f → %.1f", dist, e0, e1))
+    local bump = 2.5 + math.abs(e1 - e0) * 0.45
+    local T = clamp(0.3 + dist * 0.02 + math.abs(e1 - e0) * 0.012, 0.35, 0.7)
+    local sx = shoulder(STAND)
+    self.air = true
+    local t = 0
+    while t < T do
+        t = t + self:yield()
+        local q = math.min(1, t / T)
+        p.x = x0 + (x1 - x0) * q
+        self.elev = e0 + (e1 - e0) * q + bump * 4 * q * (1 - q)
+        -- stretched out: front paws reaching, hind legs pushing off behind
+        p.hh = STAND.hh
+        p.ba = (q < 0.5) and 0.22 * (1 - 2 * q) + (e1 - e0) * 0.01 or -0.18 * (2 * q - 1)
+        p.nfx, p.nfy, p.ffx, p.ffy = sx + 2.4, -1.2, sx + 1.8, -0.7
+        p.nhx, p.nhy, p.fhx, p.fhy = -2.4, -0.7, -2.9, -0.4
+    end
+    self.elev, self.air = e1, false
+    local land = self:neutral_feet({}, STAND)
+    land.hh, land.ba = STAND.hh - 1.2, 0.02
+    self:tween(land, 0.12)
+    self:tween({ hh = STAND.hh }, 0.2)
+end
+
+-- where the ground ahead steps up or down more than the cat can walk: distance from the hip (u)
+function C:edge_ahead()
+    local p, u, dir = self.p, self.u, self.dir
+    for k = 9, 12, 0.5 do
+        local e = self:surface(p.x + dir * k * u, p.x + dir * (k + 3) * u)     -- bridges gaps between pumpkins
+        if e > self.elev + CLIMB then return k, e end
+        if e < self.elev - CLIMB then
+            -- down: to the bottom of the slope, not onto the rounded shoulder of a tombstone
+            for j = k + 0.5, k + 6, 0.5 do
+                e = math.min(e, self:surface(p.x + dir * j * u, p.x + dir * (j + 3) * u))
+            end
+            return k, e
+        end
+    end
+end
+
+function C:walk_to(tx, noleap)
     local p, u = self.p, self.u
     local v, acc = self.v or 0, self.speed / 0.6
     local glance = rnd(4, 12)
@@ -272,6 +361,16 @@ function C:walk_to(tx)
         local dt = self:yield()
         local rem = (tx - p.x) * self.dir / u
         if rem <= 0.05 then break end
+        local k, e = self:edge_ahead()
+        if k and not (noleap and rem < 6) then
+            -- land with the hind paws past the edge, and clear of it on the way down
+            local d = k + 1.5
+            while e < self.elev and d < k + 8 and self:support(p.x + self.dir * d * u) > e + CLIMB do d = d + 0.5 end
+            self:leap(d)
+            v = self.speed * 0.6
+            rem = (tx - p.x) * self.dir / u
+            if rem <= 0.05 then break end
+        end
         local want = math.min(self.speed, sqrt(2 * acc * rem) + 0.3)
         v = (v < want) and math.min(want, v + acc * dt) or want
         local step = math.min(v * dt, rem)
@@ -401,7 +500,7 @@ function C:program()
     log.verbose(string.format("cat from the %s: %s", self.dir == 1 and "left" or "right", table.concat(plan, " ")))
     self:wait(0.01)
     for _, s in ipairs(self.stops) do
-        self:walk_to(s.x)
+        self:walk_to(s.x, s.kind == "scratch")
         log.verbose(string.format("cat: %s at %d (%.0f s)", s.kind, s.x, self.T))
         if s.kind == "sit" then
             self:sit_down()
@@ -412,7 +511,7 @@ function C:program()
             self:wait(rnd(0.5, 2))
             self:stand_up()
         elseif s.kind == "scratch" then
-            if self:pumpkin_there(s.edge) then self:scratch() end
+            if self.elev < 1 and self:pumpkin_there(s.edge) then self:scratch() end   -- (then up it goes, unless it turns)
         else
             self:pause_here()
         end
@@ -446,6 +545,11 @@ function C:update(dt)
         require("mp.msg").error("prowler: " .. tostring(err))
         return false
     end
+    -- follow what it stands on: small steps, or a drop when the thing goes away
+    if not self.air then
+        local e = self:support(p.x)
+        self.elev = self.elev + clamp(e - self.elev, -dt * 30, dt * 12)
+    end
     return coroutine.status(self.co) ~= "dead"
 end
 
@@ -454,7 +558,7 @@ end
 function C:path(shapes)
     local p, u = self.p, self.u
     local m = self.dir * p.sx * u
-    local x0, y0 = p.x, self.ground - self.bob * u
+    local x0, y0 = p.x, self.ground - (self.bob + self.elev) * u
     local out = {}
     for _, s in ipairs(shapes) do
         local n = #s / 2
@@ -524,10 +628,12 @@ function C:frame()
     local hx, hy = shx + p.nx - 1.4 * self.back, shy + p.ny - 0.3 * self.back
     local view = p.face
 
-    -- shadow on the ground
+    -- shadow on the ground (not in the air)
     local fxs = (p.nfx + p.ffx + p.nhx + p.fhx) / 4
-    ev[#ev + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%.1f\\1c&H000000&\\1a&HA0&\\p3}%s{\\p0}",
-        self.u * 0.4, self:path({ ellipse(fxs, 0.1, math.abs(shx) * 0.5 + 3, 0.6) }))
+    if not self.air then
+        ev[#ev + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%.1f\\1c&H000000&\\1a&HA0&\\p3}%s{\\p0}",
+            self.u * 0.4, self:path({ ellipse(fxs, 0.1, math.abs(shx) * 0.5 + 3, 0.6) }))
+    end
 
     -- far legs, a shade lighter so they read behind the body
     ev[#ev + 1] = self:event(self:legs(true), FUR_FAR, RIM)

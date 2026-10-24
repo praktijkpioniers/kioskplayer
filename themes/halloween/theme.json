@@ -14,7 +14,8 @@
     "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time.",
     "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
     "a sprite with sizes = [0.8, 0.62] flies at a random depth (smaller = farther = slower).",
-    "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo."
+    "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo.",
+    "solid: true = the cat can climb onto it (pumpkins, tombstones, the coffin)."
   ],
   "sprites": {
     "pumpkin": {
@@ -22,7 +23,8 @@
       "height": 0.12,
       "flicker": 8,
       "flicker_min": 8,
-      "fps": 5
+      "fps": 5,
+      "solid": true
     },
     "leaf": {
       "frames": [
@@ -36,7 +38,8 @@
     },
     "tombstone": {
       "file": "tombstone.png",
-      "height": 0.14
+      "height": 0.14,
+      "solid": true
     },
     "bat": {
       "file": "bat.png",
@@ -92,7 +95,8 @@
     },
     "coffin_box": {
       "anim": "anim/coffin_box",
-      "unit": 0.115
+      "unit": 0.115,
+      "solid": true
     },
     "coffin_lid": {
       "anim": "anim/coffin_lid",
@@ -103,21 +107,24 @@
       "height": 0.16,
       "flicker": 8,
       "flicker_min": 8,
-      "fps": 5
+      "fps": 5,
+      "solid": true
     },
     "pumpkin_group2": {
       "file": "pumpkin_group_2.png",
       "height": 0.16,
       "flicker": 8,
       "flicker_min": 8,
-      "fps": 5
+      "fps": 5,
+      "solid": true
     },
     "pumpkin_group3": {
       "file": "pumpkin_group_3.png",
       "height": 0.16,
       "flicker": 8,
       "flicker_min": 8,
-      "fps": 5
+      "fps": 5,
+      "solid": true
     },
     "bat_hanging": {
       "file": "bat_hanging.png",
@@ -620,7 +627,10 @@
       "say": true,
       "joke_chance": 0.3,
       "video_min": 8,
-      "group": "skeleton"
+      "group": [
+        "skeleton",
+        "walker"
+      ]
     },
     {
       "type": "vampire",
@@ -643,7 +653,10 @@
         90
       ],
       "say": true,
-      "group": "monster"
+      "group": [
+        "monster",
+        "walker"
+      ]
     },
     {
       "type": "peeker",

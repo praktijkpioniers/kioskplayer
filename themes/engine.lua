@@ -42,6 +42,7 @@ math.randomseed(os.time())
 
 local function rnd(a, b) return a + math.random() * (b - a) end
 local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
+local function ease(p) return p * p * (3 - 2 * p) end
 local function range(v, default)
     if type(v) == "table" then return v[1], v[2] end
     if v == nil then return default, default end
@@ -536,13 +537,14 @@ function spawn.performer(el, spr)
 end
 
 -- vampire: a baked character with his coffin (tools/bake/coffin.py): three sprites on three
--- overlay ids — lid (behind him), vampire, box (in front: lying in it he is hidden). Sprites
--- with "unit" share one scale and carry "origin" (baked x = 0 on the ground) to line them up.
---   in:  walks in and across, looks around, reaches off-screen and pulls the coffin in walking
---        backwards; wanders about; raises a hand and the lid creaks open; steps in, lies down,
---        the lid closes. A while inside (the lid lifts a crack now and then).
---   out: the lid opens, he gets up, steps out, the lid shuts, he pushes the coffin off the side
---        it came from and walks off the other side.
+-- overlay ids — lid (behind him), vampire, box (in front: in it, he is hidden). Sprites with
+-- "unit" share one scale and carry "origin" (baked x = 0 on the ground) to line them up.
+--   in:  comes in (walking or sneaking) and across, looks around, reaches off-screen and pulls
+--        the coffin in walking backwards; wanders about, now sneaking, now dashing; raises a hand
+--        and the lid creaks open; jumps in, lies down, the lid closes. A while inside (the lid
+--        lifts a crack now and then); hidden, he doesn't count as a walker.
+--   out: (once no other walker is about) the lid opens, he gets up, jumps out, the lid shuts,
+--        he pushes the coffin off the side it came from and goes off the other side.
 -- The scene is planned in its own space (coming in from the left) and mirrored half the time.
 function spawn.vampire(el, spr)
     local S = M.sprites
@@ -555,26 +557,39 @@ function spawn.vampire(el, spr)
     local u = spr.unit * H
     local half = box.w / 2              -- coffin half length (its origin is the middle)
     local hands = 0.5 * u               -- his origin → his hands, reaching
-    local rest = 0.5 * u                -- coffin middle → his origin, lying (head to the left)
+    local rest = 0.42 * u               -- coffin middle → his origin, lying (head to the left)
+    local sink = (el.sink or 0.45) * u  -- in the coffin he stands/lies this much lower (hidden by the box)
+    local hop = 1.3 * u                 -- jump height (clears the box)
     if W < 2 * box.w + 6 * u then return nil end
     local a = { el = el, spr = spr, layers = 3 }
     local d = math.random() < 0.5 and 1 or -1
     local open = lid.frames - 1
 
-    -- the plan: steps that walk (to), play a clip (once, or for dur), carry the coffin along,
-    -- animate the lid (lid = {from, to}), show him lying (lie) or not at all (hide)
-    local steps, X, face = {}, -1.2 * u, 1   -- face: 1 right, -1 left, 0 the viewer
-    local function add(s) steps[#steps + 1] = s; return s end
+    -- the plan: steps that walk (to, at a gait), jump, play a clip (once, or for dur), carry the
+    -- coffin along, animate the lid (lid = {from, to}), show him lying (lie) or not at all (hide)
+    local steps, X, Y, face = {}, -1.2 * u, 0, 1   -- Y: how deep in the coffin; face: 1 right, -1 left, 0 the viewer
+    local function add(s) s.sink = s.sink or Y; steps[#steps + 1] = s; return s end
     local function turn(f)
         if f == face then return end
         if face ~= 0 and C.turn_front then add { clip = "turn_front", m = face < 0 } end
         if f ~= 0 and C.turn_side then add { clip = "turn_side", m = f < 0 } end
         face = f
     end
-    local function go(to)
+    local function gait()
+        local r = math.random()
+        if C.run and r < 0.25 then return "run", rnd(1.3, 1.7) end   -- vampires can be quick
+        if C.sneak and r < 0.6 then return "sneak", 1 end
+        return "walk", 1
+    end
+    local function go(to, clip, rate)
         turn(to > X and 1 or -1)
-        add { clip = "walk", to = to, m = face < 0 }
+        add { clip = clip or "walk", to = to, m = face < 0, rate = rate }
         X = to
+    end
+    local function jump(to, y)
+        turn(to > X and 1 or -1)
+        add { clip = C.jump and "jump" or "walk", jump = { X, to, Y, y }, m = face < 0, dur = C.jump and nil or 1.0 }
+        X, Y = to, y
     end
     local function stop(clip, dur)
         turn(0)
@@ -583,7 +598,7 @@ function spawn.vampire(el, spr)
 
     local cx = rnd(math.max(W * 0.3, half + 2 * u), math.min(W * 0.7, W - half - 2 * u))
     -- in and across, a look around, the coffin pulled in from the far side
-    go(W - 0.7 * u)
+    go(W - 0.7 * u, math.random() < 0.5 and C.sneak and "sneak" or "walk")
     stop("idle", rnd(1.5, 3))
     turn(1)
     add { clip = "reach" }
@@ -591,17 +606,20 @@ function spawn.vampire(el, spr)
     add { clip = "pull", to = X, carry = true }
     stop("idle", rnd(1, 2.5))
     -- wander
-    for _ = 1, math.random(1, 2) do
+    for _ = 1, math.random(1, 3) do
         local to
         repeat to = rnd(u, W - u) until math.abs(to - X) > 3 * u
-        go(to)
-        if C.raise and math.random() < 0.35 then stop("raise") else stop("idle", rnd(1.5, 3.5)) end
+        go(to, gait())
+        local r = math.random()
+        if C.raise and r < 0.3 then stop("raise")
+        elseif r < 0.55 then stop("idle", rnd(0.6, 1.2))   -- a short freeze
+        else stop("idle", rnd(1.5, 3.5)) end
     end
-    -- to the coffin's end; a raised hand opens the lid; in, lie down, the lid closes
-    go(X < cx and (cx - half - 0.6 * u) or (cx + half + 0.6 * u))
+    -- to the coffin's end; a raised hand opens the lid; a jump in, lie down, the lid closes
+    go(X < cx and (cx - half - 0.35 * u) or (cx + half + 0.35 * u))
     turn(0)
     add { clip = C.raise and "raise" or "idle", dur = (not C.raise) and 1.5 or nil, lid = { 0, open } }
-    go(cx + rest)
+    jump(cx + rest, sink)
     turn(1)
     add { clip = "lie_down", lie = true }
     add { hide = true, dur = 1.0, lid = { open, 0 } }
@@ -617,18 +635,18 @@ function spawn.vampire(el, spr)
             add { hide = true, dur = 0.3, lid = { crack, 0 } }
         end
     end
-    -- up and out; the lid shuts while he turns; the coffin pushed off, he walks off the other way
-    add { hide = true, dur = 1.2, lid = { 0, open } }
+    -- up and out; the lid shuts while he turns; the coffin pushed off, he goes off the other way
+    add { hide = true, dur = 1.2, lid = { 0, open }, wake = true }
     add { clip = "stand_up", lie = true }
     face = 1
-    go(cx - half - hands)
+    jump(cx - half - hands, 0)
     local n = #steps
     turn(1)
     steps[n + 1].lid, steps[n + 1].dur = { open, 0 }, 1.0
     add { clip = "push", push = true }
     X = W + half
     stop("idle", rnd(1, 2))
-    go(-1.5 * u)
+    go(-1.5 * u, gait())
 
     -- play
     local si, tc = 1, 0
@@ -636,20 +654,38 @@ function spawn.vampire(el, spr)
     local coffin                       -- coffin middle (scene space), nil until pulled in
     local lf = 0                       -- lid frame
     a.line = pick_line(el)
-    local function place(sp, x, frame, mirror)
+    local function place(sp, x, frame, mirror, dy)
         local m = (mirror and true or false) ~= (d < 0)
         local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
-        return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] }
+        return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] + dy }
     end
 
     function a.update(dt, t)
         local s = steps[si]
         if not s then return false end
+        if s.hide and not a.hiding then   -- hidden in the coffin: walkers may come by meanwhile
+            a.hiding, a.groups = a.groups, {}
+            for _, g in ipairs(a.hiding) do if g ~= "walker" then a.groups[#a.groups + 1] = g end end
+        end
+        if si ~= a.logged then a.logged = si msg.verbose("vampire step " .. tostring(s.clip or "hidden")) end
+        if s.wake and a.hiding then
+            if group_busy(a.hiding) then tc = 0 dt = 0   -- someone else walks about: stay in
+            else a.groups, a.hiding = a.hiding, nil end
+        end
         tc = tc + dt
         local c = s.clip and (s.lie and L[s.clip] or C[s.clip])
+        local rate = s.rate or 1
         local done
-        if s.to or s.push then
-            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+        local dy = s.sink or 0
+        if s.jump then
+            local x0, x1, y0, y1 = s.jump[1], s.jump[2], s.jump[3], s.jump[4]
+            local dur = s.dur or c.count / c.fps
+            local q = clamp((tc / dur - 0.2) / 0.6, 0, 1)   -- airborne in the middle of the clip
+            vx = x0 + (x1 - x0) * ease(q)
+            dy = y0 + (y1 - y0) * q - hop * math.sin(math.pi * q)
+            done = tc >= dur
+        elseif s.to or s.push then
+            local v = c.stride_px * c.fps / c.count * rate * (el.speed or 1.0)
             local dir = s.push and 1 or (s.to > vx and 1 or -1)
             vx = vx + dir * v * dt
             if s.push then
@@ -668,13 +704,18 @@ function spawn.vampire(el, spr)
 
         local layers = {}
         if coffin then
-            layers[1] = place(lid, coffin, lf, false)
-            layers[3] = place(box, coffin, 0, false)
+            layers[1] = place(lid, coffin, lf, false, 0)
+            layers[3] = place(box, coffin, 0, false, 0)
         end
+        -- the cat may climb onto the coffin, while it lies still with the lid shut (the cat is drawn
+        -- below all sprites: an open lid or the vampire would cover it)
+        local near = coffin and not s.hide and math.abs(vx - coffin) < half + 1.5 * u
+        local still = s.hide and lf <= crack or (lf == 0 and not near and not s.carry and not s.push)
+        a.solid = still and layers[3] or nil
         if c and not s.hide then
-            local k = math.floor(tc * c.fps)
+            local k = math.floor(tc * c.fps * rate)
             if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
-            local l = place(s.lie and lie or spr, vx, c.start + k, s.m)
+            local l = place(s.lie and lie or spr, vx, c.start + k, s.m, dy)
             layers[2] = l
             a.sx, a.sy = l.x, l.y
         end
@@ -925,14 +966,19 @@ local cat_next = {}  -- element name -> time the next cat may come
 -- and sharpens its claws on the pumpkins
 local function bottom_things()
     local list = {}
-    local function add(spr, x, y)
+    local function add(spr, x, y, mirror)
         if spr and y + spr.h >= H - 2 then
             list[#list + 1] = { x1 = x + spr.w * 0.1, x2 = x + spr.w * 0.9,
-                                pumpkin = (spr.name or ""):find("pumpkin") ~= nil }
+                                pumpkin = (spr.name or ""):find("pumpkin") ~= nil,
+                                -- solid things: the cat climbs onto them (top edge per column)
+                                x = x, y = y, w = spr.w, h = spr.h, profile = spr.profile, mirror = mirror }
         end
     end
-    for _, d in ipairs(decor) do add(d.spr, d.x, d.y) end
-    for _, a in ipairs(actors) do if a.el.type == "visitor" and a.sx then add(a.spr, a.sx, a.sy) end end
+    for _, d in ipairs(decor) do add(d.spr, d.x, d.y, d.mirror) end
+    for _, a in ipairs(actors) do
+        if a.el.type == "visitor" and a.sx then add(a.spr, a.sx, a.sy, a.mirror) end
+        if a.solid then add(a.solid.spr, a.solid.x, a.solid.y, a.solid.variant == true) end
+    end
     return list
 end
 
