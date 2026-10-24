@@ -445,13 +445,13 @@ end
 
 -- walkers with their arms out push a coffin lying shut in their way (the vampire in it), from
 -- the near side: true while pushing. reach = from their origin to their hands.
-local function push_coffins(x, dir, reach)
+local function push_coffins(x, dir, reach, v)
     for _, b in ipairs(actors) do
         local sp = b.span
         if sp and b.push and not b.leaving then
             local mid = (sp[1] + sp[2]) / 2
-            if dir > 0 and x + reach > sp[1] and x < mid then b.push(x + reach - sp[1]) return true end
-            if dir < 0 and x - reach < sp[2] and x > mid then b.push(x - reach - sp[2]) return true end
+            if dir > 0 and x + reach > sp[1] and x < mid then b.push(x + reach - sp[1], v) return true end
+            if dir < 0 and x - reach < sp[2] and x > mid then b.push(x - reach - sp[2], v) return true end
         end
     end
     return false
@@ -857,7 +857,10 @@ end
 --   out: (once no other walker is about) the lid opens, he gets up, jumps out, the lid shuts,
 --        he pushes the coffin off the side it came from and goes off the other side.
 -- The scene is planned in its own space (coming in from the left) and mirrored half the time.
-function spawn.vampire(el, spr)
+-- Pushed off the screen in his coffin towards a screen next door, he comes in there (h.coffin):
+-- the coffin slides in (the pusher follows), he stays in a while, gets out, looks around - where
+-- is he? - and pushes it on.
+function spawn.vampire(el, spr, h)
     local S = M.sprites
     local lie, box, lid = S[el.lie or ""], S[el.box or ""], S[el.lid or ""]
     local C, L = spr.clips, lie and lie.clips
@@ -908,6 +911,20 @@ function spawn.vampire(el, spr)
     end
 
     local cx = rnd(math.max(W * 0.3, half + 2 * u), math.min(W * 0.7, W - half - 2 * u))
+    local crack = math.min(3, open)
+    local stay = rnd(range(el.stay, 40))
+    local slide_v
+    if h and h.coffin then
+        -- in his coffin from next door: in scene space it comes in from the left, sliding on until
+        -- its back end is in (by then whoever pushes it is here too)
+        d = h.dir == 1 and 1 or -1
+        slide_v = clamp(tonumber(h.v) or 0.05, 0.01, 0.5) * H
+        local late = clamp(tonumber(h.late) or 0, 0, 1)
+        cx = (tonumber(h.lead) or 0) * H + slide_v * late - room.gap - half
+        X, Y = cx + rest, sink
+        stay = clamp(tonumber(h.stay) or 20, 12, 90)
+        add { hide = true, dur = math.max(0.1, (half * 2 - (cx + half)) / slide_v), slide = slide_v }
+    else
     -- in and across, a look around, the coffin pulled in from the far side
     go(W - 0.7 * u, math.random() < 0.5 and C.sneak and "sneak" or "walk")
     stop("idle", rnd(1.5, 3))
@@ -934,8 +951,7 @@ function spawn.vampire(el, spr)
     turn(1)
     add { clip = "lie_down", lie = true }
     add { hide = true, dur = 1.0, lid = { open, 0 } }
-    local stay = rnd(range(el.stay, 40))
-    local crack = math.min(3, open)
+    end
     while stay > 0 do
         local wait = math.min(stay, rnd(8, 20))
         add { hide = true, dur = wait }
@@ -952,8 +968,19 @@ function spawn.vampire(el, spr)
     face = 1
     jump(cx - half - hands, 0)
     local n = #steps
+    if slide_v then
+        -- where is this? a look round, both ways, a shrug
+        turn(0)
+        steps[#steps].lid, steps[#steps].dur, steps[#steps].log = { open, 0 }, 1.0, "vampire: where am I?"
+        n = nil
+        stop("idle", 1.0)
+        turn(-1) turn(0)
+        stop("idle", 0.6)
+        turn(1) turn(0)
+        stop(C.raise and "raise" or "idle", (not C.raise) and 1.2 or nil)
+    end
     turn(1)
-    steps[n + 1].lid, steps[n + 1].dur = { open, 0 }, 1.0
+    if n then steps[n + 1].lid, steps[n + 1].dur = { open, 0 }, 1.0 end
     add { clip = "push", push = true }
     X = W + half
     stop("idle", rnd(1, 2))
@@ -963,6 +990,7 @@ function spawn.vampire(el, spr)
     local si, tc = 1, 0
     local vx = -1.2 * u                -- his origin (scene space)
     local coffin                       -- coffin middle (scene space), nil until pulled in
+    if slide_v then vx, coffin = cx + rest, cx end
     local lf = 0                       -- lid frame
     local shift = 0                    -- how far others pushed the coffin (with him in it), scene space
     a.line = pick_line(el)
@@ -973,7 +1001,19 @@ function spawn.vampire(el, spr)
         return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] + dy }
     end
     local function scr(x) return (d > 0) and (x + shift) or (W - x - shift) end
-    function a.push(dx) shift = shift + d * dx end   -- (screen pixels) see push_coffins
+    function a.push(dx, v)                           -- (screen pixels) see push_coffins
+        shift = shift + d * dx
+        a.push_dir, a.push_v, a.push_t = dx > 0 and 1 or -1, v, mp.get_time()
+    end
+    local function stay_left()                       -- hidden in the coffin for this much longer
+        local left = -tc
+        for k = si, #steps do
+            local q = steps[k]
+            if not q.hide or q.wake then break end
+            left = left + (q.dur or 0)
+        end
+        return left
+    end
 
     function a.update(dt, t)
         local s = steps[si]
@@ -982,7 +1022,7 @@ function spawn.vampire(el, spr)
             a.hiding, a.groups = a.groups, {}
             for _, g in ipairs(a.hiding) do if g ~= "walker" then a.groups[#a.groups + 1] = g end end
         end
-        if si ~= a.logged then a.logged = si msg.verbose("vampire step " .. tostring(s.clip or "hidden")) end
+        if si ~= a.logged then a.logged = si msg.verbose(s.log or ("vampire step " .. tostring(s.clip or "hidden"))) end
         if s.wake and a.hiding then
             if group_busy(a.hiding) then tc = 0 dt = 0   -- someone else walks about: stay in
             else a.groups, a.hiding = a.hiding, nil end
@@ -1019,6 +1059,7 @@ function spawn.vampire(el, spr)
         else
             done = tc >= (s.dur or c.count / c.fps)
         end
+        if s.slide then shift = shift + s.slide * dt end
         if s.lid then
             local p = clamp(tc / (s.dur or c.count / c.fps), 0, 1)
             lf = math.floor(s.lid[1] + (s.lid[2] - s.lid[1]) * p + 0.5)
@@ -1049,7 +1090,13 @@ function spawn.vampire(el, spr)
         a.span = nil
         if coffin and s.hide and lf == 0 then
             local m = scr(coffin)
-            if m - half > W or m + half < 0 then
+            -- pushed over the edge towards a screen next door: he goes on there, coffin and all
+            if a.push_t and mp.get_time() - a.push_t < 0.3 then
+                walk_out(a, m, a.push_dir, half, { coffin = true, v = (a.push_v or 0.05 * H) / H, stay = stay_left() })
+            end
+            local off = m - half > W or m + half < 0
+            if not off then a.coffin_seen = true end          -- (coming in from next door it starts outside)
+            if off and a.coffin_seen then
                 msg.verbose("vampire: pushed off in his coffin")
                 return false
             end
@@ -1092,7 +1139,7 @@ function spawn.mummy(el, spr)
         return true
     end
     for _ = 1, 16 do
-        d = math.random() < 0.5 and 1 or -1
+        d = walk_dir(el)                -- (the helper's side: started by a key, the side next door)
         local x = rnd(math.max(1.8 * u, W * 0.1), math.max(1.8 * u, W * 0.35))
         local o = x + rnd(2.2, 3.0) * u
         if o + 3 * u <= W and free(x, box.w / 2 + 0.3 * u) and free(o, 0.7 * u) and free(o + 1.3 * u, 0.6 * u) then
@@ -1138,6 +1185,12 @@ function spawn.mummy(el, spr)
     add { a = { clip = "unwrap" } }
     A.rest = { clip = "shy", rest = true }
     add { a = { clip = "shy", dur = rnd(2, 3), act = true } }
+    -- with a screen next door on the helper's side, it is seen there first, hurrying over
+    local side = d > 0 and "right" or "left"
+    local hv = B.walk.stride_px * B.walk.fps / B.walk.count * 2.4 * (el.speed or 1.0)
+    if room[side] then
+        add { a = { clip = "shy", dur = (W + 1.2 * u) / hv }, summon = true }
+    end
     Bt.rest = { clip = "idle", m = true, rest = true }
     go(Bt, "b", out + 1.3 * u, 2.4)
     turn(Bt, 0, "b")
@@ -1146,8 +1199,9 @@ function spawn.mummy(el, spr)
     add { a = { clip = "spin" }, b = { clip = "wind", m = true } }
     add { a = { clip = C.cheer and "cheer" or "idle", dur = (not C.cheer) and 1.5 or nil },
           b = { clip = B.cheer and "cheer" or "idle", m = true, dur = (not B.cheer) and 1.5 or nil } }
-    -- the helper goes off, the mummy back in, the lid shuts, down it goes
+    -- the helper goes off (back over next door), the mummy back in, the lid shuts, down it goes
     go(Bt, "b", W + 1.5 * u, 2.4)
+    steps[#steps].b.home = true
     Bt.rest = { hide = true, rest = true }
     go(A, "a", cx)
     turn(A, 0, "a")
@@ -1190,12 +1244,21 @@ function spawn.mummy(el, spr)
         if not s then return false end
         if si ~= a.logged then a.logged = si msg.verbose("mummy step " .. si) end
         tc = tc + dt
+        if s.summon and not s.summoned then
+            s.summoned = true
+            hand_over(side, { kind = "passer", el = el.index, sprite = helper.name, clip = "walk", rate = 2.4,
+                              dir = side == "right" and -1 or 1, from_far = true, hops = MAX_HOPS })
+        end
         local p = s.dur and clamp(tc / s.dur, 0, 1) or 1
         if s.lid then lf = math.floor(s.lid[1] + (s.lid[2] - s.lid[1]) * p + 0.5) end
         if s.rise then rise = s.rise[1] + (s.rise[2] - s.rise[1]) * (s.rise[2] > s.rise[1] and p * p or 1 - (1 - p) ^ 2) end
         local dy = rise * box.h
         local la, da = part(A, spr, s.a, dt, A.x == cx and dy or 0)
         local lb, db = part(Bt, helper, s.b, dt, 0)
+        if s.b.home then
+            local hx = d > 0 and Bt.x or W - Bt.x
+            walk_out(a, hx, d, 0.5 * u, { kind = "passer", sprite = helper.name, clip = "walk", rate = 2.4, unique = false })
+        end
         local layers = { place(box, cx, 0, false, dy), la, lb, place(lid, cx, lf, false, dy) }
         if la then a.sx, a.sy = la.x, la.y end
         a.talking = a.line and s.a and s.a.act and true or false
@@ -1274,7 +1337,7 @@ function spawn.zombie(el, spr, h)
             local to = stops[k]
             c, m = C.walk, dir < 0
             x = x + dir * v * (a.pushing and 0.7 or 1) * dt
-            a.pushing = push_coffins(x, dir, 0.6 * u)
+            a.pushing = push_coffins(x, dir, 0.6 * u, v * 0.7)
             if k == #stops then walk_out(a, x, dir, 0.6 * u) end
             if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
             if (to - x) * dir <= 0 then
@@ -1410,7 +1473,7 @@ function spawn.frankenstein(el, spr, h)
             c = C.walk
             local to = stops[k]
             x = x + dir * v * (a.pushing and 0.7 or 1) * dt
-            a.pushing = push_coffins(x, dir, 0.65 * u)
+            a.pushing = push_coffins(x, dir, 0.65 * u, v * 0.7)
             if k == #stops then walk_out(a, x, dir, 0.65 * u) end
             if a.pushing and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- busy pushing: no stop
             if (to - x) * dir <= 0 then
@@ -1549,6 +1612,38 @@ function spawn.frankenstein(el, spr, h)
                 spark(out, nx, ny + 0.6 * u, nx + math.cos(ang) * 2.2 * u, ny + 0.6 * u + math.sin(ang) * 2.2 * u, "&H40F0FF&", 4)
             end
         end
+    end
+    return a
+end
+
+-- passer: someone just passing through, come over from the screen next door (or, from_far,
+-- coming in at the far side, hurrying towards it): walks (clip, rate) across and off, and on to
+-- the next screen, if any.
+function spawn.passer(el, spr, h)
+    local c = spr.clips and spr.clips[h.clip or "walk"]
+    if not (c and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local rate = tonumber(h.rate) or 1
+    local v = c.stride_px * c.fps / c.count * rate * (el.speed or 1.0)
+    local dir = h.dir == 1 and 1 or -1
+    local front = 0.5 * u
+    local late = clamp(tonumber(h.late) or 0, 0, 1)
+    local x = walk_in_x(h, v, front)
+    if h.from_far then x = dir > 0 and (-1.2 * u + v * late) or (W + 1.2 * u - v * late) end
+    local a = { el = el, spr = spr, layers = 1, groups = { "walker" } }
+    a.hops = tonumber(h.hops) or 1
+    local tc = 0
+    function a.update(dt, t)
+        tc = tc + dt
+        x = x + dir * v * dt
+        walk_out(a, x, dir, front, { kind = "passer", clip = h.clip, rate = rate, unique = false })
+        if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
+        local k = math.floor(tc * c.fps * rate) % c.count
+        local mi = dir < 0
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local layer = { spr = spr, frame = c.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
+        a.sx, a.sy, a.cx = layer.x, layer.y, x
+        return true, { layer }
     end
     return a
 end
