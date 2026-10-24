@@ -46,10 +46,7 @@
       "height": 0.055,
       "flap": 6,
       "fps": 12,
-      "sizes": [
-        0.8,
-        0.62
-      ]
+      "depth": {"min": 0.5, "steps": 10}
     },
     "spider": {
       "file": "spider.png",
@@ -59,18 +56,12 @@
       "file": "ghost.png",
       "height": 0.13,
       "opacity": 0.85,
-      "sizes": [
-        0.8,
-        0.62
-      ]
+      "depth": {"min": 0.5, "steps": 10}
     },
     "witch": {
       "file": "witch.png",
       "height": 0.13,
-      "sizes": [
-        0.8,
-        0.62
-      ]
+      "depth": {"min": 0.5, "steps": 10}
     },
     "zombie": {
       "file": "zombie.png",

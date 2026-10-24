@@ -369,7 +369,8 @@ end
 
 -- flyer: crosses the screen high up (bats, witches, ghosts). el.y is the height in the middle;
 -- el.bend lets the path sag towards the sides (an arc over the middle, which stays clear).
--- A sprite with "sizes" flies at a random depth: smaller is farther away, and slower.
+-- A sprite with "sizes" (or "depth") drifts nearer and farther: smaller is farther away, slower,
+-- with less bob.
 -- h: handed over by a neighbour (same flight, coming in from its side).
 function spawn.flyer(el, spr, h)
     local a = { el = el, spr = spr }
@@ -381,42 +382,52 @@ function spawn.flyer(el, spr, h)
     if mode == "video" and level() < PRIME then ylo, yhi = 0.0, 0.06 end
     a.y0 = (h and h.y0 or rnd(ylo, yhi)) * H
     a.bend = (h and h.bend or rnd(range(el.bend, 0))) * H
-    local depth, variant = 1, 0
+    -- depth: 1 near (full size) .. the smallest size far away; it drifts slowly while flying
     local sizes = spr.sizes or {}
-    local k = 0
-    if #sizes > 0 then
-        k = h and math.min(h.k or 0, #sizes) or math.random(0, #sizes)    -- 0: full size
-        if k > 0 then depth, variant = sizes[k], #(spr.variants or {}) - 2 * #sizes + 2 * (k - 1) end
-    end
-    a.v = (h and h.v or rnd(range(el.speed, 0.15)) * depth) * W
-    a.amp = (el.amp or 0.04) * H * depth
+    local far = sizes[#sizes] or 1
+    local size0 = #(spr.variants or {}) - 2 * #sizes     -- variant of sizes[1]
+    a.rate = h and h.rate or rnd(0.25, 0.6)
+    a.dph = h and h.dph or rnd(0, 2 * math.pi)
+    local function depth(t) return far + (1 - far) * (0.5 + 0.5 * math.sin(t * a.rate + a.dph)) end
+    a.v = (h and h.v or rnd(range(el.speed, 0.15))) * W   -- near; slower farther away
+    a.amp = (el.amp or 0.04) * H
     a.freq = h and h.freq or rnd(1.5, 3.0)
     a.ph = 0
+    local mirror = (a.dir < 0) ~= (el.faces == "left")
+    local function variant(d)
+        local best, bd = -1, 1 - d                        -- -1: full size
+        for k, f in ipairs(sizes) do
+            if math.abs(f - d) < bd then best, bd = k, math.abs(f - d) end
+        end
+        return (best < 0 and 0 or size0 + 2 * (best - 1)) + (mirror and 1 or 0)
+    end
     if h then
         -- it went over the neighbour's edge h.lead (× H) ago, plus the time on the way (h.late):
-        -- the front comes in that far past our edge, gap_px later
+        -- the front comes in that far past our edge, gap_px later; bob and depth go on
         local late = clamp(tonumber(h.late) or 0, 0, 1)
-        local front = (h.lead or 0) * H + a.v * late - room.gap
+        local now = mp.get_time() - t0
+        a.ph = (h.ph or 0) + a.freq * late - a.freq * now
+        a.dph = (h.dph or 0) + a.rate * late - a.rate * now
+        local front = (h.lead or 0) * H + a.v * depth(now) * late - room.gap
         a.x = ltr and (front - spr.w) or (W - front)
-        a.ph = (h.ph or 0) + a.freq * late - a.freq * (mp.get_time() - t0)   -- the bob goes on
     end
-    local mirror = (a.dir < 0) ~= (el.faces == "left")
-    a.variant = variant + (mirror and 1 or 0)
     function a.update(dt, t)
-        a.x = a.x + a.dir * a.v * dt
+        local d = depth(t)
+        a.x = a.x + a.dir * a.v * d * dt
         -- the front reaches the edge it flies to: the neighbour takes over from here (for a
         -- moment both show a part)
         local lead = (a.dir > 0) and (a.x + spr.w - W) or (-a.x)
         if lead >= 0 and not a.handed_on then
             a.handed_on = true
             hand_over(a.dir > 0 and "right" or "left", {
-                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, k = k, lead = lead / H,
-                y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph })
+                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, lead = lead / H,
+                y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph,
+                rate = a.rate, dph = t * a.rate + a.dph })
         end
         if a.x < -spr.w - 2 or a.x > W + 2 then return false end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
-        local y = a.y0 + a.bend * side * side + math.sin(t * a.freq + a.ph) * a.amp
-        return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), a.variant
+        local y = a.y0 + a.bend * side * side + math.sin(t * a.freq + a.ph) * a.amp * d
+        return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), variant(d)
     end
     return a
 end
@@ -1549,10 +1560,20 @@ mp.register_script_message("watermark", function(js)
     draw_watermark()
 end)
 
+-- the sprites are made for one screen height: on a new size ask the player for new ones (once
+-- the resizing settles)
+local resize_timer
 mp.observe_property("osd-dimensions", "native", function()
     local ow, oh = W, H
     update_dims()
-    if W ~= ow or H ~= oh then refresh() end
+    if W ~= ow or H ~= oh then
+        refresh()
+        if resize_timer then resize_timer:kill() end
+        resize_timer = mp.add_timeout(0.7, function()
+            resize_timer = nil
+            if M then mp.commandv("script-message", "theme-resized", tostring(FW) .. "x" .. tostring(FH)) end
+        end)
+    end
 end)
 
 reset_ids()

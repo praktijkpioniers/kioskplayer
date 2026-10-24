@@ -423,8 +423,14 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     # overlay bitmaps have no alpha of their own)
     fades = 0 if directions else int(sdef.get("fade", 0))
     variants = variants + [f"fade{k}" for k in range(1, fades + 1)]
-    # "sizes": [0.8, 0.6] → smaller copies (+ mirrored) after that, for depth (flyers far away)
+    # "sizes": [0.8, 0.6] → smaller copies (+ mirrored) after that, for depth (flyers far away).
+    # "depth": {"min": 0.5, "steps": 10} → a ladder of sizes down to min, for a flyer drifting
+    # nearer and farther while it flies (overlay bitmaps can't be scaled when drawn)
     sizes = [] if directions else [float(f) for f in sdef.get("sizes", [])]
+    depth = sdef.get("depth")
+    if depth and not directions:
+        lo, n = float(depth.get("min", 0.5)), max(1, int(depth.get("steps", 10)))
+        sizes = [round(1 - (1 - lo) * k / n, 3) for k in range(1, n + 1)]
     variants = variants + [f"size{f}{m}" for f in sizes for m in ("", "m")]
     frames = _cells(frames, square=directions)
 
@@ -673,6 +679,9 @@ class ThemeController:
 
     def message(self, args: list[Any]) -> None:
         """A script-message from the engine (mpv client-message event)."""
+        if args and args[0] == "theme-resized":
+            self._next_check = 0.0          # new screen size: sprites for it on the next tick
+            return
         if len(args) >= 2 and str(args[0]).startswith("theme-room-") and self.room:
             self.room.from_engine(str(args[0]), str(args[1]))
 

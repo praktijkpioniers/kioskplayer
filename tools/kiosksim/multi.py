@@ -62,6 +62,7 @@ class Kiosk:
         else:
             raise SystemExit(f"kiosk{i}: mpv did not start")
         self.lock = threading.Lock()
+        self.level = self.mode = None
         peers = [f"127.0.0.1:{PORT + j}" for j in range(n) if j != i]
         self.bus = roombus.Bus("sim", node=f"kiosk{i}", port=PORT + i,
                                transports=[{"udp-peers": peers}]).start()
@@ -84,10 +85,13 @@ class Kiosk:
                 continue
             if ev.get("event") == "client-message":
                 args = ev.get("args") or []
-                if len(args) >= 2 and str(args[0]).startswith("theme-room-"):
+                if args and args[0] == "theme-resized" and self.level is not None:
+                    threading.Thread(target=self.load, args=(self.level, self.mode), daemon=True).start()
+                elif len(args) >= 2 and str(args[0]).startswith("theme-room-"):
                     self.room.from_engine(str(args[0]), str(args[1]))
 
     def load(self, level, mode):
+        self.level, self.mode = level, mode
         for _ in range(50):
             w, h = self.cmd("get_property", "osd-width"), self.cmd("get_property", "osd-height")
             if w and h:
