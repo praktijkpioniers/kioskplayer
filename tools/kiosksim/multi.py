@@ -4,7 +4,7 @@ Several kiosks side by side on this desktop, as one room: each its own mpv windo
 engine, its own room-bus node (UDP over 127.0.0.1), and the same ThemeRoom bridge the player uses,
 so animations move from one window to the next.
 
-    multi.py [n=4] [level=8] [--gap 16] [--mode idle|video]
+    multi.py [n=4] [level=8] [--gap 16] [--mode idle|video] [--cols 2]
 
 Keys go to one window: python3 tools/kiosksim/multi.py key <i> <key> ...   (b = a flyer now)
 Screenshot of the whole row:   python3 tools/kiosksim/multi.py shot <file.png>
@@ -33,19 +33,24 @@ PORT = 47900
 SCREEN_W, SCREEN_H = 1920, 1080
 
 
-def geometry(i, n):
+def geometry(i, n, cols):
+    """Window i of n in a grid of cols columns filling the screen (read like text: the room's
+    left-to-right order goes on at the start of the next row)."""
     gap = 4
-    w = (SCREEN_W - gap * (n + 1)) // n
+    rows = -(-n // cols)
+    w = min((SCREEN_W - gap * (cols + 1)) // cols, ((SCREEN_H - gap * (rows + 1)) // rows) * 16 // 9)
     h = w * 9 // 16
-    return w, h, gap + i * (w + gap), (SCREEN_H - h) // 2
+    x0 = (SCREEN_W - cols * w - (cols - 1) * gap) // 2
+    y0 = (SCREEN_H - rows * h - (rows - 1) * gap) // 2
+    return w, h, x0 + (i % cols) * (w + gap), y0 + (i // cols) * (h + gap)
 
 
 class Kiosk:
-    def __init__(self, i, n, gap_px):
+    def __init__(self, i, n, gap_px, cols):
         self.i, self.n = i, n
         self.dir = BASE_DIR / f"k{i}"
         self.dir.mkdir(parents=True, exist_ok=True)
-        w, h, x, y = geometry(i, n)
+        w, h, x, y = geometry(i, n, cols)
         env = dict(os.environ, KIOSKSIM_DIR=str(self.dir), KIOSKSIM_GEOMETRY=f"{w}x{h}+{x}+{y}",
                    KIOSKSIM_TITLE=f"kiosk{i}")
         self.proc = subprocess.Popen([str(HERE / "run.sh")], env=env, stdout=subprocess.DEVNULL,
@@ -143,11 +148,12 @@ def main():
     ap.add_argument("level", nargs="?", type=int, default=8)
     ap.add_argument("--gap", type=float, default=16, help="pixels (at 1080p) between two screens")
     ap.add_argument("--mode", default="idle")
+    ap.add_argument("--cols", type=int, default=2, help="windows per row (n for one row)")
     a = ap.parse_args()
-    kiosks = [Kiosk(i, a.n, a.gap) for i in range(a.n)]
+    kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n))) for i in range(a.n)]
     for k in kiosks:
         k.load(a.level, a.mode)
-    print(f"{a.n} kiosks in a row, level {a.level}; 'multi.py key 0 b' sends a flyer. Ctrl+C to stop.")
+    print(f"{a.n} kiosks, level {a.level}; 'multi.py key 0 b' sends a flyer. Ctrl+C to stop.")
     try:
         while all(k.proc.poll() is None for k in kiosks):
             time.sleep(0.5)

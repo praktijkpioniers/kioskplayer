@@ -66,6 +66,8 @@ end
 local function draw(id, spr, frame, variant, x, y)
     local n = spr.frames
     local v = (variant == true) and 1 or (tonumber(variant) or 0)
+    -- past the end of the atlas mpv reads beyond the file and dies: never ask for that
+    if v < 0 or v >= math.max(#(spr.variants or {}), 1) then return end
     local idx = (frame % n) + v * n
     local xi, yi = math.floor(x + OX + 0.5), math.floor(y + OY + 0.5)
     local key = xi .. ":" .. yi .. ":" .. idx
@@ -385,7 +387,7 @@ function spawn.flyer(el, spr, h)
     -- depth: 1 near (full size) .. the smallest size far away; it drifts slowly while flying
     local sizes = spr.sizes or {}
     local far = sizes[#sizes] or 1
-    local size0 = #(spr.variants or {}) - 2 * #sizes     -- variant of sizes[1]
+    local size0 = (spr.faint_at or #(spr.variants or {})) - 2 * #sizes   -- variant of sizes[1]
     a.rate = h and h.rate or rnd(0.25, 0.6)
     a.dph = h and h.dph or rnd(0, 2 * math.pi)
     local function depth(t) return far + (1 - far) * (0.5 + 0.5 * math.sin(t * a.rate + a.dph)) end
@@ -399,7 +401,12 @@ function spawn.flyer(el, spr, h)
         for k, f in ipairs(sizes) do
             if math.abs(f - d) < bd then best, bd = k, math.abs(f - d) end
         end
-        return (best < 0 and 0 or size0 + 2 * (best - 1)) + (mirror and 1 or 0)
+        local v = (best < 0 and 0 or size0 + 2 * (best - 1)) + (mirror and 1 or 0)
+        -- while a video plays: the faint copy ("video_opacity"), which has no fade variants
+        if mode == "video" and spr.faint_at then
+            v = spr.faint_at + (v < 2 and v or v - (spr.fades or 0))
+        end
+        return v
     end
     if h then
         -- it went over the neighbour's edge h.lead (× H) ago, plus the time on the way (h.late):

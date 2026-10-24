@@ -432,6 +432,12 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         lo, n = float(depth.get("min", 0.5)), max(1, int(depth.get("steps", 10)))
         sizes = [round(1 - (1 - lo) * k / n, 3) for k in range(1, n + 1)]
     variants = variants + [f"size{f}{m}" for f in sizes for m in ("", "m")]
+    # "video_opacity": 0.1 → all of that again (without the fades) this transparent, from
+    # variant faint_at on: shown while a video plays
+    faint = None if directions else sdef.get("video_opacity")
+    faint_at = len(variants) if faint is not None else None
+    if faint is not None:
+        variants = variants + ["faint:" + v for v in variants if not v.startswith("fade")]
     frames = _cells(frames, square=directions)
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -439,6 +445,8 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     with tmp.open("wb") as fh:
         for v in variants:
             o = opacity * (1 - int(v[4:]) / (fades + 1)) if v.startswith("fade") else opacity
+            if v.startswith("faint:"):
+                v, o = v[6:], float(faint)
             for f in frames:
                 fh.write(_premultiplied_bgra(_variant(f, v), o))
     tmp.replace(out)
@@ -468,6 +476,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "spin": int(sdef.get("spin", 0)),
         "fades": fades,
         "sizes": sizes,
+        "faint_at": faint_at,
         "clips": clips,
         "origin": origin,
         "unit": float(sdef["unit"]) if origin else None,
