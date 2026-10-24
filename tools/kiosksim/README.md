@@ -11,3 +11,13 @@ real players): 1–9 level, 0 calendar, v idle/video, t balloons, f web ×8, w n
     python3 tools/kiosksim/drive.py catsheet      # the cat in a row of fixed poses (catsheet.png)
 
 Screenshots and the IPC socket go to `$KIOSKSIM_DIR` (default `/tmp/kiosksim`).
+
+## Several screens: a room
+
+    python3 tools/kiosksim/multi.py [n=4] [level=8] [--gap 1.5]   # n windows in a row, one room
+    python3 tools/kiosksim/multi.py key 0 b                        # a flyer now on window 0
+    python3 tools/kiosksim/multi.py shot /tmp/kiosksim/row.png     # the whole row in one picture
+
+Each window is its own kiosk: mpv with the theme engine, a room-bus node (UDP on 127.0.0.1,
+ports 47900+) and the player's ThemeRoom bridge, so a flyer leaving one window comes in on the
+next. Logs and sockets in `/tmp/kiosksim/k<i>/`. Stop: Ctrl+C, or kill the `mpv --geometry` ones.

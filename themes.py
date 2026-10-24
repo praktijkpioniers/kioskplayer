@@ -518,6 +518,51 @@ def build_watermark(cfg: dict[str, Any], screen_h: int) -> Optional[dict[str, An
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Room: hand-overs between the engines of neighbouring screens (over roombus)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ThemeRoom:
+    """Relays the engine's hand-overs to the neighbouring screens and back.
+
+    layout: node names left to right as a visitor sees the screens (config room.layout);
+    gap_s: time an actor is "between" two screens. The engine says theme-room-out {side, ...};
+    we publish theme/handoff {to: <that neighbour>, ...}; the neighbour's ThemeRoom gives it to
+    its engine as theme-room-in.
+    """
+
+    def __init__(self, bus: Any, layout: list[str], gap_s: float, send: Callable[..., Any],
+                 log: Callable[[str], None] = print):
+        self.bus, self.send, self.log = bus, send, log
+        self.gap_s = float(gap_s)
+        layout = [str(n) for n in layout or []]
+        i = layout.index(bus.node) if bus.node in layout else -1
+        self.left = layout[i - 1] if i > 0 else None
+        self.right = layout[i + 1] if 0 <= i < len(layout) - 1 else None
+        if i < 0 and layout:
+            log(f"room: {bus.node} is not in the layout {layout}; no hand-overs")
+        bus.subscribe("theme/handoff", self._from_bus)
+
+    def announce(self) -> None:
+        """Tell the engine about its neighbours (after mpv or the engine started)."""
+        self.send("script-message", "theme-room",
+                  json.dumps({"left": bool(self.left), "right": bool(self.right), "gap": self.gap_s}))
+
+    def from_engine(self, js: str) -> None:
+        try:
+            h = json.loads(js)
+        except ValueError:
+            return
+        to = self.right if h.get("side") == "right" else self.left if h.get("side") == "left" else None
+        if to:
+            h["to"] = to
+            self.bus.publish("theme/handoff", h)
+
+    def _from_bus(self, topic: str, h: Any, env: dict) -> None:
+        if isinstance(h, dict) and h.get("to") == self.bus.node:
+            self.send("script-message", "theme-room-in", json.dumps(h))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Controller used by kioskplayer.App
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -542,6 +587,12 @@ class ThemeController:
         self._next_check = 0.0
         self._mode = "hidden"
         self._busy = threading.Lock()
+        self.room: Optional[ThemeRoom] = None
+
+    def message(self, args: list[Any]) -> None:
+        """A script-message from the engine (mpv client-message event)."""
+        if len(args) >= 2 and args[0] == "theme-room-out" and self.room:
+            self.room.from_engine(str(args[1]))
 
     def configure(self, cfg: dict[str, Any]) -> None:
         self.cfg = cfg
@@ -619,6 +670,8 @@ class ThemeController:
                 return
             theme, level = pick
             manifest = build_manifest(theme, level, w, h, text)
+            if self.room:
+                self.room.announce()
             self.send("script-message", "theme-load", str(manifest))
             self.log(f"themes: loaded {theme} level={level}")
         except Exception as e:

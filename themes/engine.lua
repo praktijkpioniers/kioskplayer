@@ -38,7 +38,17 @@ local ass = mp.create_osd_overlay("ass-events")
 local decks = {}         -- shuffled decks per text list ("jokes", "shouts")
 local t0 = mp.get_time()
 
-math.randomseed(os.time())
+-- not just the time: screens started in the same second (a room after a power cut, or the
+-- side-by-side test) would otherwise play exactly the same animations
+do
+    local seed = os.time() + (utils.getpid and utils.getpid() or 0) * 7919
+    local f = io.open("/etc/hostname", "r")
+    local host = f and f:read("*l") or ""
+    if f then f:close() end
+    for i = 1, #host do seed = (seed * 31 + host:byte(i)) % 2147483647 end
+    math.randomseed(seed)
+    for _ = 1, 5 do math.random() end
+end
 
 local function rnd(a, b) return a + math.random() * (b - a) end
 local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
@@ -315,34 +325,63 @@ function spawn.walker(el, spr)
     return a
 end
 
+-- ── the room: other screens to the left and right (theme-room from the player) ──
+-- An actor leaving towards a neighbour is handed over (theme-room-out → the player → the room bus
+-- → the neighbour's theme-room-in) and comes in there after the gap between the screens.
+local room = { left = false, right = false, gap = 3 }
+local handed_in = {}       -- { at = time, h = handoff } waiting for their time
+
+local function hand_over(side, h)
+    if not room[side] then return false end
+    h.side = side
+    local js, err = utils.format_json(h)
+    if not js then
+        local parts = {}
+        for k, v in pairs(h) do parts[#parts + 1] = k .. "=" .. tostring(v) .. "(" .. type(v) .. ")" end
+        msg.error("hand-over: " .. tostring(err) .. " " .. table.concat(parts, " "))
+        return false
+    end
+    mp.commandv("script-message", "theme-room-out", js)
+    return true
+end
+
 -- flyer: crosses the screen high up (bats, witches, ghosts). el.y is the height in the middle;
 -- el.bend lets the path sag towards the sides (an arc over the middle, which stays clear).
 -- A sprite with "sizes" flies at a random depth: smaller is farther away, and slower.
-function spawn.flyer(el, spr)
+-- h: handed over by a neighbour (same flight, coming in from its side).
+function spawn.flyer(el, spr, h)
     local a = { el = el, spr = spr }
     local ltr = math.random() < 0.5
+    if h then ltr = h.dir == 1 end
     a.dir = ltr and 1 or -1
     a.x = ltr and -spr.w or W
     local ylo, yhi = range(el.y, 0.1)
     if mode == "video" and level() < PRIME then ylo, yhi = 0.0, 0.06 end
-    a.y0 = rnd(ylo, yhi) * H
-    a.bend = rnd(range(el.bend, 0)) * H
+    a.y0 = (h and h.y0 or rnd(ylo, yhi)) * H
+    a.bend = (h and h.bend or rnd(range(el.bend, 0))) * H
     local depth, variant = 1, 0
     local sizes = spr.sizes or {}
+    local k = 0
     if #sizes > 0 then
-        local k = math.random(0, #sizes)    -- 0: full size
+        k = h and math.min(h.k or 0, #sizes) or math.random(0, #sizes)    -- 0: full size
         if k > 0 then depth, variant = sizes[k], #(spr.variants or {}) - 2 * #sizes + 2 * (k - 1) end
     end
-    a.v = rnd(range(el.speed, 0.15)) * W * depth
+    a.v = (h and h.v or rnd(range(el.speed, 0.15)) * depth) * W
     a.amp = (el.amp or 0.04) * H * depth
-    a.freq = rnd(1.5, 3.0)
+    a.freq = h and h.freq or rnd(1.5, 3.0)
+    a.ph = h and (h.ph + a.freq * (room.gap - (mp.get_time() - t0))) or 0   -- the bob goes on
     local mirror = (a.dir < 0) ~= (el.faces == "left")
     a.variant = variant + (mirror and 1 or 0)
     function a.update(dt, t)
         a.x = a.x + a.dir * a.v * dt
-        if a.x < -spr.w - 2 or a.x > W + 2 then return false end
+        if a.x < -spr.w - 2 or a.x > W + 2 then
+            hand_over(a.dir > 0 and "right" or "left", {
+                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, k = k,
+                y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph })
+            return false
+        end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
-        local y = a.y0 + a.bend * side * side + math.sin(t * a.freq) * a.amp
+        local y = a.y0 + a.bend * side * side + math.sin(t * a.freq + a.ph) * a.amp
         return true, a.x, y, math.floor(t * math.max(spr.fps, 1)), a.variant
     end
     return a
@@ -1143,11 +1182,32 @@ local function tick()
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
     end
+    -- actors coming over from a neighbour
+    local wait = {}
+    for _, w in ipairs(handed_in) do
+        if now - w.at > 10 then         -- stale (hidden meanwhile)
+        elseif now < w.at then wait[#wait + 1] = w
+        else
+            local h = w.h
+            local el = M.elements[h.el or 0]
+            local spr = M.sprites[h.sprite or ""]
+            if el and spr and spawn[h.kind] and el.type == h.kind and #free_ids > 0 then
+                local a = spawn[h.kind](el, spr, h)
+                if a then
+                    a.uncounted, a.handed = true, true
+                    a.groups = groups_of(el)
+                    a.id = take_id()
+                    actors[#actors + 1] = a
+                end
+            end
+        end
+    end
+    handed_in = wait
 
     local keep = {}
     for _, a in ipairs(actors) do
         local alive, x, y, frame, mirror = a.update(dt, t)
-        if alive and element_on(a.el) then
+        if alive and (a.handed or element_on(a.el)) then
             -- every overlay-add costs an OSD redraw, so slow actors (particles) redraw less often
             local hz = a.el.hz or (a.el.type == "particles" and 12 or DRAW_HZ)
             if not a.next_draw or now >= a.next_draw then
@@ -1275,6 +1335,7 @@ mp.register_script_message("theme-load", function(path)
         s.spin = s.spin or 0
     end
     M = data
+    for i, el in ipairs(M.elements or {}) do el.index = i end   -- the same on every screen: hand-overs name it
     msg.info(string.format("theme %s level %d, %d elements", M.theme, M.level or 0, #(M.elements or {})))
     refresh()
 end)
@@ -1289,6 +1350,21 @@ mp.register_script_message("theme-overscan", function(js)
     for k = 1, 4 do o[k] = clamp(tonumber(v[k]) or 0, 0, 0.2) end
     overscan = o
     refresh()
+end)
+
+-- theme-room <json>: {"left": bool, "right": bool, "gap": s} — are there screens beside this one
+mp.register_script_message("theme-room", function(js)
+    local v = js and js ~= "" and utils.parse_json(js) or {}
+    room = { left = v.left == true, right = v.right == true, gap = tonumber(v.gap) or 3 }
+    msg.verbose(string.format("room: left %s, right %s, gap %.1f s", tostring(room.left), tostring(room.right), room.gap))
+end)
+
+-- theme-room-in <json>: an actor a neighbour handed over; it comes in from that neighbour's side
+-- after the gap
+mp.register_script_message("theme-room-in", function(js)
+    local h = js and utils.parse_json(js)
+    if not h or not M or mode == "hidden" then return end
+    handed_in[#handed_in + 1] = { at = mp.get_time() + room.gap, h = h }
 end)
 
 mp.register_script_message("theme-off", function()
@@ -1347,6 +1423,17 @@ end)
 mp.add_forced_key_binding("d", "theme-preview-vampire", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "vampire" and elements[el] then elements[el].next = 0 end
+    end
+end)
+mp.add_forced_key_binding("b", "theme-preview-flyer", function()
+    local fl = {}
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "flyer" and element_on(el) then fl[#fl + 1] = el end
+    end
+    if #fl > 0 then
+        local el = fl[math.random(#fl)]
+        elements[el] = elements[el] or { active = 0 }
+        elements[el].next = 0
     end
 end)
 mp.add_forced_key_binding("t", "theme-preview-text", function()

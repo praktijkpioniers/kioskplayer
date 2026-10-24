@@ -9,7 +9,9 @@ video=${1:-$HOME/projects/Videos/Waterlinie museum TRAILER.mp4}
 python3 "$here/testsubs.py" "$dir/test.srt"
 export DISPLAY=${DISPLAY:-:0}
 [ -z "$XAUTHORITY" ] && [ -f /run/user/$(id -u)/gdm/Xauthority ] && export XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority
-exec mpv --fs --no-border --force-window=yes --vo=gpu --hwdec=no --no-osc --idle=yes \
+# KIOSKSIM_GEOMETRY=WxH+X+Y: a window instead of full screen (several kiosks side by side, multi.py)
+if [ -n "$KIOSKSIM_GEOMETRY" ]; then screen="--geometry=$KIOSKSIM_GEOMETRY --title=${KIOSKSIM_TITLE:-kiosksim}"; else screen=--fs; fi
+exec mpv $screen --no-border --force-window=yes --vo=gpu --hwdec=no --no-osc --idle=yes \
     --image-display-duration=inf --loop-file=inf --keep-open=no --cursor-autohide=always \
     --input-conf="$here/input.conf" --input-ipc-server="$dir/mpv.sock" --log-file="$dir/mpv.log" \
     --screenshot-format=png --screenshot-directory="$dir" \
