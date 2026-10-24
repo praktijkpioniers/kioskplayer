@@ -12,11 +12,22 @@
 #      "turn":  {"action": "Idle", "yaw": [90, 15], "frames": 8, "loop": false},
 #      "cheer": {"action": "Cheer", "yaw": 15, "loop": false, "step": 1}}}
 #
+# More recipe keys:
+#   "parts":   [{"model": "Knight.glb", "meshes": ["Knight_Head"]}]  meshes from another model on the
+#              same rig (KayKit Rig_Medium), e.g. a different head
+#   "recolor": {"mage_texture": {"0,1": "#26232b", ...}}  repaint KayKit palette swatches (column,row
+#              of the 8×4 texture grid), keeping each swatch's shading
+#   "frame":   {"x": [lo, hi], "h": units}  fixed framing (world units) instead of the union of all
+#              poses; bakes with the same "h" share a scale (see "unit" in theme.json)
+#   per clip "hold": {"from": "Interact", "frame": 10, "bones": ["upperarm.r", ...]}  freeze those
+#              bones in the pose of another action (e.g. arms forward while walking = pushing)
+#
 # yaw 0 = facing the viewer, 90 = walking to the right. A [from, to] yaw turns during the clip.
 # The camera is orthographic, level, and identical for all clips (framed on the union of all
 # poses) with its bottom edge on the ground plane, so "rising from the ground" clips are cut at
 # ground level, and the sprite's bottom edge is where the feet stand.
-# Writes <out_dir>/<clip>_NNNN.png and clips.json (same format as spider.py).
+# Writes <out_dir>/<clip>_NNNN.png and clips.json (same format as spider.py, plus "unit_px": render
+# pixels per world unit and "origin_px": where world x=0 on the ground is in the render).
 
 import bpy, json, math, os, sys
 from mathutils import Vector
@@ -34,6 +45,43 @@ bpy.ops.import_scene.gltf(filepath=os.path.join(BASE, R["model"]))
 scene = bpy.context.scene
 
 rig = next(o for o in scene.objects if o.type == "ARMATURE")
+
+for part in R.get("parts", []):
+    before = set(scene.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(BASE, part["model"]))
+    for o in [o for o in scene.objects if o not in before]:
+        if o.type == "MESH" and o.name.split(".")[0] in part["meshes"]:
+            mw = o.matrix_world.copy()
+            o.parent = rig
+            o.matrix_world = mw
+            for m in o.modifiers:
+                if m.type == "ARMATURE":
+                    m.object = rig
+        else:
+            bpy.data.objects.remove(o, do_unlink=True)
+
+if R.get("recolor"):
+    import numpy as np
+
+    def recolor(img, cells):
+        w, h = img.size
+        px = np.empty(w * h * 4, np.float32)
+        img.pixels.foreach_get(px)
+        px = px.reshape(h, w, 4)
+        for cr, col in cells.items():
+            c, r = (int(v) for v in cr.split(","))
+            y0, y1, x0, x1 = h - (r + 1) * h // 4, h - r * h // 4, c * w // 8, (c + 1) * w // 8
+            lum = px[y0:y1, x0:x1, :3] @ np.array([0.299, 0.587, 0.114], np.float32)
+            tgt = np.array([int(col[i:i + 2], 16) / 255 for i in (1, 3, 5)], np.float32)
+            px[y0:y1, x0:x1, :3] = np.clip(tgt * (lum / max(1e-3, lum.mean()))[..., None], 0, 1)
+        img.pixels.foreach_set(px.ravel())
+        img.update()
+
+    for key, cells in R["recolor"].items():
+        for img in bpy.data.images:
+            if key in img.name:
+                recolor(img, cells)
+
 meshes = [o for o in scene.objects if o.type == "MESH"]
 for o in meshes:
     if any(h in o.name for h in R.get("hide", [])):
@@ -54,9 +102,27 @@ def action(name):
     return actions.get(name) or actions.get(name + "_Rig") or next(a for n, a in actions.items() if n.startswith(name))
 
 
+def held(c):
+    """The clip's action, or a copy with some bones frozen in the pose of another action."""
+    a = action(c["action"])
+    h = c.get("hold")
+    if not h:
+        return a
+    src, f = action(h["from"]), h.get("frame", 0)
+    b = a.copy()
+    paths = [f'pose.bones["{n}"].{k}' for n in h["bones"] for k in ("rotation_quaternion", "location", "scale")]
+    for fc in [fc for fc in b.fcurves if fc.data_path in paths]:
+        b.fcurves.remove(fc)
+    for fc in src.fcurves:
+        if fc.data_path in paths:
+            nf = b.fcurves.new(fc.data_path, index=fc.array_index)
+            nf.keyframe_points.insert(a.frame_range[0], fc.evaluate(f))
+    return b
+
+
 def clip_frames(c):
     """[(action_frame, yaw_deg)] for one clip."""
-    a = action(c["action"])
+    a = held(c)
     f0, f1 = (int(round(x)) for x in a.frame_range)
     step = c.get("step", 1)
     n = c.get("frames")
@@ -99,7 +165,12 @@ pad = 0.04 * max(hi.x - lo.x, hi.y)
 ground = 0.0
 top = hi.y + pad
 half_w = max(abs(lo.x), abs(hi.x)) + pad   # keep the character centred → no horizontal drift
-frame_w, frame_h = 2 * half_w, top - ground
+x_lo, x_hi = -half_w, half_w
+if R.get("frame"):
+    x_lo, x_hi = R["frame"].get("x", [x_lo, x_hi])
+    top = R["frame"].get("h", top)
+frame_w, frame_h = x_hi - x_lo, top - ground
+print("FRAME union x %.3f..%.3f top %.3f, used x %.3f..%.3f h %.3f" % (lo.x, hi.x, hi.y, x_lo, x_hi, frame_h))
 span = max(frame_w, frame_h)          # ortho_scale covers the longer side of the render
 RES = (max(1, round(SIZE * frame_w / frame_h)), SIZE)   # SIZE = render height in px
 
@@ -108,7 +179,7 @@ cam_data.type = "ORTHO"
 cam_data.ortho_scale = span
 cam = bpy.data.objects.new("cam", cam_data)
 scene.collection.objects.link(cam)
-cam.location = (0, -20, ground + frame_h / 2)
+cam.location = ((x_lo + x_hi) / 2, -20, ground + frame_h / 2)
 cam.rotation_euler = (math.radians(90), 0, 0)
 scene.camera = cam
 
@@ -161,7 +232,7 @@ def stride(a, fr):
             v.append(prev[1].x - pts[low].x)   # planted foot slides backwards (-x) as we walk +x
         prev = (low, pts[low])
     per_frame = sorted(v)[len(v) // 2] if v else 0.0  # median: robust to foot swaps
-    return max(0.0, per_frame * len(fr)) / frame_w    # fraction of render width per cycle
+    return abs(per_frame * len(fr)) / frame_w         # fraction of render width per cycle (also backwards)
 
 
 os.makedirs(OUT, exist_ok=True)
@@ -178,5 +249,7 @@ for name, (a, fr) in clips.items():
     meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1),
                   "loop": bool(c.get("loop", False)),
                   "stride": stride(a, fr) if c.get("stride") == "auto" else float(c.get("stride", 0))}
-json.dump({"view": "front", "model": R["model"], "clips": meta}, open(os.path.join(OUT, "clips.json"), "w"), indent=1)
+json.dump({"view": "front", "model": R["model"], "clips": meta,
+           "unit_px": RES[1] / frame_h, "origin_px": [RES[0] * -x_lo / frame_w, RES[1]]},
+          open(os.path.join(OUT, "clips.json"), "w"), indent=1)
 print("BAKED", OUT, {n: m["count"] for n, m in meta.items()}, {n: round(m["stride"], 3) for n, m in meta.items()})

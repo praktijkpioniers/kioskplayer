@@ -67,6 +67,22 @@
       "anim": "anim/skeleton",
       "height": 0.3
     },
+    "vampire3d": {
+      "anim": "anim/vampire",
+      "unit": 0.115
+    },
+    "vampire_lie3d": {
+      "anim": "anim/vampire_lie",
+      "unit": 0.115
+    },
+    "coffin_box": {
+      "anim": "anim/coffin_box",
+      "unit": 0.115
+    },
+    "coffin_lid": {
+      "anim": "anim/coffin_lid",
+      "unit": 0.115
+    },
     "pumpkin_group": {
       "file": "pumpkin_group.png",
       "height": 0.16,
@@ -587,6 +603,20 @@
       "joke_chance": 0.3,
       "video_min": 8,
       "group": "skeleton"
+    },
+    {
+      "type": "vampire",
+      "sprite": "vampire3d",
+      "lie": "vampire_lie3d",
+      "box": "coffin_box",
+      "lid": "coffin_lid",
+      "min": 7,
+      "video_min": 8,
+      "every": [600, 1200],
+      "delay": [60, 240],
+      "stay": [30, 90],
+      "say": true,
+      "group": "monster"
     },
     {
       "type": "peeker",

@@ -1,0 +1,24 @@
+{
+ "_doc": "The vampire lying down and getting up (in the coffin), baked apart: lying he is much wider than standing. Same model/recolor as vampire.json, same frame height (scale); x range covers the lying body (head behind him).",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "parts": [
+  {
+   "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+   "meshes": ["Knight_Head"]
+  }
+ ],
+ "hide": ["Icosphere", "Mage_Head", "Mage_Hat", "Spellbook", "1H_Wand", "2H_Staff"],
+ "recolor": {
+  "mage_texture": {"0,1": "#2a2630", "1,1": "#2a2630", "2,1": "#8c1222", "4,0": "#d8d6dc", "3,0": "#5a0c16", "5,0": "#6e0f1a", "7,1": "#1c1a20", "3,2": "#1c1a20", "7,2": "#cdc6d6", "2,2": "#3a3640"},
+  "knight_texture": {"0,0": "#d2cbdb", "1,0": "#1e1c26"}
+ },
+ "outline": 0.008,
+ "frame": {
+  "x": [-1.85, 1.05],
+  "h": 2.45
+ },
+ "clips": {
+  "lie_down": {"action": "Lie_Down", "yaw": 90, "step": 2},
+  "stand_up": {"action": "Lie_StandUp", "yaw": 90, "step": 2}
+ }
+}

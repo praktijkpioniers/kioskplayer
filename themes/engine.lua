@@ -519,6 +519,158 @@ function spawn.performer(el, spr)
     return a
 end
 
+-- vampire: a baked character with his coffin (tools/bake/coffin.py): three sprites on three
+-- overlay ids — lid (behind him), vampire, box (in front: lying in it he is hidden). Sprites
+-- with "unit" share one scale and carry "origin" (baked x = 0 on the ground) to line them up.
+--   in:  walks in and across, looks around, reaches off-screen and pulls the coffin in walking
+--        backwards; wanders about; raises a hand and the lid creaks open; steps in, lies down,
+--        the lid closes. A while inside (the lid lifts a crack now and then).
+--   out: the lid opens, he gets up, steps out, the lid shuts, he pushes the coffin off the side
+--        it came from and walks off the other side.
+-- The scene is planned in its own space (coming in from the left) and mirrored half the time.
+function spawn.vampire(el, spr)
+    local S = M.sprites
+    local lie, box, lid = S[el.lie or ""], S[el.box or ""], S[el.lid or ""]
+    local C, L = spr.clips, lie and lie.clips
+    if not (C and C.walk and C.pull and C.push and C.reach and L and L.lie_down and L.stand_up
+            and box and lid and spr.origin and lie.origin and box.origin and lid.origin and spr.unit) then
+        return nil
+    end
+    local u = spr.unit * H
+    local half = box.w / 2              -- coffin half length (its origin is the middle)
+    local hands = 0.5 * u               -- his origin → his hands, reaching
+    local rest = 0.5 * u                -- coffin middle → his origin, lying (head to the left)
+    if W < 2 * box.w + 6 * u then return nil end
+    local a = { el = el, spr = spr, layers = 3 }
+    local d = math.random() < 0.5 and 1 or -1
+    local open = lid.frames - 1
+
+    -- the plan: steps that walk (to), play a clip (once, or for dur), carry the coffin along,
+    -- animate the lid (lid = {from, to}), show him lying (lie) or not at all (hide)
+    local steps, X, face = {}, -1.2 * u, 1   -- face: 1 right, -1 left, 0 the viewer
+    local function add(s) steps[#steps + 1] = s; return s end
+    local function turn(f)
+        if f == face then return end
+        if face ~= 0 and C.turn_front then add { clip = "turn_front", m = face < 0 } end
+        if f ~= 0 and C.turn_side then add { clip = "turn_side", m = f < 0 } end
+        face = f
+    end
+    local function go(to)
+        turn(to > X and 1 or -1)
+        add { clip = "walk", to = to, m = face < 0 }
+        X = to
+    end
+    local function stop(clip, dur)
+        turn(0)
+        add { clip = clip, dur = dur, act = true }
+    end
+
+    local cx = rnd(math.max(W * 0.3, half + 2 * u), math.min(W * 0.7, W - half - 2 * u))
+    -- in and across, a look around, the coffin pulled in from the far side
+    go(W - 0.7 * u)
+    stop("idle", rnd(1.5, 3))
+    turn(1)
+    add { clip = "reach" }
+    X = cx - half - hands
+    add { clip = "pull", to = X, carry = true }
+    stop("idle", rnd(1, 2.5))
+    -- wander
+    for _ = 1, math.random(1, 2) do
+        local to
+        repeat to = rnd(u, W - u) until math.abs(to - X) > 3 * u
+        go(to)
+        if C.raise and math.random() < 0.35 then stop("raise") else stop("idle", rnd(1.5, 3.5)) end
+    end
+    -- to the coffin's end; a raised hand opens the lid; in, lie down, the lid closes
+    go(X < cx and (cx - half - 0.6 * u) or (cx + half + 0.6 * u))
+    turn(0)
+    add { clip = C.raise and "raise" or "idle", dur = (not C.raise) and 1.5 or nil, lid = { 0, open } }
+    go(cx + rest)
+    turn(1)
+    add { clip = "lie_down", lie = true }
+    add { hide = true, dur = 1.0, lid = { open, 0 } }
+    local stay = rnd(range(el.stay, 40))
+    local crack = math.min(3, open)
+    while stay > 0 do
+        local wait = math.min(stay, rnd(8, 20))
+        add { hide = true, dur = wait }
+        stay = stay - wait
+        if stay > 6 and math.random() < 0.5 then
+            add { hide = true, dur = 0.5, lid = { 0, crack } }
+            add { hide = true, dur = rnd(1, 2.5) }
+            add { hide = true, dur = 0.3, lid = { crack, 0 } }
+        end
+    end
+    -- up and out; the lid shuts while he turns; the coffin pushed off, he walks off the other way
+    add { hide = true, dur = 1.2, lid = { 0, open } }
+    add { clip = "stand_up", lie = true }
+    face = 1
+    go(cx - half - hands)
+    local n = #steps
+    turn(1)
+    steps[n + 1].lid, steps[n + 1].dur = { open, 0 }, 1.0
+    add { clip = "push", push = true }
+    X = W + half
+    stop("idle", rnd(1, 2))
+    go(-1.5 * u)
+
+    -- play
+    local si, tc = 1, 0
+    local vx = -1.2 * u                -- his origin (scene space)
+    local coffin                       -- coffin middle (scene space), nil until pulled in
+    local lf = 0                       -- lid frame
+    a.line = pick_line(el)
+    local function place(sp, x, frame, mirror)
+        local m = (mirror and true or false) ~= (d < 0)
+        local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] }
+    end
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        tc = tc + dt
+        local c = s.clip and (s.lie and L[s.clip] or C[s.clip])
+        local done
+        if s.to or s.push then
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local dir = s.push and 1 or (s.to > vx and 1 or -1)
+            vx = vx + dir * v * dt
+            if s.push then
+                done = vx + hands > W + 2
+            elseif (dir > 0 and vx >= s.to) or (dir < 0 and vx <= s.to) then
+                vx, done = s.to, true
+            end
+            if s.carry or s.push then coffin = vx + hands + half end
+        else
+            done = tc >= (s.dur or c.count / c.fps)
+        end
+        if s.lid then
+            local p = clamp(tc / (s.dur or c.count / c.fps), 0, 1)
+            lf = math.floor(s.lid[1] + (s.lid[2] - s.lid[1]) * p + 0.5)
+        end
+
+        local layers = {}
+        if coffin then
+            layers[1] = place(lid, coffin, lf, false)
+            layers[3] = place(box, coffin, 0, false)
+        end
+        if c and not s.hide then
+            local k = math.floor(tc * c.fps)
+            if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
+            local l = place(s.lie and lie or spr, vx, c.start + k, s.m)
+            layers[2] = l
+            a.sx, a.sy = l.x, l.y
+        end
+        a.talking = a.line and s.act and true or false
+        if a.talking and not a.say_t then a.say_t = t end
+        if done then si, tc = si + 1, 0 end
+        if s.push and done then coffin = nil end
+        return true, layers
+    end
+    return a
+end
+
 -- visitor: a decoration that comes and goes (low levels: "now and then a pumpkin").
 -- el.cast = list of { sprite, anchor, places } like decor; one entry is picked per visit.
 -- It slides in from its corner/edge, stays el.stay seconds, slides out again. Two visitors
@@ -635,8 +787,8 @@ end
 local function try_spawn(el, now)
     local st = elements[el]
     if not st then
-        -- first spawn soon after load, slightly staggered
-        st = { next = now + rnd(1, 4), active = 0 }
+        -- first spawn soon after load (or after el.delay), slightly staggered
+        st = { next = now + (el.delay and rnd(range(el.delay)) or rnd(1, 4)), active = 0 }
         elements[el] = st
     end
     if el.type == "particles" then
@@ -664,9 +816,15 @@ local function try_spawn(el, now)
     local spr = el.cast and {} or sprite_of(el)   -- visitors pick their own sprite
     if not spr or not spawn[el.type] then return end
     local a = spawn[el.type](el, spr)
-    if not a then st.next = now + 5 return end
+    if not a or #free_ids < (a.layers or 1) then st.next = now + 5 return end
     a.groups = a.groups or groups_of(el)
     a.id = take_id(); st.active = st.active + 1
+    if a.layers then
+        -- several sprites, drawn bottom to top in id order
+        a.ids = { a.id }
+        for k = 2, a.layers do a.ids[k] = take_id() end
+        table.sort(a.ids)
+    end
     actors[#actors + 1] = a
     local lo, hi = range(el.every, 30)
     -- higher level → shorter pauses (down to a third at the element's full level)
@@ -911,13 +1069,20 @@ local function tick()
             if not a.next_draw or now >= a.next_draw then
                 a.next_draw = (a.next_draw or now + rnd(0, 1 / hz)) + 1 / hz
                 if a.next_draw < now then a.next_draw = now + 1 / hz end
-                draw(a.id, a.spr, frame, mirror, x, y)
-                a.sx, a.sy = x, y
+                if a.ids then   -- x = the layers
+                    for k, id in ipairs(a.ids) do
+                        local l = x[k]
+                        if l then draw(id, l.spr, l.frame, l.variant, l.x, l.y) else hide(id) end
+                    end
+                else
+                    draw(a.id, a.spr, frame, mirror, x, y)
+                    a.sx, a.sy = x, y
+                end
             end
             keep[#keep + 1] = a
         else
             if a.release then a.release() end
-            give_id(a.id)
+            for _, id in ipairs(a.ids or { a.id }) do give_id(id) end
             local st = elements[a.el]
             if st and not a.uncounted then st.active = st.active - 1 end
         end
@@ -928,7 +1093,7 @@ local function tick()
 end
 
 local function clear_actors()
-    for _, a in ipairs(actors) do hide(a.id) end
+    for _, a in ipairs(actors) do for _, id in ipairs(a.ids or { a.id }) do hide(id) end end
     for _, d in ipairs(demo) do hide(d.id) end
     actors, demo = {}, {}
     busy_places = {}
@@ -1041,7 +1206,7 @@ end)
 
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
---   f = web building ×8, w = start a new web, c = send a cat now
+--   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -1076,6 +1241,11 @@ end)
 mp.add_forced_key_binding("c", "theme-preview-cat", function()
     cats = {}
     for name in pairs(cat_next) do cat_next[name] = 0 end
+end)
+mp.add_forced_key_binding("d", "theme-preview-vampire", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "vampire" and elements[el] then elements[el].next = 0 end
+    end
 end)
 mp.add_forced_key_binding("t", "theme-preview-text", function()
     preview.text = not text_on()

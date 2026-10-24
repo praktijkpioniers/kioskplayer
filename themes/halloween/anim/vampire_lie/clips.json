@@ -1,0 +1,25 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "clips": {
+  "lie_down": {
+   "files": "lie_down_*.png",
+   "count": 37,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "stand_up": {
+   "files": "stand_up_*.png",
+   "count": 29,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 156.734693877551,
+ "origin_px": [
+  290.2586206896551,
+  384
+ ]
+}

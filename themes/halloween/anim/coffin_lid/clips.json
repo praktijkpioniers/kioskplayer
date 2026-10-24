@@ -1,0 +1,18 @@
+{
+ "view": "front",
+ "model": "coffin.py",
+ "clips": {
+  "open": {
+   "files": "open_*.png",
+   "count": 12,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 156.734693877551,
+ "origin_px": [
+  235.0,
+  384
+ ]
+}

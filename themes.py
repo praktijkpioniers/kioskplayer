@@ -234,11 +234,15 @@ def _white_with_shadow(im: "Image.Image") -> "Image.Image":
     return canvas
 
 
-def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> tuple[list["Image.Image"], dict[str, Any]]:
+def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int,
+               screen_h: int) -> tuple[list["Image.Image"], dict[str, Any], list[float] | None]:
     """
     Baked animation folder (tools/bake/*.py): clips.json + <clip>_NNNN.png.
     All frames are cropped to their *union* bounding box (per-frame crops would make the
-    animation jitter) and scaled together. Returns frames in clip order + clip table.
+    animation jitter) and scaled together. Returns frames in clip order + clip table + origin.
+    "unit": screen-height fraction per world unit instead of "height": sprites baked apart
+    (vampire, coffin) then share one scale, and "origin" (the baked world x = 0 on the ground,
+    in sprite pixels) lets the engine line them up.
     """
     d = theme_dir / sdef["anim"]
     info = json.loads((d / "clips.json").read_text(encoding="utf-8"))
@@ -259,13 +263,20 @@ def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> tuple[l
         if b:
             box = b if box is None else (min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3]))
     box = box or (0, 0, raw[0].width, raw[0].height)
-    scale = height_px / (box[3] - box[1])
+    origin = None
+    if sdef.get("unit") and info.get("unit_px"):
+        scale = float(sdef["unit"]) * screen_h / info["unit_px"]
+        height_px = max(1, round((box[3] - box[1]) * scale))
+        ox, oy = info.get("origin_px", [render_w / 2, raw[0].height])
+        origin = [(ox - box[0]) * scale, (oy - box[1]) * scale]
+    else:
+        scale = height_px / (box[3] - box[1])
     w = max(1, round((box[2] - box[0]) * scale))
     frames = [im.crop(box).resize((w, height_px), Image.LANCZOS) for im in raw]
     for c in clips.values():
         # baked stride is a fraction of the full render width → pixels per cycle on screen
         c["stride_px"] = c.pop("stride") * render_w * scale
-    return frames, clips
+    return frames, clips, origin
 
 
 def _sprite_frames(theme_dir: Path, sdef: dict[str, Any], height_px: int) -> list["Image.Image"]:
@@ -392,8 +403,9 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         return json.loads(meta_path.read_text(encoding="utf-8"))
 
     clips: dict[str, Any] = {}
+    origin = None
     if "anim" in sdef:
-        frames, clips = _load_anim(theme_dir, sdef, height_px)
+        frames, clips, origin = _load_anim(theme_dir, sdef, height_px, screen_h)
     else:
         frames = _sprite_frames(theme_dir, sdef, height_px)
     directions = bool(sdef.get("directions"))
@@ -427,6 +439,8 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
         "spin": int(sdef.get("spin", 0)),
         "fades": fades,
         "clips": clips,
+        "origin": origin,
+        "unit": float(sdef["unit"]) if origin else None,
     }
     meta_path.write_text(json.dumps(meta), encoding="utf-8")
     return meta

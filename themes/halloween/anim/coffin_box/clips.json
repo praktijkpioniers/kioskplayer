@@ -1,0 +1,18 @@
+{
+ "view": "front",
+ "model": "coffin.py",
+ "clips": {
+  "box": {
+   "files": "box_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 156.734693877551,
+ "origin_px": [
+  235.0,
+  384
+ ]
+}

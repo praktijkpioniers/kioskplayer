@@ -1,0 +1,60 @@
+{
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg): git clone --depth 1 https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 tools/bake/models/kaykit-adventurers. The Mage's body and cape with the Knight's head, repainted: black suit, crimson cape, pale skin, black hair.",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "parts": [
+  {
+   "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+   "meshes": ["Knight_Head"]
+  }
+ ],
+ "hide": ["Icosphere", "Mage_Head", "Mage_Hat", "Spellbook", "1H_Wand", "2H_Staff"],
+ "recolor": {
+  "mage_texture": {"0,1": "#2a2630", "1,1": "#2a2630", "2,1": "#8c1222", "4,0": "#d8d6dc", "3,0": "#5a0c16", "5,0": "#6e0f1a", "7,1": "#1c1a20", "3,2": "#1c1a20", "7,2": "#cdc6d6", "2,2": "#3a3640"},
+  "knight_texture": {"0,0": "#d2cbdb", "1,0": "#1e1c26"}
+ },
+ "outline": 0.008,
+ "frame": {
+  "x": [-0.8, 0.95],
+  "h": 2.45
+ },
+ "clips": {
+  "walk": {"action": "Walking_A", "yaw": 90, "loop": true, "stride": "auto", "step": 2},
+  "pull": {
+   "action": "Walking_Backwards",
+   "yaw": 65,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "hold": {
+    "from": "Interact",
+    "frame": 10,
+    "bones": ["upperarm.l", "lowerarm.l", "wrist.l", "hand.l", "upperarm.r", "lowerarm.r", "wrist.r", "hand.r"]
+   }
+  },
+  "push": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "hold": {
+    "from": "Interact",
+    "frame": 10,
+    "bones": ["upperarm.l", "lowerarm.l", "wrist.l", "hand.l", "upperarm.r", "lowerarm.r", "wrist.r", "hand.r"]
+   }
+  },
+  "reach": {"action": "Interact", "yaw": 90, "step": 2},
+  "idle": {"action": "Idle", "yaw": 15, "loop": true, "step": 2},
+  "raise": {"action": "Spellcast_Raise", "yaw": 15, "step": 2},
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [90, 15],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [15, 90],
+   "frames": 6
+  }
+ }
+}
