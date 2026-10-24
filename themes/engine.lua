@@ -410,6 +410,20 @@ local function zombie_near(x, dist)
     end
 end
 
+-- walkers with their arms out push a coffin lying shut in their way (the vampire in it), from
+-- the near side: true while pushing. reach = from their origin to their hands.
+local function push_coffins(x, dir, reach)
+    for _, b in ipairs(actors) do
+        local sp = b.span
+        if sp and b.push and not b.leaving then
+            local mid = (sp[1] + sp[2]) / 2
+            if dir > 0 and x + reach > sp[1] and x < mid then b.push(x + reach - sp[1]) return true end
+            if dir < 0 and x - reach < sp[2] and x > mid then b.push(x - reach - sp[2]) return true end
+        end
+    end
+    return false
+end
+
 -- ── transient actors ───────────────────────────────────────────────────────
 
 local spawn = {}
@@ -910,12 +924,16 @@ function spawn.vampire(el, spr)
     local vx = -1.2 * u                -- his origin (scene space)
     local coffin                       -- coffin middle (scene space), nil until pulled in
     local lf = 0                       -- lid frame
+    local shift = 0                    -- how far others pushed the coffin (with him in it), scene space
     a.line = pick_line(el)
     local function place(sp, x, frame, mirror, dy)
         local m = (mirror and true or false) ~= (d < 0)
         local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        x = x + shift
         return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] + dy }
     end
+    local function scr(x) return (d > 0) and (x + shift) or (W - x - shift) end
+    function a.push(dx) shift = shift + d * dx end   -- (screen pixels) see push_coffins
 
     function a.update(dt, t)
         local s = steps[si]
@@ -934,7 +952,7 @@ function spawn.vampire(el, spr)
         local rate = s.rate or 1
         local done
         -- a zombie about: no standing around, and walking becomes running
-        local scared = not s.hide and zombie_near((d > 0) and vx or (W - vx), 4.5 * u)
+        local scared = not s.hide and zombie_near(scr(vx), 4.5 * u)
         if scared and C.run and s.to and not s.carry and not s.lie then
             c, rate = C.run, 1.5
             if not a.ran then a.ran = true msg.verbose("vampire runs past the zombie") end
@@ -953,7 +971,7 @@ function spawn.vampire(el, spr)
             local dir = s.push and 1 or (s.to > vx and 1 or -1)
             vx = vx + dir * v * dt
             if s.push then
-                done = vx + hands > W + 2
+                done = vx + shift + hands > W + 2
             elseif (dir > 0 and vx >= s.to) or (dir < 0 and vx <= s.to) then
                 vx, done = s.to, true
             end
@@ -982,9 +1000,20 @@ function spawn.vampire(el, spr)
             local l = place(s.lie and lie or spr, vx, c.start + k, s.m, dy)
             layers[2] = l
             a.sx, a.sy = l.x, l.y
-            a.cx = (d > 0) and vx or (W - vx)
+            a.cx = scr(vx)
         else
             a.cx = nil
+        end
+        -- shut in the coffin it may be pushed about (span: where it lies); pushed off the screen,
+        -- he is gone with it
+        a.span = nil
+        if coffin and s.hide and lf == 0 then
+            local m = scr(coffin)
+            if m - half > W or m + half < 0 then
+                msg.verbose("vampire: pushed off in his coffin")
+                return false
+            end
+            a.span = { m - half, m + half }
         end
         a.talking = a.line and s.act and true or false
         if a.talking and not a.say_t then a.say_t = t end
@@ -1202,8 +1231,9 @@ function spawn.zombie(el, spr)
         elseif state == "walk" then
             local to = stops[k]
             c, m = C.walk, dir < 0
-            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0) * (a.pushing and 0.7 or 1)
             x = x + dir * v * dt
+            a.pushing = push_coffins(x, dir, 0.6 * u)
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
@@ -1330,7 +1360,8 @@ function spawn.frankenstein(el, spr)
         if state == "walk" then
             c = C.walk
             local to = stops[k]
-            x = x + dir * c.stride_px * c.fps / c.count * (el.speed or 1.0) * dt
+            x = x + dir * c.stride_px * c.fps / c.count * (el.speed or 1.0) * (a.pushing and 0.7 or 1) * dt
+            a.pushing = push_coffins(x, dir, 0.65 * u)
             if (to - x) * dir <= 0 then
                 x = to
                 if k == #stops then return false end
