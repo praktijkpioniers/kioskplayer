@@ -145,6 +145,10 @@
       "anim": "anim/werewolf_man",
       "unit": 0.115
     },
+    "princess3d": {
+      "anim": "anim/princess",
+      "unit": 0.115
+    },
     "werewolf3d": {
       "anim": "anim/werewolf",
       "unit": 0.115
@@ -788,6 +792,25 @@
         "monster",
         "walker"
       ]
+    },
+    {
+      "type": "princess",
+      "sprite": "princess3d",
+      "frog": "frog",
+      "vampire": "vampire3d",
+      "princes": [
+        {"sprite": "zombie3d", "family": "zombie"},
+        {"sprite": "skeleton3d", "family": "skeleton"},
+        {"sprite": "pumpkinhead3d", "family": "pumpkinhead"},
+        {"sprite": "werewolf_man3d", "family": "werewolf"},
+        {"sprite": "frankenstein3d", "family": "frankenstein"}
+      ],
+      "min": 8,
+      "video_min": 8,
+      "every": [300, 600],
+      "delay": [60, 200],
+      "say": true,
+      "group": ["monster", "walker"]
     },
     {
       "type": "werewolf",

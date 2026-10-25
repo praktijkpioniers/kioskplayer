@@ -312,6 +312,10 @@ local function chars_here(fam)             -- how many characters here (and whet
         if is_character(a) then
             n = n + 1
             if family_of(a.el) == fam then same = true end
+            for _, f in ipairs(a.also or {}) do       -- (someone it plays a scene with)
+                n = n + 1
+                if f == fam then same = true end
+            end
         end
     end
     return n, same
@@ -2253,6 +2257,250 @@ function spawn.werewolf(el, spr, h)
     return a
 end
 
+-- princess: a scene for two (layers: the other one, her). Either the frog: she comes in, a frog
+-- hops in and croaks; she bends down and kisses it - a puff, and the prince is... whoever of
+-- el.princes ({sprite, family}) isn't about in the room: the zombie reaches for her, a skeleton
+-- or the pumpkin-head dances - a fright, she runs off; he walks off over to the screen next door
+-- (a passer there). The lumberjack is a catch: she cheers and goes off with him. Or the vampire
+-- (el.vampire, when he isn't about): he sneaks up behind her to bite, she turns round and kisses
+-- him - a puff, a frog; it croaks and hops off next door (a hopper), she cheers and goes. Planned
+-- like the mummy: each step has a part for her (a) and the other one (b). Coming in from the
+-- left, mirrored half the time.
+local function heart(out, x, y, r, alpha)
+    local al = math.floor(clamp(alpha, 0, 1) * 255)
+    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord2\\shad0\\1c&H9C5AF0&\\3c&H5A2AB0&\\1a&H%02X&\\3a&H%02X&\\p1}"
+        .. "m %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d{\\p0}", al, al,
+        x, y + r, x - 1.5 * r, y + 0.1 * r, x - 1.0 * r, y - 0.9 * r, x, y - 0.35 * r,
+        x + 1.0 * r, y - 0.9 * r, x + 1.5 * r, y + 0.1 * r, x, y + r)
+end
+function spawn.princess(el, spr)
+    local S = M.sprites
+    local C = spr.clips
+    local frog = S[el.frog or ""]
+    local F = frog and frog.clips
+    if not (C and C.walk and C.idle and C.pick and C.kiss and C.shock and C.cheer and C.run and C.turn_side
+            and C.turn_front and F and F.sit and F.hop and frog.origin and spr.origin and spr.unit) then
+        return nil
+    end
+    local u = spr.unit * H
+    if W < 9 * u then return nil end
+    -- who may play the other part: not about in the room, nor here
+    local function free(name, fam)
+        local sp = S[name or ""]
+        if not (sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin) then return nil end
+        local _, same = chars_here(fam)
+        if same or room.taken["chr:" .. fam] or taken(sp) then return nil end
+        return sp
+    end
+    local vamp = free(el.vampire, "vampire")
+    if vamp and not (vamp.clips.sneak and vamp.clips.raise) then vamp = nil end
+    local princes = {}
+    for _, p in ipairs(el.princes or {}) do
+        local sp = free(p.sprite, p.family or p.sprite)
+        if sp then princes[#princes + 1] = { sp = sp, fam = p.family or p.sprite } end
+    end
+    local names = {}
+    for _, p in ipairs(princes) do names[#names + 1] = p.fam end
+    msg.verbose("princess: free to be the prince: " .. (#names > 0 and table.concat(names, " ") or "none")
+        .. (vamp and ", the vampire about" or ""))
+    local story = "frog"
+    if vamp and (#princes == 0 or math.random() < (el.vampire_chance or 0.4)) then story = "vampire" end
+    if story == "frog" and #princes == 0 then return nil end
+    local prince = story == "frog" and princes[math.random(#princes)] or nil
+    -- (the other one's family counts from the start: no second one of them comes meanwhile)
+    local a = { el = el, spr = spr, layers = 2, scene = true, also = { prince and prince.fam or "vampire" } }
+    local d = math.random() < 0.5 and 1 or -1
+
+    local steps = {}
+    local A = { x = -1.2 * u, face = 1, rest = { clip = "idle", rest = true }, sp = spr }
+    local B = { face = 1, rest = { hide = true, rest = true } }
+    local function add(s)   -- (a missing part rests as planned at this point; b: as whom)
+        s.a, s.b = s.a or A.rest, s.b or B.rest
+        s.b.sp = s.b.sp or B.sp
+        steps[#steps + 1] = s
+        return s
+    end
+    local function turn(t, f, key)
+        local cl = t.sp.clips
+        if f == t.face then return end
+        if t.face ~= 0 and cl.turn_front then add { [key] = { clip = "turn_front", m = t.face < 0 } } end
+        if f ~= 0 and cl.turn_side then add { [key] = { clip = "turn_side", m = f < 0 } } end
+        t.face = f
+    end
+    local function go(t, key, to, clip, out)
+        turn(t, to > t.x and 1 or -1, key)
+        add { [key] = { clip = clip or "walk", to = to, m = t.face < 0, out = out } }
+        t.x = to
+    end
+    local hold = math.floor(C.pick.count * 0.45)       -- (bent down)
+
+    if story == "frog" then
+        local fx = rnd(0.55, 0.65) * W
+        B.sp, B.x, B.face = frog, W + 0.6 * u, -1
+        go(A, "a", rnd(0.22, 0.3) * W)
+        turn(A, 0, "a")
+        B.rest = { clip = "sit", m = true, rest = true }
+        add { a = { clip = "idle", dur = 0.4 }, b = { clip = "hop", hop = fx, m = true } }
+        add { b = F.croak and { clip = "croak", m = true, n = 2 } or { clip = "sit", m = true, dur = 1 }, log = "princess: a frog" }
+        add { a = { clip = "idle", dur = rnd(0.6, 1.2), act = true } }
+        go(A, "a", fx - 0.75 * u)
+        add { a = { clip = "pick", hold = hold, dur = 0.8 } }
+        add { a = { clip = "pick", hold = hold, dur = 1.4 }, heart = true, log = "princess: kisses the frog" }
+        local P = prince.sp.clips
+        B.sp, B.face = prince.sp, 0
+        B.rest = { clip = "idle", rest = true }
+        add { a = { clip = "pick", from = hold }, b = { clip = "idle", dur = 0.8 }, puff = true,
+              log = "princess: the frog is the " .. prince.fam }
+        A.rest = { clip = "idle", m = false, rest = true }
+        turn(A, 0, "a")
+        if prince.fam == "werewolf" then                -- a catch: off with him
+            add { a = { clip = "cheer", act = true }, b = { clip = "idle", dur = 1.2 } }
+            turn(B, 1, "b")
+            turn(A, 1, "a")
+            add { a = { clip = "walk", to = W + 0.3 * u }, b = { clip = "walk", to = W + 1.5 * u, out = true } }
+            B.rest = { hide = true, rest = true }
+            A.x = W + 0.3 * u
+            go(A, "a", W + 1.5 * u)
+        else                                            -- a fright: she runs, he goes on
+            local react = (P.reach and { clip = "reach", m = true, dur = 1.8, pre = P.turn_reach and "turn_reach" })
+                or (P.taunt and math.random() < 0.5 and { clip = "taunt" })
+                or (P.cheer and { clip = "cheer" }) or { clip = "idle", dur = 1.5 }
+            if react.pre then add { b = { clip = react.pre, m = true } } end
+            if react.clip == "reach" then B.face = -1 end
+            add { a = { clip = "shock", act = true }, b = react }
+            if react.clip == "reach" then B.rest = { clip = "reach", m = true, rest = true } end
+            turn(A, -1, "a")
+            turn(B, 1, "b")
+            add { a = { clip = "run", to = -1.5 * u, m = true }, b = { clip = "walk", to = W + 1.5 * u, out = true } }
+            A.rest = { hide = true, rest = true }
+        end
+    else
+        local px = rnd(0.55, 0.65) * W
+        local V = vamp.clips
+        local up = math.floor(V.raise.count * 0.6)
+        B.sp, B.x, B.face = vamp, -1.2 * u, 1
+        go(A, "a", px)
+        turn(A, 0, "a")
+        add { a = { clip = "idle", dur = 0.3 }, b = { clip = "walk", to = px - 3.2 * u } }
+        add { b = { clip = "sneak", to = px - 1.15 * u } }
+        B.x = px - 1.15 * u
+        B.rest = { clip = "raise", hold = up, rest = true }
+        add { b = { clip = "raise", hold = up, dur = 1.0 }, log = "princess: the vampire, about to bite" }
+        turn(A, -1, "a")
+        A.rest = { clip = "idle", m = true, rest = true }
+        add { a = { clip = "kiss", dur = 1.6, m = true }, heart = true, log = "princess: kisses the vampire" }
+        B.sp, B.face = frog, 1
+        B.rest = { clip = "sit", rest = true }
+        add { a = { clip = "idle", dur = 0.8, m = true }, b = { clip = "sit", dur = 0.8 }, puff = true,
+              gone = true, log = "princess: the vampire is a frog" }
+        add { b = F.croak and { clip = "croak", n = 2 } or { clip = "sit", dur = 1 } }
+        turn(A, 0, "a")
+        add { a = { clip = "cheer", act = true } }
+        B.face = -1
+        add { b = { clip = "hop", hop = -0.8 * u, m = true, out = true } }
+        B.rest = { hide = true, rest = true }
+        go(A, "a", W + 1.5 * u)
+    end
+
+    -- play
+    local si, tc = 1, 0
+    local puffs, hearts = {}, {}
+    a.line = pick_line(el)
+    A.x = -1.2 * u
+    B.x = story == "frog" and W + 0.6 * u or -1.2 * u
+    local hop = F.hop.count / F.hop.fps
+    local oa = { el = el, spr = frog, groups = {}, hops = 0 }   -- the other one going off, for walk_out
+    local function scr(x) return (d > 0) and x or (W - x) end
+    local function place(sp, x, frame, mirror, dy)
+        local m = (mirror and true or false) ~= (d < 0)
+        local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        return { spr = sp, frame = frame, variant = m, x = scr(x) - ox, y = H - sp.origin[2] + (dy or 0) }
+    end
+    -- one part of the step: its layer (or nil) and whether that part is done
+    local function part(t, sp, p, dt)
+        if p.hide then return nil, p.rest or tc >= (p.dur or 0) end
+        local c = sp.clips[p.clip] or sp.clips.idle
+        local done, k, dy = false, nil, 0
+        if p.to then
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local dir = p.to > t.x and 1 or -1
+            t.x = t.x + dir * v * dt
+            if (dir > 0 and t.x >= p.to) or (dir < 0 and t.x <= p.to) then t.x, done = p.to, true end
+            k = math.floor(tc * c.fps) % c.count
+            if p.out then
+                oa.spr = sp
+                walk_out(oa, scr(t.x), dir * d, 0.5 * u, { kind = "passer", clip = p.clip, unique = false })
+            end
+        elseif p.hop then                               -- hop by hop (1.2 u) to there
+            local dir = p.hop > t.x and 1 or -1
+            t.h0, t.ht = t.h0 or t.x, (t.ht or 0) + dt
+            local to = t.h0 + dir * 1.2 * u
+            if (dir > 0) == (to > p.hop) then to = p.hop end
+            t.x, dy = hop_at(t.ht / hop, t.h0, to, 0, 0, 0.6 * u)
+            k = math.min(c.count - 1, math.floor(t.ht * c.fps))
+            if p.out then
+                oa.spr = sp
+                walk_out(oa, scr(t.x), dir * d, 0.3 * u, { kind = "hopper", unique = false })
+            end
+            if t.ht >= hop then
+                t.x, t.h0, t.ht = to, nil, nil
+                done = to == p.hop
+            end
+        else
+            local n = math.floor(tc * c.fps)
+            local len = c.count / c.fps * (p.n or 1)
+            if p.hold then k = math.min(p.hold, n)
+            elseif p.from then k, len = math.min(c.count - 1, p.from + n), (c.count - p.from) / c.fps
+            elseif c.loop or p.n then k = n % c.count
+            else k = math.min(n, c.count - 1) end
+            done = p.rest or tc >= (p.dur or ((c.loop or p.hold) and 0 or len))
+        end
+        return place(sp, t.x, c.start + k, p.m, dy), done
+    end
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        if si ~= a.logged then
+            a.logged = si
+            if s.log then msg.verbose(s.log) end
+            if s.puff then
+                for _ = 1, 8 do
+                    puffs[#puffs + 1] = { x = scr(B.x) + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
+                                          r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
+                end
+            end
+            if s.gone then a.also = nil end             -- (no vampire now: just a frog)
+            if s.heart then hearts[#hearts + 1] = { x = scr((A.x + B.x) / 2), y = H - 2.0 * u, t = 0 } end
+        end
+        tc = tc + dt
+        local la, da = part(A, spr, s.a, dt)
+        local lb, db = part(B, s.b.sp, s.b, dt)
+        if s.puff and tc < 0.25 then lb = nil end       -- (the change, in the puff)
+        if la then a.sx, a.sy, a.cx = la.x, la.y, scr(A.x) end
+        local keep = {}
+        for _, q in ipairs(puffs) do
+            q.t, q.x, q.y = q.t + dt, q.x + q.vx * dt, q.y - 0.5 * u * dt
+            if q.t < 1.2 then keep[#keep + 1] = q end
+        end
+        puffs, keep = keep, {}
+        for _, q in ipairs(hearts) do
+            q.t, q.y = q.t + dt, q.y - 0.4 * u * dt
+            if q.t < 2 then keep[#keep + 1] = q end
+        end
+        hearts = keep
+        a.talking = a.line and s.a.act and true or false
+        if a.talking and not a.say_t then a.say_t = t end
+        if da and db then si, tc = si + 1, 0 end
+        return true, { lb, la }
+    end
+    function a.ass(out)
+        for _, q in ipairs(puffs) do puff(out, q.x, q.y, q.r * (1 + 0.6 * q.t), 0.2 + 0.8 * q.t / 1.2) end
+        for _, q in ipairs(hearts) do heart(out, q.x, q.y, 0.2 * u * (1 + 0.3 * q.t), math.max(0, q.t - 1) / 1) end
+    end
+    return a
+end
+
 -- passer: someone just passing through, come over from the screen next door (or, from_far,
 -- coming in at the far side, hurrying towards it): walks (clip, rate) across and off, and on to
 -- the next screen, if any.
@@ -3020,6 +3268,7 @@ local function tick()
                 if a.unique and a.spr then set[claim_key(a.spr)] = true end
                 for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then set["grp:" .. g] = true end end
                 if is_character(a) then set["chr:" .. family_of(a.el)] = true end
+                for _, f in ipairs(a.also or {}) do set["chr:" .. f] = true end   -- (a duet: the other one)
             end
             if #cats > 0 then set["spr:cat"] = true end
             for g in pairs(ROOM_GROUPS) do
@@ -3287,7 +3536,7 @@ end)
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
---   h = the witch (and her cauldron) next, l = the werewolf next
+--   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next
 --   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
@@ -3358,6 +3607,11 @@ end)
 mp.add_forced_key_binding("l", "theme-preview-werewolf", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "werewolf" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("p", "theme-preview-princess", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "princess" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
