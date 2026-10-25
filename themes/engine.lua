@@ -244,7 +244,7 @@ end
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
 local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
-local HANDED_ONLY = { piece = true, passer = true, hopper = true }    -- kinds that only come in from a neighbour
+local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true }    -- kinds that only come in from a neighbour
 local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
     if a.guest_of then return true end
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
@@ -297,10 +297,12 @@ local function family_of(el)
     return el.family or (el.type == "performer" and "skeleton") or el.type
 end
 local function is_character(a)            -- (a hidden vampire has no groups: asleep, not counted)
+    if a.family then return true end                     -- (one of the cast, wandering about)
     if HANDED_ONLY[a.el.type] then return false end      -- (one on its way out still counts)
     for _, g in ipairs(a.groups or {}) do if g == "walker" then return true end end
     return false
 end
+local function actor_family(a) return a.family or family_of(a.el) end
 local function room_max()
     local n = room.screens or 1
     if not room.active or n <= 1 then return math.huge end
@@ -311,7 +313,7 @@ local function chars_here(fam)             -- how many characters here (and whet
     for _, a in ipairs(actors) do
         if is_character(a) then
             n = n + 1
-            if family_of(a.el) == fam then same = true end
+            if actor_family(a) == fam then same = true end
             for _, f in ipairs(a.also or {}) do       -- (someone it plays a scene with)
                 n = n + 1
                 if f == fam then same = true end
@@ -477,7 +479,7 @@ local GRAVE_FAMILIES = { skeleton = true, zombie = true }
 local function floor_busy(aside)
     for _, a in ipairs(actors) do
         if a.scene then return true end
-        if aside == "others" and (a.floor or (is_character(a) and not GRAVE_FAMILIES[family_of(a.el)])) then
+        if aside == "others" and (a.floor or (is_character(a) and not GRAVE_FAMILIES[actor_family(a)])) then
             return true
         end
     end
@@ -1840,6 +1842,34 @@ end
 -- her creation and it walks off to the screen next door (a passer there). Layers, bottom to top: the
 -- witch (behind the pot), the pot, the frog (in it: hidden by the front), the pot's front.
 -- Planned coming in from the left, mirrored half the time.
+-- The cast: characters stay about a while after their act (h.ttl seconds), wandering from screen
+-- to screen. A scene element lists who it can use (el.recruits: families, "frog" for a frog);
+-- one of those about on its screen is taken over (recruit) - the stories run on into each other.
+-- wanted_here: a scene here that could use one of fam, due before long (or waiting its turn):
+-- its start is pulled forward, and the one wanted hangs about.
+local function wanted_here(fam, now)
+    for _, el in ipairs(M and M.elements or {}) do
+        local st = elements[el]
+        if el.recruits and st and element_on(el) and (st.active or 0) < 1 then
+            for _, f in ipairs(el.recruits) do
+                if f == fam and (st.wait_since or st.next - now < (el.recruit_soon or 120)) then return el, st end
+            end
+        end
+    end
+end
+-- one of fam about here, not busy: taken over by the scene starting (its actor goes); its screen
+-- x and which way it faces (1 right)
+local function recruit(fam)
+    for _, a in ipairs(actors) do
+        if (a.family == fam or (fam == "frog" and a.el.type == "hopper" and a.frog))
+                and not a.gone and not a.leaving and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then
+            a.gone = true
+            msg.verbose("cast: the " .. fam .. " joins in")
+            return a.cx, a.facing or 1, a
+        end
+    end
+end
+
 local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
     local q = clamp((p - 0.2) / 0.65, 0, 1)        -- (airborne between crouch and landing)
     return x0 + (x1 - x0) * ease(q), y0 + (y1 - y0) * q - high * math.sin(math.pi * q)
@@ -1914,6 +1944,7 @@ function spawn.witch(el, spr)
     stop("cast", nil, 0, { on = pot_clip("vanish") })
     stop("idle", 0.6)
     go(-1.5 * u)
+    steps[#steps].out = true             -- (and on as one of the cast)
 
     local si, tc = 1, 0
     local wx = -1.2 * u
@@ -1954,7 +1985,8 @@ function spawn.witch(el, spr)
             f.x, f.dy = hop_at(f.t / hop * 1.3, f.x0, f.x0 + 1.3 * u, 0, 0, 0.6 * u)
             if f.t >= hop / 1.3 then f.x0, f.t = f.x0 + 1.3 * u, 0 end
             if f.t < dt then f.x = f.x0 end
-            walk_out(fa, scr(f.x), d, 0.3 * u, { kind = "hopper", unique = false })
+            walk_out(fa, scr(f.x), d, 0.3 * u, { kind = "hopper", unique = false, hops = 0,
+                                                ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
             if f.x > W + 0.6 * u then f.state = "gone" end
         end
     end
@@ -1989,7 +2021,8 @@ function spawn.witch(el, spr)
         elseif f.state == "off" then
             f.clip = "walk"
             f.x = f.x + K.walk.stride_px * K.walk.fps / K.walk.count * dt
-            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "passer", clip = "walk", unique = false })
+            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "wanderer", fam = "pumpkinhead", unique = false, hops = 0,
+                                                ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
             if f.x > W + 1.5 * u then f.state = "gone" end
         end
     end
@@ -2009,6 +2042,10 @@ function spawn.witch(el, spr)
             local dir = s.to > wx and 1 or -1
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
+            if s.out then
+                walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = "witch", unique = false, hops = 0,
+                                                        ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+            end
         else
             done = tc >= (s.dur or c.count / c.fps)
         end
@@ -2063,8 +2100,9 @@ function spawn.witch(el, spr)
     return a
 end
 
--- hopper: the witch's frog, hopping over from the screen next door: across (a croak on the way,
--- now and then) and on.
+-- hopper: a frog (the witch's, the vampire kissed), hopping over from the screen next door: across
+-- (a croak on the way, now and then) and on. With h.ttl it's one of the cast: it stays about that
+-- long (turning back where it can't go on), and sits waiting where a scene wants a frog.
 function spawn.hopper(el, spr, h)
     local F = spr.clips
     if not (F and F.hop and F.sit and spr.origin and spr.unit) then return nil end
@@ -2073,25 +2111,40 @@ function spawn.hopper(el, spr, h)
     local hop = F.hop.count / F.hop.fps / 1.3
     local step = 1.3 * u
     local x = walk_in_x(h, step / hop, 0.3 * u)
-    local a = { el = el, spr = spr, layers = 1, groups = {}, floor = true }
+    local a = { el = el, spr = spr, layers = 1, groups = {}, floor = true, frog = true }
     a.hops = tonumber(h.hops) or 1
+    a.ttl = tonumber(h.ttl)
+    if a.ttl then a.hops = 0 end
     local x0, tc, rest = x, 0, math.random() < 0.6 and rnd(0.3, 0.7) * W or nil
-    local resting
+    local resting, linger = nil, 0
     function a.update(dt)
         tc = tc + dt
+        if a.ttl then a.ttl = a.ttl - dt end
         local clip, dy = "hop", 0
+        local wanted = a.ttl and a.ttl > 0 and linger < 60 and wanted_here("frog", mp.get_time())
         if resting then
             clip = (F.croak and resting > 1 and resting < 1 + F.croak.count / F.croak.fps * 2) and "croak" or "sit"
             resting = resting + dt
-            if resting > 4 then resting, tc = nil, 0 end
+            if wanted then
+                linger = linger + dt
+                if resting > 7 then resting = 0.5 end         -- (sits on, a croak now and then)
+            elseif resting > 4 then resting, tc = nil, 0 end
         else
             x, dy = hop_at(tc / hop, x0, x0 + dir * step, 0, 0, 0.6 * u)
             if tc >= hop then
                 x0, tc = x0 + dir * step, 0
-                if rest and math.abs(x0 - rest) < step then rest, resting = nil, 0 end
+                if (rest and math.abs(x0 - rest) < step) or (wanted and x0 > 0.2 * W and x0 < 0.8 * W) then
+                    rest, resting = nil, 0
+                end
             end
         end
-        walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false })
+        if not a.ttl then
+            walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false })
+        elseif a.ttl > 0 and not resting and ((dir > 0 and x0 + 0.3 * u > W) or (dir < 0 and x0 - 0.3 * u < 0)) then
+            if not walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false, ttl = math.floor(a.ttl), hops = 0 }) then
+                dir, a.handed_on, resting = -dir, nil, 3     -- (no way on there: a moment, and back)
+            end
+        end
         if (dir > 0 and x > W + 0.6 * u) or (dir < 0 and x < -0.6 * u) then return false end
         local c = F[clip]
         local k = math.floor((clip == "croak" and resting - 1 or resting or tc) * c.fps * (clip == "hop" and 1.3 or 1))
@@ -2099,7 +2152,7 @@ function spawn.hopper(el, spr, h)
         local mi = dir < 0
         local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
         local layer = { spr = spr, frame = c.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] + dy }
-        a.sx, a.sy = layer.x, layer.y
+        a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
         return true, { layer }
     end
     return a
@@ -2357,10 +2410,11 @@ function spawn.princess(el, spr)
             add { a = { clip = "cheer", act = true }, b = { clip = "idle", dur = 1.2 } }
             turn(B, 1, "b")
             turn(A, 1, "a")
-            add { a = { clip = "walk", to = W + 0.3 * u }, b = { clip = "walk", to = W + 1.5 * u, out = true } }
+            add { a = { clip = "walk", to = W + 0.3 * u }, b = { clip = "walk", to = W + 1.5 * u, out = prince.fam } }
             B.rest = { hide = true, rest = true }
             A.x = W + 0.3 * u
             go(A, "a", W + 1.5 * u)
+            steps[#steps].a.out = "princess"
         else                                            -- a fright: she runs, he goes on
             local react = (P.reach and { clip = "reach", m = true, dur = 1.8, pre = P.turn_reach and "turn_reach" })
                 or (P.taunt and math.random() < 0.5 and { clip = "taunt" })
@@ -2371,7 +2425,7 @@ function spawn.princess(el, spr)
             if react.clip == "reach" then B.rest = { clip = "reach", m = true, rest = true } end
             turn(A, -1, "a")
             turn(B, 1, "b")
-            add { a = { clip = "run", to = -1.5 * u, m = true }, b = { clip = "walk", to = W + 1.5 * u, out = true } }
+            add { a = { clip = "run", to = -1.5 * u, m = true, out = "princess" }, b = { clip = "walk", to = W + 1.5 * u, out = prince.fam } }
             A.rest = { hide = true, rest = true }
         end
     else
@@ -2397,9 +2451,10 @@ function spawn.princess(el, spr)
         turn(A, 0, "a")
         add { a = { clip = "cheer", act = true } }
         B.face = -1
-        add { b = { clip = "hop", hop = -0.8 * u, m = true, out = true } }
+        add { b = { clip = "hop", hop = -0.8 * u, m = true, out = "frog" } }
         B.rest = { hide = true, rest = true }
         go(A, "a", W + 1.5 * u)
+        steps[#steps].a.out = "princess"
     end
 
     -- play
@@ -2409,12 +2464,22 @@ function spawn.princess(el, spr)
     A.x = -1.2 * u
     B.x = story == "frog" and W + 0.6 * u or -1.2 * u
     local hop = F.hop.count / F.hop.fps
-    local oa = { el = el, spr = frog, groups = {}, hops = 0 }   -- the other one going off, for walk_out
     local function scr(x) return (d > 0) and x or (W - x) end
     local function place(sp, x, frame, mirror, dy)
         local m = (mirror and true or false) ~= (d < 0)
         local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
         return { spr = sp, frame = frame, variant = m, x = scr(x) - ox, y = H - sp.origin[2] + (dy or 0) }
+    end
+    -- one going off goes on next door as one of the cast (p.out: its family, "frog" a frog)
+    local function hand_on(t, sp, p, dir)
+        t.oa = t.oa or { el = el, spr = sp, groups = {}, hops = 0 }
+        t.oa.spr = sp
+        local ttl = math.floor(rnd(range(el.cast_ttl, 180)))
+        if p.out == "frog" then
+            walk_out(t.oa, scr(t.x), dir * d, 0.3 * u, { kind = "hopper", unique = false, ttl = ttl, hops = 0 })
+        else
+            walk_out(t.oa, scr(t.x), dir * d, 0.5 * u, { kind = "wanderer", fam = p.out, ttl = ttl, unique = false, hops = 0 })
+        end
     end
     -- one part of the step: its layer (or nil) and whether that part is done
     local function part(t, sp, p, dt)
@@ -2427,10 +2492,7 @@ function spawn.princess(el, spr)
             t.x = t.x + dir * v * dt
             if (dir > 0 and t.x >= p.to) or (dir < 0 and t.x <= p.to) then t.x, done = p.to, true end
             k = math.floor(tc * c.fps) % c.count
-            if p.out then
-                oa.spr = sp
-                walk_out(oa, scr(t.x), dir * d, 0.5 * u, { kind = "passer", clip = p.clip, unique = false })
-            end
+            if p.out then hand_on(t, sp, p, dir) end
         elseif p.hop then                               -- hop by hop (1.2 u) to there
             local dir = p.hop > t.x and 1 or -1
             t.h0, t.ht = t.h0 or t.x, (t.ht or 0) + dt
@@ -2438,10 +2500,7 @@ function spawn.princess(el, spr)
             if (dir > 0) == (to > p.hop) then to = p.hop end
             t.x, dy = hop_at(t.ht / hop, t.h0, to, 0, 0, 0.6 * u)
             k = math.min(c.count - 1, math.floor(t.ht * c.fps))
-            if p.out then
-                oa.spr = sp
-                walk_out(oa, scr(t.x), dir * d, 0.3 * u, { kind = "hopper", unique = false })
-            end
+            if p.out then hand_on(t, sp, p, dir) end
             if t.ht >= hop then
                 t.x, t.h0, t.ht = to, nil, nil
                 done = to == p.hop
@@ -2660,6 +2719,96 @@ function spawn.scarecrow(el, spr)
             end
         end
         return true, layers
+    end
+    return a
+end
+
+-- wanderer: one of the cast come over from the screen next door (h: sprite, fam, ttl, dir): walks
+-- across, now and then a stop in the middle (faces the viewer, a look round, a cheer or a taunt
+-- if it has them), and on; where it can't go on (no screen that side, full there) it turns round.
+-- A scene here that wants it: it hangs about (walking to and fro) till taken over. Its time up,
+-- it walks off the screen and is gone.
+function spawn.wanderer(el, spr, h)
+    local C = spr.clips
+    if not (C and C.walk and C.idle and spr.origin and spr.unit and h.fam) then return nil end
+    local u = spr.unit * H
+    local c = C.walk
+    local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+    local dir = h.dir == 1 and 1 or -1
+    local front = 0.5 * u
+    local x = walk_in_x(h, v, front)
+    local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam }
+    a.hops, a.ttl = 0, tonumber(h.ttl) or 60
+    local state, tc = "walk", 0
+    local queue = {}                 -- clips to play (a stop, a turn)
+    local stopped = math.random() < 0.4         -- (one stop per screen at most, and not always)
+    local stop_x = rnd(0.3, 0.7) * W
+    local linger = 0
+    local function play(...)          -- (the clips given; a missing one is left out)
+        queue = {}
+        for i = 1, select("#", ...) do
+            local q = select(i, ...)
+            if q then queue[#queue + 1] = q end
+        end
+        state, tc = "act", 0
+    end
+    local function turn_round()
+        dir = -dir
+        a.handed_on = nil
+        play(C.turn_front and { "turn_front", m = dir > 0 }, { "idle", dur = rnd(0.5, 1.5) },
+             C.turn_side and { "turn_side", m = dir < 0 })
+    end
+    local function act_step()
+        local q = queue[1]
+        if not q then state, tc = "walk", 0 return nil end
+        local cc = C[q[1]] or C.idle
+        local len = q.dur or (cc.loop and 1 or cc.count / cc.fps)
+        if tc >= len then
+            table.remove(queue, 1)
+            tc = 0
+            return act_step()
+        end
+        return cc, q.m
+    end
+    function a.update(dt, t)
+        tc = tc + dt
+        a.ttl = a.ttl - dt
+        local now = mp.get_time()
+        local cc, m = c, dir < 0
+        if state == "act" then
+            local ac, am = act_step()
+            if ac then cc, m = ac, am end
+        end
+        if state == "walk" then
+            x = x + dir * v * dt
+            -- wanted here: hang about (to and fro) a while
+            local el2, st = nil, nil
+            if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(h.fam, now) end
+            if el2 then
+                linger = linger + dt
+                if st.next > now + 8 and not st.wait_since then st.next = now + rnd(3, 8) end
+                if (dir > 0 and x > 0.8 * W) or (dir < 0 and x < 0.2 * W) then turn_round() end
+            elseif not stopped and math.abs(x - stop_x) < v * dt * 2 then
+                stopped = true
+                local show = (C.cheer and math.random() < 0.3 and "cheer") or (C.taunt and math.random() < 0.3 and "taunt") or nil
+                play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(1.5, 3.5) },
+                     show and { show }, C.turn_side and { "turn_side", m = dir < 0 })
+            end
+            local lead = dir > 0 and (x + front - W) or (front - x)
+            if lead >= 0 and a.ttl > 0 then
+                -- (no screen that way, or full there: back the other way - to the other neighbour)
+                if not walk_out(a, x, dir, front, { kind = "wanderer", fam = h.fam, ttl = math.floor(a.ttl),
+                                                    unique = false, hops = 0 }) then turn_round() end
+            end
+        end
+        if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
+        local k = math.floor(tc * cc.fps)
+        k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
+        local mi = m and true or false
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local layer = { spr = spr, frame = cc.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
+        a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
+        return true, { layer }
     end
     return a
 end
@@ -3386,6 +3535,7 @@ local function tick()
     local keep = {}
     for _, a in ipairs(actors) do
         local ok, alive, x, y, frame, mirror = pcall(a.update, dt, t)
+        if a.gone then ok, alive = true, false end      -- (taken over by a scene, see recruit)
         if ok and alive and a.ids and type(x) ~= "table" then ok, alive = false, "no layers" end
         if not ok then          -- (one broken actor must not take the whole theme down with it)
             msg.error(string.format("%s dropped: %s", tostring(a.el and a.el.type), tostring(alive)))
@@ -3435,7 +3585,7 @@ local function tick()
             for _, a in ipairs(actors) do
                 if a.unique and a.spr then set[claim_key(a.spr)] = true end
                 for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then set["grp:" .. g] = true end end
-                if is_character(a) then set["chr:" .. family_of(a.el)] = true end
+                if is_character(a) then set["chr:" .. actor_family(a)] = true end
                 for _, f in ipairs(a.also or {}) do set["chr:" .. f] = true end   -- (a duet: the other one)
             end
             if #cats > 0 then set["spr:cat"] = true end
@@ -3662,7 +3812,7 @@ mp.register_script_message("theme-room-claims", function(js)
     local now = mp.get_time()
     for _, a in ipairs(actors) do
         if not a.leaving and not a.handed and not a.forced and not a.guest_of and a.born and now - a.born < 4
-                and (room_busy(a.groups or {}) or (is_character(a) and room.taken["chr:" .. family_of(a.el)])) then
+                and (room_busy(a.groups or {}) or (is_character(a) and room.taken["chr:" .. actor_family(a)])) then
             leave(a)
             msg.verbose("room: one about on another screen first, " .. tostring(a.spr and a.spr.name) .. " goes again")
         end
