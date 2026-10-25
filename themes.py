@@ -638,7 +638,7 @@ class ThemeRoom:
         self._told = None
         self.send("script-message", "theme-room", json.dumps(
             {"active": True, "left": bool(self.left), "right": bool(self.right),
-             "gap_px": self.gap_px, "ready": self.ready}))
+             "gap_px": self.gap_px, "ready": self.ready, "screens": len(self.order)}))
         self._tell_engine(force=True)
 
     # ── from the engine ──
@@ -696,6 +696,23 @@ class ThemeRoom:
                         out.add(k)
         return sorted(out)
 
+    def characters(self) -> dict:
+        """The characters ("chr:" keys) about on the other screens: how many, and which are on the
+        screen to our left and right (a story may go over to meet them)."""
+        now = time.monotonic()
+        alive_s = self.ANNOUNCE_S * 3.5
+        n, near = 0, {"left": [], "right": []}
+        with self._lock:
+            for node, (heard, claims) in self.others.items():
+                if now - heard > alive_s:
+                    continue
+                keys = sorted(k for k in claims if k.startswith("chr:"))
+                n += len(keys)
+                for side, nb in (("left", self.left), ("right", self.right)):
+                    if node == nb:
+                        near[side] = keys
+        return {"chars": n, "near": near}
+
     def _publish_claims(self) -> None:
         with self._lock:
             claims: dict[str, Any] = dict(self.mine)
@@ -703,7 +720,7 @@ class ThemeRoom:
         self.bus.publish("theme/claims", claims)
 
     def _tell_engine(self, force: bool = False) -> None:
-        msg = json.dumps({"ready": self.ready, "taken": self.taken()})
+        msg = json.dumps({"ready": self.ready, "taken": self.taken(), **self.characters()})
         if force or msg != self._told:
             self._told = msg
             self.send("script-message", "theme-room-claims", msg)
