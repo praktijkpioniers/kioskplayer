@@ -145,6 +145,16 @@
       "anim": "anim/werewolf_man",
       "unit": 0.115
     },
+    "scarecrow3d": {
+      "anim": "anim/scarecrow",
+      "unit": 0.115
+    },
+    "crow": {
+      "file": "raven.png",
+      "height": 0.045,
+      "flap": 4,
+      "fps": 10
+    },
     "princess3d": {
       "anim": "anim/princess",
       "unit": 0.115
@@ -792,6 +802,17 @@
         "monster",
         "walker"
       ]
+    },
+    {
+      "type": "scarecrow",
+      "sprite": "scarecrow3d",
+      "crow": "crow",
+      "stay": [60, 150],
+      "min": 6,
+      "video_min": 8,
+      "every": [240, 480],
+      "delay": [20, 120],
+      "group": ["scarecrow"]
     },
     {
       "type": "princess",

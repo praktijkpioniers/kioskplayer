@@ -1,0 +1,53 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
+ "clips": {
+  "stand": {
+   "files": "stand_*.png",
+   "count": 1,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "look_l": {
+   "files": "look_l_*.png",
+   "count": 1,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "look_r": {
+   "files": "look_r_*.png",
+   "count": 1,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "tilt": {
+   "files": "tilt_*.png",
+   "count": 1,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "wave": {
+   "files": "wave_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "shoo": {
+   "files": "shoo_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  192.0,
+  384
+ ]
+}

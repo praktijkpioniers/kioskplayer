@@ -2501,6 +2501,137 @@ function spawn.princess(el, spr)
     return a
 end
 
+-- scarecrow: up out of the ground on its pole, and there it stands a minute or two (el.stay) -
+-- stock still, but now and then its head jerks round (look_l/look_r: still frames, snapped
+-- to), it tilts its head, waves; whoever comes by close, it watches. A crow (el.crow, a still
+-- drawing with a wing beat: frame 0 sitting) comes flapping down onto one of its arms, sits a
+-- while; the scarecrow turns its head to it and flaps its arms (shoo): off the crow goes. Down
+-- it goes when its time is up, or when a scene wants the floor. Layers: it, the crow.
+local SCARECROW_HAND = { 0.36, 0.53 }      -- a hand from the foot of the pole, in sprite heights
+function spawn.scarecrow(el, spr)
+    local C = spr.clips
+    if not (C and C.stand and C.look_l and C.look_r and spr.origin) then return nil end
+    local crow = M.sprites[el.crow or ""]
+    local u = (spr.unit or 0.115) * H
+    local cx
+    for _ = 1, 12 do                -- (not on top of another actor standing about)
+        local x = rnd(0.15, 0.85) * W
+        local ok = true
+        for _, b in ipairs(actors) do
+            if b.cx and (b.scene or b.el.type == "scarecrow") and math.abs(b.cx - x) < 2.5 * u then ok = false end
+        end
+        if ok then cx = x break end
+    end
+    if not cx then return nil end
+    local a = { el = el, spr = spr, layers = 2, cx = cx }
+    local stay = rnd(range(el.stay, 90))
+    local state, ts = "rise", 0            -- rise | stand | sink
+    local pose, tp, pose_for = "stand", 0, 0
+    local next_tic = rnd(3, 6)
+    local cr = nil                         -- the crow: {state, t, x, y, side, x0, y0}
+    local crow_done = not crow or math.random() > (el.crow_chance or 0.7)
+    local watching = nil
+    local function hand(side)              -- (side: -1 left on the screen, 1 right)
+        return cx + side * SCARECROW_HAND[1] * spr.h, H - SCARECROW_HAND[2] * spr.h
+    end
+    local function look(side) return side < 0 and (el.look_left or "look_r") or (el.look_right or "look_l") end
+    local function set(p, dur) pose, tp, pose_for = p, 0, dur or 0 end
+
+    function a.update(dt, t)
+        ts = ts + dt
+        tp = tp + dt
+        local dy = 0
+        if state == "rise" then
+            local p = clamp(ts / DECOR_MOVE_S, 0, 1)
+            dy = (1 - ease(p)) * spr.h
+            if p >= 1 then state, ts = "stand", 0 msg.verbose("scarecrow: up") end
+        elseif state == "stand" then
+            if (ts > stay and not cr) or floor_busy("scenes") then
+                msg.verbose("scarecrow: down" .. (ts > stay and "" or " (making way)"))
+                state, ts = "sink", 0
+                if cr and cr.state ~= "off" then cr.state, cr.t = "off", 0 end
+                set("stand")
+            end
+        elseif state == "sink" then
+            local p = clamp(ts / DECOR_MOVE_S, 0, 1)
+            dy = ease(p) * spr.h
+            if p >= 1 and not cr then return false end
+        end
+
+        -- its tics, while standing still (a pose held, then back to standing)
+        local c = C[pose] or C.stand
+        local held = (c.count <= 1) and tp >= pose_for or (c.count > 1 and tp >= c.count / c.fps)
+        if pose ~= "stand" and held then set("stand") end
+        if state == "stand" and pose == "stand" then
+            -- someone coming by close: it watches them
+            local who
+            for _, b in ipairs(actors) do
+                if b ~= a and b.cx and is_character(b) and math.abs(b.cx - cx) < 3 * u then who = b end
+            end
+            if who and who ~= watching then
+                watching = who
+                set(look(who.cx < cx and -1 or 1), rnd(1.5, 3))
+                msg.verbose("scarecrow: watches " .. tostring(who.el.type))
+            elseif not who then watching = nil end
+            if cr and cr.state == "sit" and cr.t > cr.sit then
+                if C.shoo then set("shoo") else set("tilt", 1) end
+                cr.state, cr.t = "off", 0
+                msg.verbose("scarecrow: shoo!")
+            elseif cr and cr.state == "sit" and not cr.seen and cr.t > 1.5 then
+                cr.seen = true
+                set(look(cr.side), rnd(1.5, 2.5))
+            elseif ts > next_tic and pose == "stand" then
+                next_tic = ts + rnd(range(el.tics, 7))
+                local r = math.random()
+                if not crow_done and not cr and ts > 4 then
+                    crow_done = true
+                    local side = math.random() < 0.5 and -1 or 1
+                    local hx, hy = hand(side)
+                    cr = { state = "in", t = 0, side = side, sit = rnd(4, 9),
+                           x0 = hx + side * rnd(0.3, 0.45) * W, y0 = -crow.h, x = hx, y = hy }
+                    msg.verbose("scarecrow: a crow comes")
+                elseif r < 0.4 then set(math.random() < 0.5 and "look_l" or "look_r", rnd(1.2, 2.5))
+                elseif r < 0.7 and C.tilt then set("tilt", rnd(1.5, 3))
+                elseif C.wave then set("wave") end
+            end
+        end
+        c = C[pose] or C.stand
+        local k = c.count <= 1 and 0 or math.min(c.count - 1, math.floor(tp * c.fps))
+        local layers = { { spr = spr, frame = c.start + k, variant = false, x = cx - spr.origin[1], y = H - spr.origin[2] + dy } }
+        a.sx, a.sy = layers[1].x, layers[1].y
+
+        -- the crow: down in a swoop, flapping; sits (frame 0); up and away, flapping
+        if cr then
+            cr.t = cr.t + dt
+            local fps = crow.fps or 12
+            local frame, x, y, mirror = 0, cr.x, cr.y, cr.side < 0     -- (drawn facing left)
+            local hx, hy = hand(cr.side)
+            hy = hy + dy
+            if cr.state == "in" then
+                local p = clamp(cr.t / 2.6, 0, 1)
+                x = cr.x0 + (hx - cr.x0) * ease(p)
+                y = cr.y0 + (hy - cr.y0) * math.sin(p * math.pi / 2)
+                frame = math.floor(cr.t * fps) % crow.frames
+                if p >= 1 then cr.state, cr.t = "sit", 0 msg.verbose("scarecrow: the crow sits on its arm") end
+            elseif cr.state == "sit" then
+                x, y, mirror = hx, hy, cr.side < 0
+            else                           -- off, the other way it came, up and away
+                local p = cr.t / 2.2
+                x = hx + cr.side * p * 0.5 * W
+                y = hy - (H * 0.7) * p * p - 0.4 * u * math.sin(math.min(p, 0.3) / 0.3 * math.pi)
+                frame = math.floor(cr.t * fps * 1.3) % crow.frames
+                mirror = cr.side > 0
+                if p >= 1 then cr = nil end
+            end
+            if cr then
+                layers[2] = { spr = crow, frame = frame, variant = mirror, x = x - crow.w / 2, y = y - crow.h }
+            end
+        end
+        return true, layers
+    end
+    return a
+end
+
 -- passer: someone just passing through, come over from the screen next door (or, from_far,
 -- coming in at the far side, hurrying towards it): walks (clip, rate) across and off, and on to
 -- the next screen, if any.
@@ -3536,7 +3667,8 @@ end)
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
---   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next
+--   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next,
+--   r = the scarecrow next
 --   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
@@ -3612,6 +3744,11 @@ end)
 mp.add_forced_key_binding("p", "theme-preview-princess", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "princess" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("r", "theme-preview-scarecrow", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "scarecrow" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
