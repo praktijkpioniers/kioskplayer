@@ -779,7 +779,7 @@
       "front": "cauldron_front",
       "frog": "frog",
       "pumpkin": "pumpkinhead3d", "cast_ttl": [120, 300], "recruits": ["witch", "princess"], "princess": "princess3d",
-      "carriage": "carriage", "carriage_chance": 0.5,
+      "carriage": "carriage", "carriage_chance": 0.5, "raven": "raven3d",
       "riders": [{"sprite": "princess3d", "family": "princess"}, {"sprite": "werewolf_man3d", "family": "werewolf"},
                  {"sprite": "frankenstein3d", "family": "frankenstein"}, {"sprite": "skeleton3d", "family": "skeleton"},
                  {"sprite": "zombie3d", "family": "zombie"}, {"sprite": "pumpkinhead3d", "family": "pumpkinhead"}],

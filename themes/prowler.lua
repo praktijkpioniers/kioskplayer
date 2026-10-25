@@ -144,6 +144,10 @@ local function new_cat(o)
     if o.lead then          -- come over from the screen next door: its nose this far (u) in already
         p.x = (self.dir == 1) and (o.lead - NOSE) * self.u or (self.W - (o.lead - NOSE) * self.u)
     end
+    if o.at then            -- there already (out of a puff: the witch was): its stops ahead only
+        p.x = o.at
+        self.start_f = (self.dir == 1) and o.at / self.W or 1 - o.at / self.W
+    end
     self:plan()
     self.co = coroutine.create(function() self:program() end)
     return self
@@ -253,6 +257,11 @@ function C:plan()
         if s.x then moved[#moved + 1] = s end
     end
     table.sort(moved, function(a, b) return a.f < b.f end)
+    if self.start_f then
+        local ahead = {}
+        for _, s in ipairs(moved) do if s.f > self.start_f + 0.05 then ahead[#ahead + 1] = s end end
+        moved = ahead
+    end
 
     -- no two stops close together
     local plan, lastf = {}, -1

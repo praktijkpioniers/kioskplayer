@@ -244,7 +244,7 @@ end
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
 local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
-local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true, carriage = true }    -- kinds that only come in from a neighbour
+local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true, carriage = true, bird = true }    -- kinds that only come in from a neighbour
 local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
     if a.guest_of then return true end
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
@@ -1888,12 +1888,45 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
+local MORPH_CHANCE = { witch = 0.6, princess = 0.3 }
+local function witch_el()
+    for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
+end
+local function may_be(fam)                 -- one of the cast may turn into fam: none about, room here
+    local n, same = chars_here(fam)
+    return not same and not room.taken["chr:" .. fam] and n <= 2
+end
 local TUNNEL = { skeleton = true, zombie = true }     -- (cast that go about under the ground)
 local OWN_ACT = { zombie = true, frankenstein = true, werewolf = true, performer = true }
 local function next_act(w)
     if not M then return false end
     local fam = w.family or (w.frog and "frog")
     local now = mp.get_time()
+    if w.morph and (w.force_morph or math.random() < (MORPH_CHANCE[fam] or 0)) then    -- a spell on herself
+        local opts = {}
+        local wel = witch_el()
+        if fam == "witch" then
+            local pr = wel and M.sprites[wel.princess or ""]
+            if pr and may_be("princess") then opts[#opts + 1] = { "person", pr, "princess" } end
+            local rv = wel and M.sprites[wel.raven or ""]
+            if rv and rv.clips and rv.clips.fly and rv.clips.sit and rv.origin then opts[#opts + 1] = { "raven", rv } end
+            if hooks.cat_free and hooks.cat_free() then opts[#opts + 1] = { "cat" } end
+        elseif fam == "princess" then
+            local ws = wel and M.sprites[wel.sprite or ""]
+            if ws and may_be("witch") then opts[#opts + 1] = { "person", ws, "witch" } end
+        end
+        if w.force_morph then                     -- (preview key y)
+            local keep = {}
+            for _, o in ipairs(opts) do if o[1] == w.force_morph or o[3] == w.force_morph then keep[#keep + 1] = o end end
+            opts, w.force_morph = keep, nil
+        end
+        if #opts > 0 then
+            local o = opts[math.random(#opts)]
+            w.morph(o[1], o[2], o[3])
+            msg.verbose("cast: the " .. fam .. " casts a spell on herself (" .. (o[3] or o[1]) .. ")")
+            return true
+        end
+    end
     local other = SWAPS[fam]                  -- the witch and the princess both here: now and then
     if other and w.swap_into and not w.swap and math.random() < 0.5 then     -- they turn into each other
         local o = cast_here(other, w)
@@ -3418,14 +3451,50 @@ function spawn.wanderer(el, spr, h)
     end
     -- a spell on each other (the witch and the princess, see next_act): it faces the viewer and at
     -- the time given, in a puff, it's the other (sp, f) - a cackle or a cheer, and on as that
-    function a.swap_into(sp, f, at)
+    function a.swap_into(sp, f, at, pre)
         a.swap = { spr = sp, fam = f, at = at }
-        play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = 30 })
+        play(C.turn_front and { "turn_front", m = dir < 0 }, pre and C[pre] and { pre }, { "idle", dur = 30 })
     end
+    -- a spell on itself (the witch, see next_act): it faces the viewer, casts, and in a puff it's
+    -- someone else of the cast (sp, f) - or a creature: "raven" (flies off), "cat" (strolls on)
+    function a.morph(kind, sp, f)
+        local at = mp.get_time() + (C.cast and C.cast.count / C.cast.fps or 0.8) + (C.turn_front and 0.5 or 0)
+        if kind == "person" then return a.swap_into(sp, f, at, "cast") end
+        a.morphing = { kind = kind, at = at, sp = sp }
+        play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 30 })
+    end
+    if h.puff then a.swap = { spr = spr, fam = fam, at = mp.get_time() } end     -- (out of a puff, here)
     function a.update(dt, t)
         tc = tc + dt
         a.ttl = a.ttl - dt
         local now = mp.get_time()
+        local mo = a.morphing
+        if mo and not mo.done and now >= mo.at then
+            mo.done = true
+            a.family, a.groups = nil, {}                  -- (no longer one of the cast here)
+            for _ = 1, 8 do
+                puffs[#puffs + 1] = { x = x + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
+                                      r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
+            end
+            if mo.kind == "raven" and mo.sp and spawn.bird and #free_ids > 0 then
+                local b = spawn.bird(el, mo.sp, { dir = dir, at = x, y = (H - 1.3 * u) / H, hops = 0, from = h.from,
+                                                  ttl = math.floor(rnd(60, 180)) })
+                if b then adopt(b, el, { hops = 0 }) end
+            elseif mo.kind == "cat" and hooks.cat_at then
+                hooks.cat_at(x, dir)
+            end
+            msg.verbose("cast: in a puff, the " .. fam .. " is a " .. mo.kind)
+        end
+        if mo and mo.done then                        -- (gone: only the puff left)
+            local keep = {}
+            for _, q in ipairs(puffs) do
+                q.t, q.x, q.y = q.t + dt, q.x + q.vx * dt, q.y - 0.5 * u * dt
+                if q.t < 1.2 then keep[#keep + 1] = q end
+            end
+            puffs = keep
+            if #puffs == 0 then return false end
+            return true, {}
+        end
         local sw = a.swap
         if sw and not sw.done and now >= sw.at then
             sw.done = true
@@ -3547,6 +3616,84 @@ function spawn.wanderer(el, spr, h)
     function a.ass(out)
         for _, q in ipairs(puffs) do puff(out, q.x, q.y, q.r * (1 + 0.6 * q.t), 0.2 + 0.8 * q.t / 1.2) end
         for _, q in ipairs(clods) do puff(out, q.x, q.y, q.r, 0.1, "&H1E3A5A&") end
+    end
+    return a
+end
+
+-- the witch out of a puff at x (a raven sitting there, the cat): true if she's there now
+hooks.witch_from = function(x, dir)
+    local el = witch_el()
+    local spr = el and M.sprites[el.sprite or ""]
+    if not (spr and may_be("witch") and #free_ids > 0 and element_on(el)) then return false end
+    local a = spawn.wanderer(el, spr, { fam = "witch", dir = dir, at = x, hops = 0, from = "witch", puff = true,
+                                        ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+    if not a then return false end
+    adopt(a, el, { hops = 0 })
+    return true
+end
+
+-- bird: a raven the witch turned into (el.raven, tools/bake/bird.py): it flies across - over to the
+-- screen next door - and now and then comes down to sit on the ground a while, looking about; sat
+-- there, it may turn back into the witch (none about). Its time up, it flies up and away.
+function spawn.bird(el, spr, h)
+    local B = spr.clips
+    if not (B and B.fly and B.sit and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local dir = h.dir == 1 and 1 or -1
+    local v = rnd(0.12, 0.18) * W
+    local front = 0.4 * u
+    local x = walk_in_x(h, v, front)
+    local y = clamp(tonumber(h.y) or 0.3, 0.05, 1) * H
+    local a = { el = el, spr = spr, layers = 1, groups = {}, bird = true }
+    a.hops, a.ttl = 0, tonumber(h.ttl) or 90
+    local ty = rnd(0.15, 0.45) * H                   -- (its height, flying)
+    local land = not h.at and math.random() < 0.6 and rnd(0.25, 0.75) * W or nil    -- (not where it was the witch)
+    if land and (land - x) * dir < 0.15 * W then land = nil end
+    local state, t, x0, y0, sit = "fly", 0, x, y, 0
+    function a.update(dt)
+        t = t + dt
+        a.ttl = a.ttl - dt
+        local clip, k, m = "fly", math.floor(t * B.fly.fps) % B.fly.count, dir < 0
+        if state == "fly" then
+            x = x + dir * v * dt
+            local want = ty + 0.03 * H * math.sin(t * 2.1)
+            if land and math.abs(land - x) < 0.25 * W then          -- (gliding down to it)
+                want = H - (H - ty) * clamp(math.abs(land - x) / (0.25 * W), 0, 1)
+                if (land - x) * dir <= 0 then
+                    state, t, x, y, sit = "sit", 0, land, H, rnd(6, 14)
+                    msg.verbose("bird: the raven comes down to sit")
+                end
+            end
+            y = y + clamp(want - y, -0.25 * H * dt, 0.3 * H * dt)
+            if a.ttl <= 0 then state, t, x0, y0 = "away", 0, x, y end
+            if state == "fly" and not walk_out(a, x, dir, front, { kind = "bird", unique = false, hops = 0, from = h.from,
+                                                                   y = y / H, ttl = math.floor(a.ttl) })
+                    and ((dir > 0 and x > W - front) or (dir < 0 and x < front)) then
+                state, t, x0, y0 = "away", 0, x, y       -- (nowhere to go on: up and away)
+            end
+        elseif state == "sit" then
+            clip, k = "sit", math.floor(t * B.sit.fps) % B.sit.count
+            if t > 3 and not a.asked then
+                a.asked = true
+                if math.random() < (el.witch_back or 0.35) and hooks.witch_from(x, dir) then
+                    msg.verbose("bird: in a puff, the raven is the witch")
+                    return false
+                end
+            end
+            if t > sit then
+                land, ty = nil, rnd(0.15, 0.45) * H
+                if math.random() < 0.3 then dir = -dir end
+                state, t, a.handed_on = "fly", 0, nil
+            end
+        else                                            -- (up and away, off the top)
+            x = x0 + dir * v * t
+            y = y0 - 0.5 * H * t * t
+            if y < -spr.h then return false end
+        end
+        if (dir > 0 and x > W + spr.w) or (dir < 0 and x < -spr.w) then return false end
+        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
+        a.cx = x
+        return true, { { spr = spr, frame = B[clip].start + k, variant = m, x = x - ox, y = y - spr.origin[2] } }
     end
     return a
 end
@@ -4374,6 +4521,22 @@ hooks.cat_in = function(el, h)          -- a cat come over from next door (see t
     cat_next[c.name] = math.huge
     msg.verbose("room: a cat in from next door")
 end
+hooks.cat_free = function()             -- no cat here nor anywhere in the room
+    return prowler ~= nil and #cats == 0 and not room.taken["spr:cat"]
+end
+hooks.cat_at = function(x, dir)         -- the black cat (the witch was): there, strolling on
+    if not hooks.cat_free() then return false end
+    local el
+    for _, e in ipairs(M.elements) do if e.type == "prowler" and element_on(e) then el = e end end
+    if not el then return false end
+    local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things, dir = dir, at = x,
+        scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end, threat = werewolf_near })
+    c.name, c.witch = el.name or "prowler", true
+    cats[#cats + 1] = c
+    room.claim_t = 0
+    cat_next[c.name] = math.huge
+    return true
+end
 hooks.call_cat = function(after)        -- (a zombie's guest) the next cat soon
     for name, t in pairs(cat_next) do cat_next[name] = math.min(t, mp.get_time() + after) end
 end
@@ -4386,8 +4549,18 @@ local function tick_cats(dt, now)
     end
     local keep, count = {}, {}
     for _, c in ipairs(cats) do
+        -- now and then, strolling by, the cat is the witch (in a puff; none about)
+        if not c.asked and c.T > 6 and c.p.x > 0.2 * W and c.p.x < 0.8 * W and not c.air and c.elev < 1 then
+            c.asked = true
+            local el = on[c.name]
+            if math.random() < ((el and el.witch_chance) or (c.witch and 0.5 or 0.25)) and hooks.witch_from
+                    and hooks.witch_from(c.p.x, c.dir) then
+                c.gone = true
+                msg.verbose("cat: in a puff, the cat is the witch")
+            end
+        end
         local el = on[c.name]
-        if el and c.W == W and c.H == H and c:update(dt) then
+        if el and c.W == W and c.H == H and not c.gone and c:update(dt) then
             keep[#keep + 1] = c
             count[c.name] = (count[c.name] or 0) + 1
         elseif el then
@@ -4914,10 +5087,11 @@ end)
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next,
 --   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head),
+--   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen)
 --   (walkers started so go towards a screen next door, if there is one)
-local under_k
+local under_k, morph_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -5029,6 +5203,17 @@ mp.add_forced_key_binding("x", "theme-preview-swap", function()
             return
         end
     end
+end)
+local MORPH_KEYS = { "princess", "cat", "raven" }
+mp.add_forced_key_binding("y", "theme-preview-morph", function()
+    local el = witch_el()
+    local ws = el and M.sprites[el.sprite or ""]
+    if not ws then return end
+    morph_k = (morph_k or 0) % #MORPH_KEYS + 1
+    local a = spawn.wanderer(el, ws, { fam = "witch", dir = 1, at = 0.25 * W, ttl = 120, hops = 0 })
+    if not a then return end
+    adopt(a, el, { hops = 0 })
+    a.next_at, a.force_morph = 2.5, MORPH_KEYS[morph_k]
 end)
 mp.add_forced_key_binding("u", "theme-preview-under", function()
     under_k = (under_k or 0) + 1
