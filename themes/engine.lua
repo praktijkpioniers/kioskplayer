@@ -1831,7 +1831,9 @@ end
 -- witch: walks in, faces the viewer and conjures up her cauldron (a puff: it's there, bubbling),
 -- stirs it (from behind), cackles, stirs on - and out of the brew a frog jumps. It sits, croaks
 -- at her; she zaps it (and misses), it hops off to the screen next door (hopper). A cackle
--- anyway, the cauldron goes in another puff and she walks back off. Layers, bottom to top: the
+-- anyway, the cauldron goes in another puff and she walks back off. Or (el.pumpkin, now and
+-- then) in a puff a living pumpkin-head stands in the pot: it jumps out, dances, she cackles at
+-- her creation and it walks off to the screen next door (a passer there). Layers, bottom to top: the
 -- witch (behind the pot), the pot, the frog (in it: hidden by the front), the pot's front.
 -- Planned coming in from the left, mirrored half the time.
 local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
@@ -1877,7 +1879,11 @@ function spawn.witch(el, spr)
         return add(s)
     end
 
+    local pk = S[el.pumpkin or ""]
+    local K = pk and pk.clips
+    if not (K and K.jump and K.walk and K.idle and pk.origin) then pk = nil end
     local pot, frg = nil, { state = "hidden" }        -- pot: {clip, t}; the frog's own little play
+    local ph = { state = "hidden" }                   -- the pumpkin-head's
     local function pot_clip(c) return function() pot = { clip = c, t = 0 } end end
     local zap
     go(cx - 2.4 * u)
@@ -1887,12 +1893,20 @@ function spawn.witch(el, spr)
     stop("stir", rnd(4, 7), 1)
     stop("cackle", nil, 0)
     stop("stir", rnd(2.5, 4), 1)
+    if pk and math.random() < (el.pumpkin_chance or 0.4) then
+        stop("idle", 1.0, 0, { on = function() pot = { clip = "poof", t = 0 } ph = { state = "pop", t = 0 } end })
+        stop("idle", 0.5, 1, { wait = function() return ph.state == "dance" end })
+        stop("cackle", nil, 0)
+        stop("idle", 0.5, 1, { wait = function() return ph.state == "off" or ph.state == "gone" end })
+        stop("idle", rnd(0.8, 1.5), 1)
+    else
     stop("idle", 1.0, 0, { on = function() pot = { clip = "splash", t = 0 } frg = { state = "peek", t = 0 } end })
     stop("idle", 0.5, 1, { wait = function() return frg.state == "sit" or frg.state == "croak" end })
     stop("idle", 0.5, 1, { wait = function() return frg.state == "sit" and frg.croaked end })
     stop("cast", nil, 1, { on = function() zap = 0 end })
     stop("idle", rnd(1, 2), 1)
     stop("cackle", nil, 0)
+    end
     stop("cast", nil, 0, { on = pot_clip("vanish") })
     stop("idle", 0.6)
     go(-1.5 * u)
@@ -1941,6 +1955,41 @@ function spawn.witch(el, spr)
         end
     end
 
+    -- the pumpkin-head: there in the puff (at its biggest), standing in the pot; a jump out, a
+    -- look at the viewer, a dance, and off (and over to the screen next door)
+    local pa = pk and { el = el, spr = pk, groups = {}, hops = 0 }
+    local function pumpkin_step(dt)
+        local f = ph
+        f.t = (f.t or 0) + dt
+        local function len(c) return K[c].count / K[c].fps end
+        if f.state == "pop" then
+            f.x, f.dy, f.clip, f.m = cx, rim_y, "idle", false
+            f.show = f.t >= swap * P.poof.count / P.poof.fps
+            if f.t > 1.6 then f.state, f.t, f.x0, f.y0 = "out", 0, cx, f.dy end
+        elseif f.state == "out" then
+            f.clip = "jump"
+            f.x, f.dy = hop_at(f.t / len("jump"), f.x0, cx + 2.4 * u, f.y0, 0, 1.2 * u)
+            if f.t >= len("jump") then
+                f.state, f.t = "look", 0
+                msg.verbose("witch: a living pumpkin-head out of the brew")
+            end
+        elseif f.state == "look" then
+            f.clip = K.turn_front and f.t < len("turn_front") and "turn_front" or "idle"
+            if f.t > 1.5 then f.state, f.t, f.dance = "dance", 0, (K.taunt and math.random() < 0.5) and "taunt" or "cheer" end
+        elseif f.state == "dance" then
+            f.clip = K[f.dance] and f.dance or "idle"
+            if f.t >= (K[f.dance] and len(f.dance) or 2) then f.state, f.t = "turn", 0 end
+        elseif f.state == "turn" then
+            f.clip = K.turn_side and "turn_side" or "idle"
+            if f.t >= (K.turn_side and len("turn_side") or 0.3) then f.state, f.t = "off", 0 end
+        elseif f.state == "off" then
+            f.clip = "walk"
+            f.x = f.x + K.walk.stride_px * K.walk.fps / K.walk.count * dt
+            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "passer", clip = "walk", unique = false })
+            if f.x > W + 1.5 * u then f.state = "gone" end
+        end
+    end
+
     function a.update(dt, t)
         local s = steps[si]
         if not s then return false end
@@ -1969,6 +2018,7 @@ function spawn.witch(el, spr)
             if zap > 0.8 then zap = nil end
         end
         if frg.state ~= "hidden" and frg.state ~= "gone" then frog_step(dt) end
+        if ph.state ~= "hidden" and ph.state ~= "gone" then pumpkin_step(dt) end
 
         local layers = {}
         local l = place(spr, wx, frame_of(c, tc), s.m, 0)
@@ -1992,6 +2042,8 @@ function spawn.witch(el, spr)
         if frg.x and frg.state ~= "gone" and F[frg.clip] then
             -- (in the pot, only while it rises: below the front's top edge the pot's body is in front)
             layers[3] = place(frog, frg.x, frame_of(F[frg.clip], frg.t, frg.rate), false, frg.dy)
+        elseif ph.x and ph.state ~= "gone" and (ph.show or ph.state ~= "pop") and K[ph.clip] then
+            layers[3] = place(pk, ph.x, frame_of(K[ph.clip], ph.t), ph.m, ph.dy)
         end
         a.talking = a.line and s.act and true or false
         if a.talking and not a.say_t then a.say_t = t end

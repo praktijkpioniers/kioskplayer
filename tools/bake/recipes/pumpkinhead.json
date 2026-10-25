@@ -1,0 +1,184 @@
+{
+ "_doc": "KayKit Skeletons (CC0, Kay Lousberg), see skeleton_minion.json. The Minion with a pumpkin for a head (props: lobes, stem, glowing carved eyes and grin): the witch's living pumpkin-head, out of her cauldron. Shown smaller than the others (its unit in theme.json).",
+ "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+ "hide": [
+  "Icosphere",
+  "Skeleton_Minion_Head",
+  "Skeleton_Minion_Jaw",
+  "Skeleton_Minion_Eyes"
+ ],
+ "outline": 0.008,
+ "frame": {
+  "x": [
+   -0.9,
+   1.0
+  ],
+  "h": 2.6
+ },
+ "props": [
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    0.0,
+    0.42
+   ],
+   "size": [
+    0.42,
+    0.38,
+    0.34
+   ],
+   "color": "#e8761c"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0.2,
+    0.0,
+    0.42
+   ],
+   "size": [
+    0.28,
+    0.34,
+    0.33
+   ],
+   "color": "#c45a10"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    -0.2,
+    0.0,
+    0.42
+   ],
+   "size": [
+    0.28,
+    0.34,
+    0.33
+   ],
+   "color": "#c45a10"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.12,
+    0.42
+   ],
+   "size": [
+    0.3,
+    0.3,
+    0.335
+   ],
+   "color": "#e8761c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0,
+    0.0,
+    0.8
+   ],
+   "size": [
+    0.05,
+    0.16
+   ],
+   "axis": "z",
+   "color": "#4a6a2a"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0.14,
+    -0.4,
+    0.5
+   ],
+   "size": [
+    0.08,
+    0.12
+   ],
+   "color": "#ffcf3a"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    -0.14,
+    -0.4,
+    0.5
+   ],
+   "size": [
+    0.08,
+    0.12
+   ],
+   "color": "#ffcf3a"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.4,
+    0.3
+   ],
+   "size": [
+    0.2,
+    0.03,
+    0.06
+   ],
+   "color": "#ffcf3a"
+  }
+ ],
+ "clips": {
+  "walk": {
+   "action": "Walking_D_Skeletons",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  },
+  "idle": {
+   "action": "Idle_B",
+   "yaw": 15,
+   "loop": true,
+   "step": 2
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6
+  },
+  "jump": {
+   "action": "Jump_Full_Short",
+   "yaw": 90,
+   "step": 2
+  },
+  "cheer": {
+   "action": "Cheer",
+   "yaw": 15,
+   "step": 2
+  },
+  "taunt": {
+   "action": "Taunt_Longer",
+   "yaw": 15,
+   "step": 2
+  }
+ }
+}

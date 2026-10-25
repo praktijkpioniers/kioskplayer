@@ -133,6 +133,10 @@
       "anim": "anim/cauldron_front",
       "unit": 0.115
     },
+    "pumpkinhead3d": {
+      "anim": "anim/pumpkinhead",
+      "unit": 0.085
+    },
     "frog": {
       "anim": "anim/frog",
       "unit": 0.115
@@ -768,6 +772,7 @@
       "back": "cauldron_back",
       "front": "cauldron_front",
       "frog": "frog",
+      "pumpkin": "pumpkinhead3d",
       "min": 8,
       "video_min": 8,
       "every": [
