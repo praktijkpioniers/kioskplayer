@@ -1663,9 +1663,9 @@ local function spark(out, x0, y0, x1, y1, color, width)
         width or 2, color or "&HFFF0A0&", path[1], table.concat(path, " l ", 2))
 end
 
-local function puff(out, x, y, r, alpha)
+local function puff(out, x, y, r, alpha, color)
     local k = 0.5523 * r
-    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%d\\1c&H9A9A9A&\\1a&H%02X&\\p1}"
+    out[#out + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%d\\1c" .. (color or "&H9A9A9A&") .. "\\1a&H%02X&\\p1}"
         .. "m %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d b %d %d %d %d %d %d{\\p0}",
         math.max(1, math.floor(r * 0.06)), math.floor(clamp(alpha, 0, 1) * 255),
         x, y - r, x + k, y - r, x + r, y - k, x + r, y, x + r, y + k, x + k, y + r, x, y + r,
@@ -1888,6 +1888,7 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
+local TUNNEL = { skeleton = true, zombie = true }     -- (cast that go about under the ground)
 local OWN_ACT = { zombie = true, frankenstein = true, werewolf = true, performer = true }
 local function next_act(w)
     if not M then return false end
@@ -3289,6 +3290,22 @@ function spawn.wanderer(el, spr, h)
     local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam, from = h.from }
     a.hops, a.ttl = 0, tonumber(h.ttl) or 60
     local state, tc = "walk", 0
+    -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
+    -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
+    local dy, clods = 0, {}
+    local down_x = TUNNEL[h.fam] and (room.left or room.right) and math.random() < (el.tunnel_chance or 0.35)
+                   and rnd(0.3, 0.7) * W or nil
+    if h.down_at then down_x = tonumber(h.down_at) end
+    if h.tunnel then
+        x, state, down_x = rnd(0.25, 0.75) * W, "under", nil
+        a.under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
+    end
+    local function dirt(n)
+        for _ = 1, n do
+            clods[#clods + 1] = { x = x + rnd(-0.4, 0.4) * u, y = H - rnd(0, 0.1) * u, vx = rnd(-1, 1) * u,
+                                  vy = -rnd(1.5, 3) * u, r = rnd(0.04, 0.09) * u, t = 0 }
+        end
+    end
     local queue = {}                 -- clips to play (a stop, a turn)
     local stopped = math.random() < 0.4         -- (one stop per screen at most, and not always)
     local stop_x = rnd(0.3, 0.7) * W
@@ -3352,11 +3369,68 @@ function spawn.wanderer(el, spr, h)
                 if q.t < 1.2 then keep[#keep + 1] = q end
             end
             puffs = keep
+            keep = {}
+            for _, q in ipairs(clods) do
+                q.t, q.vy = q.t + dt, q.vy + 6 * u * dt
+                q.x, q.y = q.x + q.vx * dt, q.y + q.vy * dt
+                if q.y < H + q.r then keep[#keep + 1] = q end
+            end
+            clods = keep
+        end
+        local rising = C.rise and fam == "skeleton"      -- (its own clip; a zombie digs itself in/out)
+        if state == "under" then                         -- (on its way here, under the screens)
+            a.under_t = a.under_t - dt
+            if a.under_t > 0 then return true, {} end
+            state, tc = "up", 0
+            dirt(10)
+            msg.verbose("cast: up out of the ground, the " .. fam)
+        end
+        if state == "up" or state == "down" then
+            local len = rising and C.rise.count / C.rise.fps or 1.6
+            local p = clamp(tc / len, 0, 1)
+            if state == "down" then p = 1 - p end
+            dy = rising and 0 or (1 - p) * 2.6 * u
+            if math.random() < dt * 8 and p < 0.9 then dirt(1) end
+            if tc >= len then
+                if state == "down" then
+                    -- off under the ground: to a screen a few along (one side or the other)
+                    local sides = {}
+                    if room.left then sides[#sides + 1] = "left" end
+                    if room.right then sides[#sides + 1] = "right" end
+                    local side = sides[math.random(#sides)]
+                    local n = math.random(1, math.max(1, (room.screens or 2) - 1))
+                    hand_over(side, { kind = "wanderer", el = el.index, sprite = spr.name, fam = fam, from = h.from,
+                                      dir = side == "right" and 1 or -1, hops = 0, lead = 0, unique = false,
+                                      ttl = math.floor(math.max(a.ttl, 40)), tunnel = n, went = 1 })
+                    msg.verbose("cast: the " .. fam .. " goes under the ground (" .. n .. " screens along)")
+                    return false
+                end
+                dy, state, tc = 0, "act", 0
+                play(C.turn_side and { "turn_side", m = dir < 0 })
+            end
+            local cc = rising and C.rise or C.idle
+            local k = math.floor(clamp(state == "down" and (len - tc) or tc, 0, len - 1e-3) * cc.fps)
+            k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
+            local ox = spr.origin[1]
+            local layer = { spr = spr, frame = cc.start + k, variant = false, x = x - ox, y = H - spr.origin[2] + dy }
+            a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
+            return true, { layer }
         end
         local cc, m = c, dir < 0
         if state == "act" then
             local ac, am = act_step()
             if ac then cc, m = ac, am end
+        end
+        if state == "walk" and down_x and math.abs(x - down_x) < v * dt * 2 and a.ttl > 20 and not a.called then
+            down_x = nil
+            play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(0.5, 1.2) })
+            a.digging = true
+        end
+        if state == "walk" and a.digging then
+            state, tc, a.digging = "down", 0, nil
+            dirt(6)
+            msg.verbose("cast: the " .. fam .. " digs itself into the ground")
+            return true, {}
         end
         if state == "walk" then
             x = x + dir * v * dt
@@ -3393,6 +3467,7 @@ function spawn.wanderer(el, spr, h)
     end
     function a.ass(out)
         for _, q in ipairs(puffs) do puff(out, q.x, q.y, q.r * (1 + 0.6 * q.t), 0.2 + 0.8 * q.t / 1.2) end
+        for _, q in ipairs(clods) do puff(out, q.x, q.y, q.r, 0.1, "&H1E3A5A&") end
     end
     return a
 end
@@ -4303,6 +4378,13 @@ local function tick()
             local el = M.elements[h.el or 0]
             if h.kind == "cat" and el and el.type == "prowler" and hooks.cat_in then hooks.cat_in(el, h) end
             local spr = M.sprites[h.sprite or ""]
+            local n = tonumber(h.tunnel)
+            local on = h.dir == 1 and "right" or "left"
+            if n and n > 1 and room[on] then          -- (under the ground: on under this screen)
+                h.tunnel, h.went, h.late = n - 1, (tonumber(h.went) or 1) + 1, 0
+                hand_over(on, h)
+                el = nil
+            end
             if el and spr and spawn[h.kind] and (el.type == h.kind or HANDED_ONLY[h.kind]) and #free_ids > 0 then
                 local a = spawn[h.kind](el, spr, h)
                 if a and #free_ids >= (a.layers or 1) then
@@ -4638,8 +4720,10 @@ end)
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next,
 --   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head),
---   x = a witch and a princess (they turn into each other)
+--   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
+--   under the ground (and comes up on another screen)
 --   (walkers started so go towards a screen next door, if there is one)
+local under_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -4748,6 +4832,18 @@ mp.add_forced_key_binding("x", "theme-preview-swap", function()
             if not (a and b) then return end
             adopt(a, el, { hops = 0 }) adopt(b, el, { hops = 0 })
             a.next_at, b.next_at = 2, 1e9
+            return
+        end
+    end
+end)
+mp.add_forced_key_binding("u", "theme-preview-under", function()
+    under_k = (under_k or 0) + 1
+    local name = (under_k % 2 == 1) and "skeleton" or "zombie"
+    local spr = M and M.sprites[name .. "3d"]
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "frogs" and spr then
+            local a = spawn.wanderer(el, spr, { fam = name, dir = 1, at = 0.1 * W, ttl = 120, hops = 0, down_at = 0.45 * W })
+            if a then adopt(a, el, { hops = 0 }) a.next_at = 1e9 end
             return
         end
     end

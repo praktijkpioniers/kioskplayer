@@ -42,7 +42,7 @@
    "count": 19,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.35397804544275446
+   "stride": 0.36865400007137883
   },
   "turn_front": {
    "files": "turn_front_*.png",
@@ -58,5 +58,10 @@
    "loop": false,
    "stride": 0.0
   }
- }
+ },
+ "unit_px": 141.17647058823528,
+ "origin_px": [
+  183.5,
+  384
+ ]
 }

@@ -88,7 +88,7 @@
     },
     "skeleton3d": {
       "anim": "anim/skeleton",
-      "height": 0.3
+      "unit": 0.115
     },
     "vampire3d": {
       "anim": "anim/vampire",
