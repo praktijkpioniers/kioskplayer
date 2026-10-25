@@ -553,25 +553,6 @@
       ]
     },
     {
-      "type": "peeker",
-      "min": 7,
-      "max": 7,
-      "edge": "bottom",
-      "every": [
-        90,
-        180
-      ],
-      "reveal": [
-        0.3,
-        0.5
-      ],
-      "hold": 3,
-      "sprites": [
-        "mummy"
-      ],
-      "group": "monster"
-    },
-    {
       "type": "decor",
       "sprite": "tombstone",
       "anchor": "bottom-left",
@@ -909,46 +890,6 @@
         "monster",
         "walker"
       ]
-    },
-    {
-      "type": "peeker",
-      "min": 8,
-      "edge": "bottom",
-      "every": [
-        15,
-        30
-      ],
-      "max_active": 1,
-      "reveal": [
-        0.4,
-        0.7
-      ],
-      "hold": 4,
-      "say": true,
-      "video_min": 8,
-      "sprites": [
-        "mummy"
-      ],
-      "group": "monster"
-    },
-    {
-      "type": "peeker",
-      "min": 8,
-      "edge": "left",
-      "every": [
-        25,
-        50
-      ],
-      "reveal": [
-        0.4,
-        0.6
-      ],
-      "hold": 3,
-      "video_min": 8,
-      "sprites": [
-        "mummy"
-      ],
-      "group": "monster"
     },
     {
       "type": "crawler",

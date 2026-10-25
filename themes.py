@@ -252,7 +252,11 @@ def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int,
     clips: dict[str, Any] = {}
     for n in names:
         c = info["clips"][n]
-        files = sorted(d.glob(c.get("files", f"{n}_*.png")))
+        pat = c.get("files", f"{n}_*.png")
+        files = sorted(d.glob(pat))
+        if "*" in pat:            # (the * a frame number only: "walk_*" not taking "walk_nh_0000")
+            head, tail = pat.split("*", 1)
+            files = [f for f in files if f.name[len(head):len(f.name) - len(tail)].isdigit()]
         clips[n] = {"start": len(raw), "count": len(files), "fps": float(c.get("fps", 24)),
                     "loop": bool(c.get("loop", True)), "stride": float(c.get("stride", 0))}
         if c.get("track"):
@@ -411,7 +415,7 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     else:
         src_files = [theme_dir / f for f in (sdef.get("frames") or [sdef["file"]])]
     h = hashlib.sha1()
-    h.update(json.dumps([sdef, screen_h, 2], sort_keys=True).encode())
+    h.update(json.dumps([sdef, screen_h, 3], sort_keys=True).encode())     # (3: clip frames by number only)
     for p in src_files:
         h.update(f"{p.name}{p.stat().st_mtime_ns}".encode())
     key = h.hexdigest()[:16]
