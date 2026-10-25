@@ -32,6 +32,7 @@
 #              0 bare, [from, to] (un)wrapping during the clip: the bandage shows below a level
 #              that rises from the feet to the head (with a spiral edge)
 #   per clip "only": ["Knight_Head", "prop"]  render only the meshes whose names contain one of these
+#   per clip "show": ["2H_Staff"]  show meshes "hide" hides everywhere else (a stick for stirring)
 #   per clip "spin": true  turn what shows about its own middle, a full turn over the clip's frames
 #              (in the picture plane): pieces flying off
 #   "props":   [{"bone": "head", "at": [0.3, 0, 0.1], "size": [0.05, 0.2], "axis": "x", "color": "#999"}]
@@ -103,7 +104,8 @@ meshes = [o for o in scene.objects if o.type == "MESH"]
 for o in meshes:
     if any(h in o.name for h in R.get("hide", [])):
         o.hide_render = True
-meshes = [o for o in meshes if not o.hide_render]
+showable = {n for c in R["clips"].values() for n in c.get("show", [])}
+meshes = [o for o in meshes if not o.hide_render or any(n in o.name for n in showable)]
 
 def hexrgb(h):
     return [(int(h[i:i + 2], 16) / 255) ** 2.2 for i in (1, 3, 5)]
@@ -321,7 +323,8 @@ if R.get("bone_scale"):
     # longer legs lift the body: put the feet back on the ground (lowest point standing idle)
     pose(action("Idle"), int(action("Idle").frame_range[0]), 0)
     dg = bpy.context.evaluated_depsgraph_get()
-    low = min((o.evaluated_get(dg).matrix_world @ v.co).z for o in meshes for v in o.evaluated_get(dg).to_mesh().vertices)
+    low = min((o.evaluated_get(dg).matrix_world @ v.co).z for o in meshes if not o.hide_render
+              for v in o.evaluated_get(dg).to_mesh().vertices)
     pivot.location.z -= low
     print("GROUND lift %.3f" % -low)
 
@@ -333,6 +336,8 @@ for a, fr in clips.values():
         pose(a, f, yaw)
         dg = bpy.context.evaluated_depsgraph_get()
         for o in meshes:
+            if o.hide_render and not any(n in o.name for n in showable):
+                continue
             ev = o.evaluated_get(dg)
             m = ev.to_mesh()
             mw = ev.matrix_world
@@ -450,7 +455,8 @@ for name, (a, fr) in clips.items():
     c = R["clips"][name]
     only = c.get("only")
     for o in meshes:
-        o.hide_render = shown[o] or bool(only and not any(n in o.name for n in only))
+        o.hide_render = ((shown[o] and not any(n in o.name for n in c.get("show", [])))
+                         or bool(only and not any(n in o.name for n in only)))
     for i, (f, yaw) in enumerate(fr):
         pose(a, f, yaw)
         wrap_state(c, i, len(fr))

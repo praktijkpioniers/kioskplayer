@@ -120,6 +120,22 @@
                  "thought/thought_6.png", "thought/thought_7.png", "thought/thought_8.png"],
       "height": 0.12
     },
+    "witch3d": {
+      "anim": "anim/witch",
+      "unit": 0.115
+    },
+    "cauldron_back": {
+      "anim": "anim/cauldron_back",
+      "unit": 0.115
+    },
+    "cauldron_front": {
+      "anim": "anim/cauldron_front",
+      "unit": 0.115
+    },
+    "frog": {
+      "anim": "anim/frog",
+      "unit": 0.115
+    },
     "mummy3d": {
       "anim": "anim/mummy",
       "unit": 0.115
@@ -726,6 +742,28 @@
         {"type": "prowler", "chance": 0.3, "after": [3, 12]},
         {"type": "performer", "sprite": "skeleton3d", "chance": 0.4, "after": [3, 10]}
       ],
+      "group": [
+        "monster",
+        "walker"
+      ]
+    },
+    {
+      "type": "witch",
+      "sprite": "witch3d",
+      "back": "cauldron_back",
+      "front": "cauldron_front",
+      "frog": "frog",
+      "min": 8,
+      "video_min": 8,
+      "every": [
+        300,
+        600
+      ],
+      "delay": [
+        30,
+        150
+      ],
+      "say": true,
       "group": [
         "monster",
         "walker"

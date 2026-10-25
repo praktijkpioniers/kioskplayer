@@ -243,7 +243,7 @@ end
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
 local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
-local HANDED_ONLY = { piece = true, passer = true }    -- kinds that only come in from a neighbour
+local HANDED_ONLY = { piece = true, passer = true, hopper = true }    -- kinds that only come in from a neighbour
 local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
     if a.guest_of then return true end
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
@@ -1771,6 +1771,227 @@ function spawn.frankenstein(el, spr, h)
     return a
 end
 
+-- witch: walks in, faces the viewer and conjures up her cauldron (a puff: it's there, bubbling),
+-- stirs it (from behind), cackles, stirs on - and out of the brew a frog jumps. It sits, croaks
+-- at her; she zaps it (and misses), it hops off to the screen next door (hopper). A cackle
+-- anyway, the cauldron goes in another puff and she walks back off. Layers, bottom to top: the
+-- witch (behind the pot), the pot, the frog (in it: hidden by the front), the pot's front.
+-- Planned coming in from the left, mirrored half the time.
+local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
+    local q = clamp((p - 0.2) / 0.65, 0, 1)        -- (airborne between crouch and landing)
+    return x0 + (x1 - x0) * ease(q), y0 + (y1 - y0) * q - high * math.sin(math.pi * q)
+end
+function spawn.witch(el, spr)
+    local S = M.sprites
+    local back, front, frog = S[el.back or ""], S[el.front or ""], S[el.frog or ""]
+    local C, P, F = spr.clips, back and back.clips, frog and frog.clips
+    if not (C and C.walk and C.stir and C.cast and C.cackle and P and P.appear and P.bubble and P.splash
+            and P.vanish and front and F and F.sit and F.hop and spr.origin and spr.unit
+            and back.origin and front.origin and frog.origin) then
+        return nil
+    end
+    local u = spr.unit * H
+    if W < 12 * u then return nil end
+    local a = { el = el, spr = spr, layers = 4 }
+    local d = math.random() < 0.5 and 1 or -1
+    local cx = rnd(math.max(W * 0.3, 3.5 * u), math.min(W * 0.55, W - 5 * u))
+    local swap = 0.4                                   -- (where the pot comes/goes in its puff)
+    local rim_y = -0.58 * u                            -- the frog's feet in the pot (below the rim)
+
+    -- the plan: the witch's steps (walk to, a clip once or for dur, facing m); on = what starts
+    -- with a step (the pot's clip, the frog), wait = it lasts until this is true
+    local steps, X, face = {}, -1.2 * u, 1
+    local function add(s) steps[#steps + 1] = s; return s end
+    local function turn(f)
+        if f == face then return end
+        if face ~= 0 and C.turn_front then add { clip = "turn_front", m = face < 0 } end
+        if f ~= 0 and C.turn_side then add { clip = "turn_side", m = f < 0 } end
+        face = f
+    end
+    local function go(to)
+        turn(to > X and 1 or -1)
+        add { clip = "walk", to = to, m = face < 0 }
+        X = to
+    end
+    local function stop(clip, dur, f, s)
+        turn(f or 0)
+        s = s or {}
+        s.clip, s.dur, s.m, s.act = clip, dur, face < 0, true
+        return add(s)
+    end
+
+    local pot, frg = nil, { state = "hidden" }        -- pot: {clip, t}; the frog's own little play
+    local function pot_clip(c) return function() pot = { clip = c, t = 0 } end end
+    local zap
+    go(cx - 2.4 * u)
+    stop("cast", nil, 0, { on = pot_clip("appear") })
+    stop("idle", rnd(0.8, 1.5))
+    go(cx - 0.4 * u)                                -- (behind the pot: it hides her skirt)
+    stop("stir", rnd(4, 7), 1)
+    stop("cackle", nil, 0)
+    stop("stir", rnd(2.5, 4), 1)
+    stop("idle", 1.0, 0, { on = function() pot = { clip = "splash", t = 0 } frg = { state = "peek", t = 0 } end })
+    stop("idle", 0.5, 1, { wait = function() return frg.state == "sit" or frg.state == "croak" end })
+    stop("idle", 0.5, 1, { wait = function() return frg.state == "sit" and frg.croaked end })
+    stop("cast", nil, 1, { on = function() zap = 0 end })
+    stop("idle", rnd(1, 2), 1)
+    stop("cackle", nil, 0)
+    stop("cast", nil, 0, { on = pot_clip("vanish") })
+    stop("idle", 0.6)
+    go(-1.5 * u)
+
+    local si, tc = 1, 0
+    local wx = -1.2 * u
+    a.line = pick_line(el)
+    local fa = { el = el, spr = frog, groups = {}, hops = 0 }   -- the frog, for walk_out
+    local function place(sp, x, frame, mirror, dy)
+        local m = (mirror and true or false) ~= (d < 0)
+        local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        return { spr = sp, frame = frame, variant = m, x = ((d > 0) and x or (W - x)) - ox, y = H - sp.origin[2] + dy }
+    end
+    local function scr(x) return (d > 0) and x or (W - x) end
+    local function frame_of(c, t, rate)
+        local k = math.floor(t * c.fps * (rate or 1))
+        if c.loop then return c.start + k % c.count end
+        return c.start + math.min(k, c.count - 1)
+    end
+
+    local function frog_step(dt)
+        local f = frg
+        f.t = (f.t or 0) + dt
+        local hop = F.hop.count / F.hop.fps
+        if f.state == "peek" then                      -- eyes over the rim, a look about
+            f.x, f.dy, f.clip = cx, rim_y - 0.14 * u * clamp(f.t / 0.4, 0, 1), "sit"
+            if f.t > 1.4 then f.state, f.t, f.x0, f.y0 = "out", 0, cx, f.dy end
+        elseif f.state == "out" then                   -- out over the rim, down beside the pot
+            f.clip = "hop"
+            f.x, f.dy = hop_at(f.t / hop, f.x0, cx + 2.2 * u, f.y0, 0, 1.4 * u)
+            if f.t >= hop then f.state, f.t = "sit", 0 msg.verbose("witch: a frog out of the brew") end
+        elseif f.state == "sit" then
+            f.clip, f.dy = "sit", 0
+            if not f.croaked and f.t > 1.0 and F.croak then f.state, f.t = "croak", 0 end
+        elseif f.state == "croak" then
+            f.clip = "croak"
+            if f.t >= F.croak.count / F.croak.fps * 2 then f.state, f.t, f.croaked = "sit", 0, true end
+        elseif f.state == "away" then                  -- hops off (and over to the screen next door)
+            f.clip = "hop"
+            f.rate = 1.3
+            f.x, f.dy = hop_at(f.t / hop * 1.3, f.x0, f.x0 + 1.3 * u, 0, 0, 0.6 * u)
+            if f.t >= hop / 1.3 then f.x0, f.t = f.x0 + 1.3 * u, 0 end
+            if f.t < dt then f.x = f.x0 end
+            walk_out(fa, scr(f.x), d, 0.3 * u, { kind = "hopper", unique = false })
+            if f.x > W + 0.6 * u then f.state = "gone" end
+        end
+    end
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        if si ~= a.logged then
+            a.logged = si
+            if s.on then s.on() end
+        end
+        tc = tc + dt
+        local c = C[s.clip] or C.walk
+        local done
+        if s.to then
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local dir = s.to > wx and 1 or -1
+            wx = wx + dir * v * dt
+            if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
+        else
+            done = tc >= (s.dur or c.count / c.fps)
+        end
+        if done and s.wait and not s.wait() then done = false end
+        if zap then
+            zap = zap + dt
+            if zap > 0.35 and frg.state == "sit" then
+                frg.state, frg.t, frg.x0 = "away", 0, frg.x
+                msg.verbose("witch: zaps the frog - missed, it hops off")
+            end
+            if zap > 0.8 then zap = nil end
+        end
+        if frg.state ~= "hidden" and frg.state ~= "gone" then frog_step(dt) end
+
+        local layers = {}
+        local l = place(spr, wx, frame_of(c, tc), s.m, 0)
+        layers[1] = l
+        a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
+        if pot then
+            pot.t = pot.t + dt
+            local pc = P[pot.clip]
+            local n = math.floor(pot.t * pc.fps)
+            if not pc.loop and n >= pc.count then
+                if pot.clip == "vanish" then pot = nil else pot = { clip = "bubble", t = 0 } end
+            end
+            if pot then
+                pc = P[pot.clip]
+                layers[2] = place(back, cx, frame_of(pc, pot.t), false, 0)
+                local hidden = (pot.clip == "appear" and pot.t * pc.fps < swap * pc.count)
+                        or (pot.clip == "vanish" and pot.t * pc.fps >= swap * pc.count)
+                if not hidden then layers[4] = place(front, cx, front.clips and front.clips.front and front.clips.front.start or 0, false, 0) end
+            end
+        end
+        if frg.x and frg.state ~= "gone" and F[frg.clip] then
+            -- (in the pot, only while it rises: below the front's top edge the pot's body is in front)
+            layers[3] = place(frog, frg.x, frame_of(F[frg.clip], frg.t, frg.rate), false, frg.dy)
+        end
+        a.talking = a.line and s.act and true or false
+        if a.talking and not a.say_t then a.say_t = t end
+        if done then si, tc = si + 1, 0 end
+        return true, layers
+    end
+    function a.ass(out)
+        if not (zap and zap < 0.5 and frg.x) then return end
+        local hx, hy = scr(wx + 0.45 * u), H - 1.35 * u
+        local fx = scr(frg.x + (zap > 0.35 and 0.6 or 0) * u)
+        spark(out, hx, hy, fx, H - 0.25 * u, "&HFF60E0&", 3)
+    end
+    return a
+end
+
+-- hopper: the witch's frog, hopping over from the screen next door: across (a croak on the way,
+-- now and then) and on.
+function spawn.hopper(el, spr, h)
+    local F = spr.clips
+    if not (F and F.hop and F.sit and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local dir = h.dir == 1 and 1 or -1
+    local hop = F.hop.count / F.hop.fps / 1.3
+    local step = 1.3 * u
+    local x = walk_in_x(h, step / hop, 0.3 * u)
+    local a = { el = el, spr = spr, layers = 1, groups = {} }
+    a.hops = tonumber(h.hops) or 1
+    local x0, tc, rest = x, 0, math.random() < 0.6 and rnd(0.3, 0.7) * W or nil
+    local resting
+    function a.update(dt)
+        tc = tc + dt
+        local clip, dy = "hop", 0
+        if resting then
+            clip = (F.croak and resting > 1 and resting < 1 + F.croak.count / F.croak.fps * 2) and "croak" or "sit"
+            resting = resting + dt
+            if resting > 4 then resting, tc = nil, 0 end
+        else
+            x, dy = hop_at(tc / hop, x0, x0 + dir * step, 0, 0, 0.6 * u)
+            if tc >= hop then
+                x0, tc = x0 + dir * step, 0
+                if rest and math.abs(x0 - rest) < step then rest, resting = nil, 0 end
+            end
+        end
+        walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false })
+        if (dir > 0 and x > W + 0.6 * u) or (dir < 0 and x < -0.6 * u) then return false end
+        local c = F[clip]
+        local k = math.floor((clip == "croak" and resting - 1 or resting or tc) * c.fps * (clip == "hop" and 1.3 or 1))
+        k = c.loop and k % c.count or math.min(k, c.count - 1)
+        local mi = dir < 0
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local layer = { spr = spr, frame = c.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] + dy }
+        a.sx, a.sy = layer.x, layer.y
+        return true, { layer }
+    end
+    return a
+end
+
 -- passer: someone just passing through, come over from the screen next door (or, from_far,
 -- coming in at the far side, hurrying towards it): walks (clip, rate) across and off, and on to
 -- the next screen, if any.
@@ -2805,7 +3026,8 @@ end)
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
---   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next
+--   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
+--   h = the witch (and her cauldron) next
 --   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
@@ -2866,6 +3088,11 @@ end)
 mp.add_forced_key_binding("k", "theme-preview-frankenstein", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "frankenstein" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("h", "theme-preview-witch", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "witch" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

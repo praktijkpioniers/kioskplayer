@@ -1,0 +1,46 @@
+{
+ "view": "front",
+ "model": "cauldron.py",
+ "clips": {
+  "bubble": {
+   "files": "bubble_*.png",
+   "count": 12,
+   "fps": 10,
+   "loop": true,
+   "stride": 0
+  },
+  "splash": {
+   "files": "splash_*.png",
+   "count": 10,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  },
+  "poof": {
+   "files": "poof_*.png",
+   "count": 14,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  },
+  "appear": {
+   "files": "appear_*.png",
+   "count": 14,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  },
+  "vanish": {
+   "files": "vanish_*.png",
+   "count": 14,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  162.5,
+  384
+ ]
+}
