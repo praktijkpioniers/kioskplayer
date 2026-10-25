@@ -201,6 +201,8 @@ local mine_sent = nil      -- the claims last told to the player
 local NOT_UNIQUE = { flyer = true, particles = true }   -- travel from screen to screen / just leaves
 
 local function claim_key(spr) return "spr:" .. tostring(spr and spr.name) end
+-- groups that are one at a time in the whole room, not just on a screen (claimed as "grp:<name>")
+local ROOM_GROUPS = { walker = true }
 local function taken(spr) return room.taken[claim_key(spr)] == true end
 local function holding() return room.active and not room.ready end
 
@@ -238,6 +240,7 @@ end
 -- that far in (minus the gap, plus what it walked meanwhile). x: its middle (screen), front: from
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
+local FLY_HOPS = 6        -- (screens may go all round the room: no flying round for ever)
 local HANDED_ONLY = { piece = true, passer = true }    -- kinds that only come in from a neighbour
 local function walk_out(a, x, dir, front, h)
     if a.handed_on then return a.handed_on == "yes" end
@@ -435,13 +438,21 @@ local function group_busy(groups, el, me)
     for _, a in ipairs(actors) do
         if a ~= me and not (el and a.invites and a.invites[el]) then busy[#busy + 1] = a end   -- (the zombie's guests)
     end
-    for _, w in ipairs(webs) do      -- a web counts while its spider is in it
-        if not w.sp.gone then busy[#busy + 1] = w end
+    for _, w in ipairs(webs) do      -- a web counts while its spider builds it (once it sits
+        if not w.sp.gone and not w.built then busy[#busy + 1] = w end   -- in it, others may come)
     end
     for _, a in ipairs(busy) do
         for _, g in ipairs(a.groups or {}) do
             for _, want in ipairs(groups) do if g == want then return true end end
         end
+    end
+    return false
+end
+
+-- another screen in the room has one of these room-wide groups going (someone walking about)
+local function room_busy(groups)
+    for _, g in ipairs(groups) do
+        if ROOM_GROUPS[g] and room.taken["grp:" .. g] then return true end
     end
     return false
 end
@@ -614,10 +625,10 @@ function spawn.flyer(el, spr, h)
         local lead = (a.dir > 0) and (a.x + spr.w - W) or (-a.x)
         if lead >= 0 and not a.handed_on and not a.exit then
             a.handed_on = true
-            hand_over(a.dir > 0 and "right" or "left", {
-                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, lead = lead / H,
+            if (a.hops or 0) < FLY_HOPS then hand_over(a.dir > 0 and "right" or "left", {
+                kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, lead = lead / H, hops = (a.hops or 0) + 1,
                 y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph,
-                rate = a.rate, dph = t * a.rate + a.dph })
+                rate = a.rate, dph = t * a.rate + a.dph }) end
         end
         if a.x < -spr.w - 2 or a.x > W + 2 then return false end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
@@ -1047,7 +1058,7 @@ function spawn.vampire(el, spr, h)
         if si ~= a.logged then a.logged = si msg.verbose(s.log or ("vampire step " .. tostring(s.clip or "hidden"))) end
         if s.wake and a.hiding then
             local st = elements[el]
-            if group_busy({ "walker" }, nil, a) then
+            if group_busy({ "walker" }, nil, a) or room_busy({ "walker" }) then
                 tc = 0 dt = 0                    -- someone else walks about: stay in (and next in turn)
                 if st then st.wait_since, st.wait_seen = st.wait_since or mp.get_time(), mp.get_time() end
             else
@@ -2019,7 +2030,7 @@ local function try_spawn(el, now)
     end
     -- a group takes turns: who waited for it first goes first (else the frequent skeletons and
     -- peekers would keep the rare acts out for good)
-    if not st.force and (group_busy(groups_of(el), el) or queued_before(el, now)) then
+    if not st.force and (group_busy(groups_of(el), el) or room_busy(groups_of(el)) or queued_before(el, now)) then
         st.wait_since, st.wait_seen = st.wait_since or now, now
         st.next = now + rnd(2, 6)
         return
@@ -2040,7 +2051,7 @@ local function try_spawn(el, now)
         st.next = now + 5
         return
     end
-    a.unique, a.born = unique, now
+    a.unique, a.born, a.forced = unique, now, st.force
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
@@ -2355,7 +2366,8 @@ local function tick()
                     a.uncounted, a.handed = true, true
                     a.hops = tonumber(h.hops) or 1
                     a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
-                    if a.unique then room.claim_t = 0 end
+                    room.claim_t = 0
+
                     a.groups = a.groups or groups_of(el)
                     a.id = take_id()
                     if a.layers then
@@ -2411,7 +2423,10 @@ local function tick()
             room.claim_t = 1
             local set, keys = {}, {}
             for _, d in ipairs(standing_decor()) do set[claim_key(d.spr)] = true end
-            for _, a in ipairs(actors) do if a.unique and a.spr then set[claim_key(a.spr)] = true end end
+            for _, a in ipairs(actors) do
+                if a.unique and a.spr then set[claim_key(a.spr)] = true end
+                for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then set["grp:" .. g] = true end end
+            end
             if #cats > 0 then set["spr:cat"] = true end
             for k in pairs(set) do keys[#keys + 1] = k end
             table.sort(keys)
@@ -2588,6 +2603,14 @@ mp.register_script_message("theme-room-claims", function(js)
         if a.unique and a.spr and room.taken[claim_key(a.spr)] and not a.leaving and not a.handed then
             leave(a)
             msg.verbose("room: " .. tostring(a.spr.name) .. " is on another screen, leaving")
+        end
+    end
+    -- someone just started walking here while another screen had a walker going first: it goes again
+    local now = mp.get_time()
+    for _, a in ipairs(actors) do
+        if not a.leaving and not a.handed and not a.forced and a.born and now - a.born < 4 and room_busy(a.groups or {}) then
+            leave(a)
+            msg.verbose("room: someone walks about on another screen, " .. tostring(a.spr and a.spr.name) .. " goes again")
         end
     end
     if was_holding and not holding() then

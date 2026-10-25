@@ -4,7 +4,11 @@ Several kiosks side by side on this desktop, as one room: each its own mpv windo
 engine, its own room-bus node (UDP over 127.0.0.1), and the same ThemeRoom bridge the player uses,
 so animations move from one window to the next.
 
-    multi.py [n=4] [level=8] [--gap 16] [--mode idle|video] [--cols 2]
+    multi.py [n=4] [level=8] [--gap 16] [--mode idle|video] [--cols 2] [--rows] [--no-wrap]
+
+The windows are one row of screens all round the room (k0 → k1 → ... → the last → k0 again),
+whatever the window grid; --rows: each row of windows its own row of screens (nothing crosses
+between them), --no-wrap: the last one's right edge leads nowhere.
 
 Keys go to one window: python3 tools/kiosksim/multi.py key <i> <key> ...   (b = a flyer now)
 Screenshot of the whole row:   python3 tools/kiosksim/multi.py shot <file.png>
@@ -47,7 +51,7 @@ def geometry(i, n, cols):
 
 
 class Kiosk:
-    def __init__(self, i, n, gap_px, cols):
+    def __init__(self, i, n, gap_px, cols, rows=False, wrap=True):
         self.i, self.n = i, n
         self.dir = BASE_DIR / f"k{i}"
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -72,8 +76,11 @@ class Kiosk:
         peers = [f"127.0.0.1:{PORT + j}" for j in range(n) if j != i]
         self.bus = roombus.Bus("sim", node=f"kiosk{i}", port=PORT + i,
                                transports=[{"udp-peers": peers}]).start()
-        rows = [[f"kiosk{j}" for j in range(r, min(r + cols, n))] for r in range(0, n, cols)]
-        self.room = themes.ThemeRoom(self.bus, rows, gap_px, send=self.cmd,
+        if rows:
+            layout = [[f"kiosk{j}" for j in range(r, min(r + cols, n))] for r in range(0, n, cols)]
+        else:
+            layout = [[f"kiosk{j}" for j in range(n)]]
+        self.room = themes.ThemeRoom(self.bus, layout, gap_px, send=self.cmd, wrap=wrap,
                                      log=lambda m: print(f"kiosk{i}: {m}"))
         threading.Thread(target=self._events, args=(sock,), daemon=True).start()
 
@@ -151,9 +158,11 @@ def main():
     ap.add_argument("--gap", type=float, default=16, help="pixels (at 1080p) between two screens")
     ap.add_argument("--mode", default="idle")
     ap.add_argument("--cols", type=int, default=2, help="windows per row (n for one row)")
+    ap.add_argument("--rows", action="store_true", help="each row of windows its own row of screens")
+    ap.add_argument("--no-wrap", action="store_true", help="the last screen's right edge leads nowhere")
     a = ap.parse_args()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))     # kill: close the windows too
-    kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n))) for i in range(a.n)]
+    kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n)), a.rows, not a.no_wrap) for i in range(a.n)]
     for k in kiosks:
         k.load(a.level, a.mode)
     print(f"{a.n} kiosks, level {a.level}; 'multi.py key 0 b' sends a flyer. Ctrl+C to stop.")

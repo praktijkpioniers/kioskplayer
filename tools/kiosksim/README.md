@@ -15,6 +15,7 @@ Screenshots and the IPC socket go to `$KIOSKSIM_DIR` (default `/tmp/kiosksim`).
 ## Several screens: a room
 
     python3 tools/kiosksim/multi.py [n=4] [level=8] [--gap 16] [--cols 2]  # n windows, one room (2×2 fills the screen)
+    #   screens all round the room: k0 → k1 → ... → k0 again; --rows: window rows apart, --no-wrap
     python3 tools/kiosksim/multi.py key 0 b                        # a flyer now on window 0
     python3 tools/kiosksim/multi.py shot /tmp/kiosksim/row.png     # the whole row in one picture
 

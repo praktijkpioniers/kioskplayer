@@ -428,6 +428,7 @@ function W_:program()
     -- 7. into the hub, head down, and wait
     move(hub[1], hub[2])
     face(pi / 2)
+    self.built = true
     require("mp.msg").verbose(string.format("web in the %s corner built in %d s", self.corner, self.T))
     local waited = 0
     while waited < self.stay do

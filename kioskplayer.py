@@ -192,9 +192,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     # {"udp-peers": [host, ...]} (other subnets, tailnet); several at once is fine.
     # layout: node names (hostnames) left to right as a visitor sees the screens, for animations
     # moving from screen to screen (or a list of such rows, nothing crosses between rows; the
-    # order is also the order in which screens start showing things); gap_px: the space between two screens, in pixels (at 1080p)
+    # order is also the order in which screens start showing things); gap_px: the space between two screens, in pixels (at 1080p);
+    # wrap: the screens go all round the room (the last one's right edge leads to the first one's left)
     "room": {"enabled": False, "group": "", "node": "", "port": 47800,
-             "transports": ["udp-broadcast"], "key_file": "", "layout": [], "gap_px": 16},
+             "transports": ["udp-broadcast"], "key_file": "", "layout": [], "gap_px": 16, "wrap": False},
 }
 
 
@@ -814,7 +815,8 @@ class App:
                 rc = cfg.get("room") or {}
                 if rc.get("layout"):
                     self.themes.room = ThemeRoom(self.room_bus, rc["layout"], float(rc.get("gap_px", 16)),
-                                                 send=lambda *a: self.renderer.ipc.command(*a), log=log)
+                                                 send=lambda *a: self.renderer.ipc.command(*a), log=log,
+                                                 wrap=bool(rc.get("wrap")))
         except Exception as e:
             log(f"room bus not started: {e}")
 

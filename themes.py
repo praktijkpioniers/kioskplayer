@@ -541,9 +541,9 @@ class ThemeRoom:
     """The theme engine's link with the other screens in the room (over roombus).
 
     Hand-overs: layout = node names left to right as a visitor sees the screens (config
-    room.layout), or a list of such rows (screens above each other: no hand-over between rows,
-    nothing wraps around); an actor crossing an edge towards a neighbour goes on there, gap_px
-    further.
+    room.layout), or a list of such rows (screens above each other: no hand-over between rows);
+    an actor crossing an edge towards a neighbour goes on there, gap_px further. wrap: the screens
+    of a row go all round the room, so the last one's right edge leads to the first one's left.
     The engine says theme-room-out {side, ...}; we publish theme/handoff {to: <that neighbour>,
     sent: wall ms}; the neighbour's ThemeRoom gives it to its engine as theme-room-in {late: s}.
 
@@ -565,7 +565,7 @@ class ThemeRoom:
     MAX_WAIT_S = 25.0       # a screen before us that never gets going doesn't hold us forever
 
     def __init__(self, bus: Any, layout: list[str], gap_px: float, send: Callable[..., Any],
-                 log: Callable[[str], None] = print):
+                 log: Callable[[str], None] = print, wrap: bool = False):
         import random
         self.bus, self.send, self.log = bus, send, log
         self.gap_px = float(gap_px)
@@ -577,6 +577,8 @@ class ThemeRoom:
         i = row.index(bus.node) if row else -1
         self.left = row[i - 1] if i > 0 else None
         self.right = row[i + 1] if 0 <= i < len(row) - 1 else None
+        if wrap and i >= 0 and len(row) > 1:                # all round the room
+            self.left, self.right = row[i - 1], row[(i + 1) % len(row)]
         if i < 0 and rows:
             log(f"room: {bus.node} is not in the layout {rows}; no hand-overs")
         self._lock = threading.Lock()
