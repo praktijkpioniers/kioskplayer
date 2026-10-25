@@ -1,0 +1,25 @@
+{
+ "view": "front",
+ "model": "brain.py",
+ "clips": {
+  "lie": {
+   "files": "lie_*.png",
+   "count": 1,
+   "fps": 3,
+   "loop": false,
+   "stride": 0
+  },
+  "eat": {
+   "files": "eat_*.png",
+   "count": 6,
+   "fps": 3,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  44.3076923076923,
+  62
+ ]
+}

@@ -1488,165 +1488,6 @@ function spawn.mummy(el, spr)
     return a
 end
 
--- zombie: a baked character shuffling across with its arms out, stopping now and then to sniff
--- the air (a thought: puffs and a cloud with a brain in it, el.thought, frames see
--- tools/bake/thought.py). Whoever has a brain and comes close (the vampire, the cat) makes it
--- turn and reach for them, thinking of brains; the vampire and the cat run past (they look
--- for zombie_near). A skeleton gets a crossed-out brain: nothing to eat there. Two sprites on
--- two overlay ids: the zombie and its thought above it. When it comes, it may invite one of
--- el.invite ({type, chance} per entry): that one comes in soon, zombie or not.
-function spawn.zombie(el, spr, h)
-    local C, th = spr.clips, M.sprites[el.thought or ""]
-    if not (C and C.walk and C.idle and C.sniff and C.reach and spr.origin and spr.unit and th) then return nil end
-    local u = spr.unit * H
-    local a = { el = el, spr = spr, layers = 2 }
-    local dir = walk_dir(el)
-    local x = dir > 0 and -1.2 * u or W + 1.2 * u
-    local v = C.walk.stride_px * C.walk.fps / C.walk.count * (el.speed or 1.0)
-    if h then dir = h.dir == 1 and 1 or -1 x = walk_in_x(h, v, 0.6 * u) end   -- from the screen next door
-    -- stops along the way, then off the other side (and on to the next screen)
-    local stops = {}
-    for _ = 1, math.random(h and 1 or 2, h and 2 or 3) do stops[#stops + 1] = rnd(0.12, 0.88) * W end
-    table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
-    stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
-
-    local state, tc, k = "walk", 0, 1       -- walk | turn_front | stop | turn_side | react
-    local push_left, turn_back = rnd(2, 6) * u, false
-    local stop_clip, stop_dur
-    local think, think_t, crossed = false, 0, false
-    local react_side, react_t, seen, calm = 1, 0, {}, 0
-    local face_front = false               -- standing towards the viewer (yaw 15) rather than sideways
-    local function brainy()
-        -- the nearest one with a brain (vampire, cat) within 3u, and its side; or a skeleton (no brain)
-        local best, bd, skel
-        for _, b in ipairs(actors) do
-            local bx = b.cx
-            if bx and b ~= a then
-                local dd = math.abs(bx - x)
-                if b.brainy and dd < 3 * u and (not bd or dd < bd) then best, bd = bx, dd end
-                if b.spr and (b.spr.name or ""):find("skeleton") and dd < 3 * u then skel = b end
-            end
-        end
-        for _, c in ipairs(hooks.cats()) do
-            local dd = math.abs(c.p.x - x)
-            if dd < 3 * u and (not bd or dd < bd) then best, bd = c.p.x, dd end
-        end
-        return best, skel
-    end
-
-    function a.update(dt, t)
-        tc = tc + dt
-        local c, m, frame
-        local target, skel = brainy()
-        if target and t > calm and state ~= "react" and state ~= "turn_front" and state ~= "turn_side" then
-            state, tc, react_t = "react", 0, 0
-        end
-        if skel and not seen[skel] and not target then
-            seen[skel] = true
-            think, think_t, crossed = true, 0, true
-        end
-        if state == "react" then
-            if target then react_side, react_t, a.last_tx = target > x and 1 or -1, 0, target else react_t = react_t + dt end
-            think, crossed = true, false
-            c, m = C.reach, react_side < 0
-            if react_t > 1.2 or tc > 6 then        -- gone (or out of reach): walking on
-                state, tc, think, calm = "walk", 0, false, t + 6
-                face_front = false
-                -- it got away over the edge to a screen next door: after it!
-                local tx = a.last_tx
-                if tx and react_t > 1.2 and (tx < 2 * u or tx > W - 2 * u) and (tx > x) == (react_side > 0)
-                        and can_walk_on(a, react_side) then
-                    dir, stops, k = react_side, { react_side > 0 and W + 1.5 * u or -1.5 * u }, 1
-                    think, think_t, crossed = true, 0, false
-                    msg.verbose("zombie: after it, next door")
-                end
-            end
-        elseif state == "walk" then
-            local to = stops[k]
-            c, m = C.walk, dir < 0
-            x = x + dir * v * (a.pushing and 0.7 or 1) * dt
-            local over
-            a.pushing, over = push_coffins(x, dir, 0.6 * u, v * 0.7)
-            if a.pushing then push_left = push_left - v * 0.7 * dt end
-            if k == #stops then walk_out(a, x, dir, 0.6 * u) end
-            if over and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- it has to go off first
-            local fed_up = a.pushing and not over and push_left <= 0
-            if fed_up then       -- enough pushing: a sniff at it (a brain in there!), then back the way it came
-                table.insert(stops, k, x)
-                to, push_left, turn_back = x, math.huge, true
-                msg.verbose("zombie: done pushing, a sniff at the coffin")
-            end
-            if (to - x) * dir <= 0 then
-                x = to
-                if k == #stops then return false end
-                k = k + 1
-                state, tc = C.turn_front and "turn_front" or "stop", 0
-                local r = math.random()
-                if r < 0.6 or fed_up then stop_clip, stop_dur = "sniff", rnd(2.5, 4) else stop_clip, stop_dur = "idle", rnd(1.5, 3) end
-            end
-        elseif state == "turn_front" then
-            c, m = C.turn_front, dir < 0
-            if tc >= c.count / c.fps then state, tc, face_front = "stop", 0, true end
-        elseif state == "stop" then
-            c, m = C[stop_clip], false
-            if stop_clip == "sniff" and tc > 0.6 and not think then think, think_t, crossed = true, 0, false end
-            if tc >= stop_dur then
-                state, tc = C.turn_side and "turn_side" or "walk", 0
-                if not crossed then think = false end
-                if turn_back then
-                    turn_back, dir = false, -dir
-                    stops, k = { dir > 0 and W + 1.5 * u or -1.5 * u }, 1
-                end
-            end
-        elseif state == "turn_side" then
-            c, m = C.turn_side, dir < 0
-            if tc >= c.count / c.fps then state, tc, face_front = "walk", 0, false end
-        end
-        frame = math.floor(tc * c.fps)
-        if c.loop then frame = frame % c.count else frame = math.min(frame, c.count - 1) end
-
-        local mi = m and true or false
-        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
-        local layers = { { spr = spr, frame = c.start + frame, variant = mi, x = x - ox, y = H - spr.origin[2] } }
-        a.zx, a.sx, a.sy = x, layers[1].x, layers[1].y
-        -- the thought: up beside the head, on the side it faces (or the side of the one it wants)
-        if think then
-            think_t = think_t + dt
-            if crossed and think_t > 3 then think, crossed = false, false end
-        end
-        if think then
-            local side = state == "react" and react_side or (state == "stop" and 1 or dir)
-            local f = think_t < 0.45 and math.floor(think_t / 0.15) or (3 + ({ 0, 1, 2, 1 })[math.floor(think_t * 4) % 4 + 1])
-            if crossed and f >= 3 then f = f + 3 end
-            local head = H - spr.origin[2] + spr.h - 2.15 * u
-            local tx = side > 0 and (x + 0.25 * u - th.w * 0.08) or (x - 0.25 * u - th.w * 0.92)
-            layers[2] = { spr = th, frame = f, variant = side < 0, x = tx, y = head - th.h * 0.95 }
-        end
-        return true, layers
-    end
-
-    -- now and then someone with a brain (or a skeleton) is invited along
-    function a.on_spawn()
-        for _, inv in ipairs(el.invite or {}) do
-            if math.random() < (inv.chance or 0.5) then
-                for _, other in ipairs(M.elements) do
-                    if other.type == inv.type and (not inv.sprite or other.sprite == inv.sprite) and element_on(other) then
-                        a.invites = a.invites or {}
-                        a.invites[other] = true
-                        local soon = mp.get_time() + rnd(range(inv.after, 6))
-                        local st = elements[other]
-                        if st then st.next = math.min(st.next, soon) else elements[other] = { next = soon, active = 0 } end
-                        msg.verbose("zombie invites " .. (other.sprite or other.type))
-                    end
-                end
-                if inv.type == "prowler" then hooks.call_cat(rnd(range(inv.after, 6))) end
-                break
-            end
-        end
-    end
-    return a
-end
-
 -- ASS helpers for the frankenstein: a jagged spark from (x0, y0) to (x1, y1), a puff of smoke
 local function spark(out, x0, y0, x1, y1, color, width)
     local pts, n = {}, 5
@@ -1670,6 +1511,355 @@ local function puff(out, x, y, r, alpha, color)
         math.max(1, math.floor(r * 0.06)), math.floor(clamp(alpha, 0, 1) * 255),
         x, y - r, x + k, y - r, x + r, y - k, x + r, y, x + r, y + k, x + k, y + r, x, y + r,
         x - k, y + r, x - r, y + k, x - r, y, x - r, y - k, x - k, y - r, x, y - r)
+end
+
+-- a piece of zombie brain (the zombie's el.brain, tools/bake/brain.py): now and then one falls off a
+-- zombie's head at a stop and lies there for good (BRAINS_MAX on a screen at most), till a zombie
+-- finds it - the one it fell off too, after a while - and eats it up: lifted to its mouth, bite by
+-- bite smaller. u: the zombie's unit (the piece is drawn at its own, a bit big)
+local BRAINS_MAX = 3
+local function brains_here()
+    local n = 0
+    for _, b in ipairs(actors) do if b.brain_piece and not b.gone then n = n + 1 end end
+    return n
+end
+local function free_brain(z, x)              -- the nearest piece lying here that zombie z may eat
+    local best, bd
+    local now = mp.get_time()
+    for _, b in ipairs(actors) do
+        if b.brain_piece and b.landed and not b.gone and not b.lifted
+                and (not b.eater or now - b.eater_t > 20) and (b.dropper ~= z or now - b.drop_t > 15) then
+            local d = math.abs(b.cx - x)
+            if not bd or d < bd then best, bd = b, d end
+        end
+    end
+    return best
+end
+local function brain_sprite()               -- (the zombie element's el.brain)
+    for _, el in ipairs(M.elements) do
+        local b = el.type == "zombie" and M.sprites[el.brain or ""]
+        if b and b.clips and b.clips.lie and b.clips.eat and b.origin then return b, el end
+    end
+end
+local function new_brain(el, spr, x, y, vx, z, u)   -- falling from (x, y: its bottom), off zombie z
+    local C = spr.clips
+    local a = { el = el, spr = spr, layers = 1, groups = {}, brain_piece = true, cx = x,
+                dropper = z, drop_t = mp.get_time() }
+    local vy, ground, m = -1.2 * u, H - 0.04 * u, vx < 0
+    local lift, frame = nil, C.lie.start
+    function a.eat(hx, hy)                   -- (taken up to (hx, hy), then eaten)
+        a.lifted = true
+        lift = { x0 = x, y0 = y, x1 = hx, y1 = hy, t = 0 }
+    end
+    function a.update(dt)
+        if a.gone then return false end
+        if lift then
+            lift.t = lift.t + dt
+            local p = ease(clamp(lift.t / 0.5, 0, 1))
+            x, y = lift.x0 + (lift.x1 - lift.x0) * p, lift.y0 + (lift.y1 - lift.y0) * p
+            if lift.t > 0.5 then
+                local k = math.floor((lift.t - 0.5) * C.eat.fps)
+                if k >= C.eat.count then return false end
+                frame = C.eat.start + k
+            end
+        elseif not a.landed then
+            vy = vy + 9 * u * dt
+            x, y = x + vx * dt, y + vy * dt
+            if y >= ground then
+                y = ground
+                if vy > 2 * u then vy, vx = -vy * 0.3, vx * 0.5 else a.landed = true end
+            end
+        end
+        a.cx = x
+        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
+        return true, { { spr = spr, frame = frame, variant = m, x = x - ox, y = y - spr.origin[2] } }
+    end
+    adopt(a, el, { hops = 0 })
+    return a
+end
+
+-- zombie: a baked character shuffling across with its arms out, stopping now and then to sniff
+-- the air (a thought: puffs and a cloud with a brain in it, el.thought, frames see
+-- tools/bake/thought.py). Whoever has a brain and comes close (the vampire, the cat) makes it
+-- turn and reach for them, thinking of brains; the vampire and the cat run past (they look
+-- for zombie_near). A skeleton gets a crossed-out brain: nothing to eat there. Two sprites on
+-- two overlay ids: the zombie and its thought above it. When it comes, it may invite one of
+-- el.invite ({type, chance} per entry): that one comes in soon, zombie or not.
+function spawn.zombie(el, spr, h)
+    local C, th = spr.clips, M.sprites[el.thought or ""]
+    if not (C and C.walk and C.idle and C.sniff and C.reach and spr.origin and spr.unit and th) then return nil end
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, layers = 2 }
+    local dir = walk_dir(el)
+    local x = dir > 0 and -1.2 * u or W + 1.2 * u
+    local v = C.walk.stride_px * C.walk.fps / C.walk.count * (el.speed or 1.0)
+    if h then dir = h.dir == 1 and 1 or -1 x = walk_in_x(h, v, 0.6 * u) end   -- from the screen next door
+    -- stops along the way, then off the other side (and on to the next screen)
+    -- in a room of screens short stays: a stop, and (nothing to eat here) under the ground on to
+    -- another screen (relayed under the ones between, see theme-room-in); it comes up there
+    local short = room.left or room.right
+    local state, dy, clods, under_t = "walk", 0, {}, 0
+    if h and h.tunnel then
+        x, state = rnd(0.25, 0.75) * W, "under"
+        under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
+    end
+    local B = M.sprites[el.brain or ""]
+    if B and not (B.clips and B.clips.lie and B.clips.eat and B.origin) then B = nil end
+    local hurry, meal, meal_stop, drop_at = 1, nil, false, nil
+    local stops = {}
+    local n_stops = short and 1 or math.random(h and 1 or 2, h and 2 or 3)
+    for _ = 1, n_stops do stops[#stops + 1] = rnd(0.12, 0.88) * W end
+    table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
+    stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
+
+    local tc, k = 0, 1       -- walk | turn_front | stop | turn_side | react | down | under | up
+    local push_left, turn_back = rnd(2, 6) * u, false
+    local stop_clip, stop_dur
+    local think, think_t, crossed = false, 0, false
+    local react_side, react_t, seen, calm = 1, 0, {}, 0
+    local face_front = false               -- standing towards the viewer (yaw 15) rather than sideways
+    local function brainy()
+        -- the nearest one with a brain (vampire, cat) within 3u, and its side; or a skeleton (no brain)
+        local best, bd, skel
+        for _, b in ipairs(actors) do
+            local bx = b.cx
+            if bx and b ~= a then
+                local dd = math.abs(bx - x)
+                if b.brainy and dd < 3 * u and (not bd or dd < bd) then best, bd = bx, dd end
+                if b.spr and (b.spr.name or ""):find("skeleton") and dd < 3 * u then skel = b end
+            end
+        end
+        for _, c in ipairs(hooks.cats()) do
+            local dd = math.abs(c.p.x - x)
+            if dd < 3 * u and (not bd or dd < bd) then best, bd = c.p.x, dd end
+        end
+        return best, skel
+    end
+    local function dirt(n)
+        for _ = 1, n do
+            clods[#clods + 1] = { x = x + rnd(-0.4, 0.4) * u, y = H - rnd(0, 0.1) * u, vx = rnd(-1, 1) * u,
+                                  vy = -rnd(1.5, 3) * u, r = rnd(0.04, 0.09) * u, t = 0 }
+        end
+    end
+    local function go_under()                -- off under the ground: to a screen a few along
+        local sides = {}
+        if room.left then sides[#sides + 1] = "left" end
+        if room.right then sides[#sides + 1] = "right" end
+        local side = sides[math.random(#sides)]
+        local n = math.random(1, math.max(1, (room.screens or 2) - 1))
+        if not hand_over(side, { kind = "zombie", el = el.index, sprite = spr.name, dir = side == "right" and 1 or -1,
+                                 hops = (a.hops or 0) + 1, lead = 0, unique = a.unique, tunnel = n, went = 1 }) then
+            return false
+        end
+        if a.unique then                     -- (theirs now, as walk_out)
+            a.unique = false
+            room.taken[claim_key(spr)] = true
+            room.claim_t = 0
+        end
+        msg.verbose("zombie: under the ground (" .. n .. " screens along)")
+        return true
+    end
+
+    function a.update(dt, t)
+        tc = tc + dt
+        local c, m, frame
+        do
+            local keep = {}
+            for _, q in ipairs(clods) do
+                q.t, q.vy = q.t + dt, q.vy + 6 * u * dt
+                q.x, q.y = q.x + q.vx * dt, q.y + q.vy * dt
+                if q.y < H + q.r then keep[#keep + 1] = q end
+            end
+            clods = keep
+        end
+        if state == "under" then
+            under_t = under_t - dt
+            if under_t > 0 then return true, {} end
+            state, tc = "up", 0
+            dirt(10)
+            msg.verbose("zombie: up out of the ground")
+        end
+        if state == "up" or state == "down" then      -- (digging itself in, or out, in a spray of dirt)
+            local len = 1.6
+            local p = clamp(tc / len, 0, 1)
+            if state == "down" then p = 1 - p end
+            dy = (1 - p) * 2.6 * u
+            if math.random() < dt * 8 and p < 0.9 then dirt(1) end
+            if tc >= len then
+                if state == "down" then
+                    if go_under() then return false end
+                    state, tc = "up", 0          -- (nowhere to go: up again)
+                else
+                    dy, state, tc, face_front = 0, "walk", 0, false
+                end
+            end
+            c = C.sniff
+            local f = c.start + math.floor(tc * c.fps) % c.count
+            local mi = dir < 0
+            local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+            local layer = { spr = spr, frame = f, variant = mi, x = x - ox, y = H - spr.origin[2] + dy }
+            a.zx, a.sx, a.sy = x, layer.x, layer.y
+            return true, { layer }
+        end
+        -- a piece of brain lying here: off to it (in a hurry), to eat it up
+        if state == "walk" and not meal and a.handed_on ~= "yes" then
+            local b = free_brain(a, x)
+            if b then
+                meal, b.eater, b.eater_t = b, a, t
+                local side = b.cx >= x and 1 or -1
+                local to = math.abs(b.cx - x) < 0.7 * u and x or b.cx - side * 0.55 * u
+                dir, stops, k, meal_stop, hurry = side, { to, side > 0 and W + 1.5 * u or -1.5 * u }, 1, true, 2
+                a.handed_on = nil
+                think, think_t, crossed = true, 0, false
+                msg.verbose("zombie: a piece of brain, after it")
+            end
+        end
+        local target, skel = brainy()
+        if target and t > calm and not meal and state ~= "react" and state ~= "turn_front" and state ~= "turn_side" then
+            state, tc, react_t = "react", 0, 0
+        end
+        if skel and not seen[skel] and not target then
+            seen[skel] = true
+            think, think_t, crossed = true, 0, true
+        end
+        if state == "react" then
+            if target then react_side, react_t, a.last_tx = target > x and 1 or -1, 0, target else react_t = react_t + dt end
+            think, crossed = true, false
+            c, m = C.reach, react_side < 0
+            if react_t > 1.2 or tc > 6 then        -- gone (or out of reach): walking on
+                state, tc, think, calm = "walk", 0, false, t + 6
+                face_front = false
+                -- it got away over the edge to a screen next door: after it!
+                local tx = a.last_tx
+                if tx and react_t > 1.2 and (tx < 2 * u or tx > W - 2 * u) and (tx > x) == (react_side > 0)
+                        and can_walk_on(a, react_side) then
+                    dir, stops, k, hurry = react_side, { react_side > 0 and W + 1.5 * u or -1.5 * u }, 1, 1.8
+                    think, think_t, crossed = true, 0, false
+                    msg.verbose("zombie: after it, next door")
+                end
+            end
+        elseif state == "walk" then
+            local to = stops[k]
+            c, m = C.walk, dir < 0
+            x = x + dir * v * (a.pushing and 0.7 or hurry) * dt
+            local over
+            a.pushing, over = push_coffins(x, dir, 0.6 * u, v * 0.7)
+            if a.pushing then push_left = push_left - v * 0.7 * dt end
+            if k == #stops then walk_out(a, x, dir, 0.6 * u) end
+            if over and k < #stops and (to - x) * dir <= 0 then k = k + 1 to = stops[k] end  -- it has to go off first
+            local fed_up = a.pushing and not over and push_left <= 0
+            if fed_up then       -- enough pushing: a sniff at it (a brain in there!), then back the way it came
+                table.insert(stops, k, x)
+                to, push_left, turn_back = x, math.huge, true
+                msg.verbose("zombie: done pushing, a sniff at the coffin")
+            end
+            if (to - x) * dir <= 0 then
+                x = to
+                if k == #stops then return false end
+                k = k + 1
+                if meal_stop then              -- (at the piece: reaching for it, eating it up)
+                    meal_stop, hurry = false, 1
+                    state, tc, stop_clip, stop_dur = "stop", 0, "eat", 3.6
+                else
+                    state, tc = C.turn_front and "turn_front" or "stop", 0
+                    local r = math.random()
+                    if r < 0.6 or fed_up then stop_clip, stop_dur = "sniff", rnd(2.5, 4) else stop_clip, stop_dur = "idle", rnd(1.5, 3) end
+                    -- a piece of its brain falls off
+                    if B and not fed_up and brains_here() < BRAINS_MAX and (el.brain_force or math.random() < (el.brain_chance or 0.3)) then
+                        drop_at = rnd(0.6, 1.2)
+                        el.brain_force = nil
+                    end
+                end
+            end
+        elseif state == "turn_front" then
+            c, m = C.turn_front, dir < 0
+            if tc >= c.count / c.fps then state, tc, face_front = "stop", 0, true end
+        elseif state == "stop" then
+            if stop_clip == "eat" then
+                c, m = C.reach, dir < 0
+                if tc > 0.4 and meal and not meal.lifted and not meal.gone then
+                    meal.eat(x + dir * 0.5 * u, H - 1.55 * u)
+                end
+            else
+                c, m = C[stop_clip], false
+            end
+            if stop_clip == "sniff" and tc > 0.6 and not think then think, think_t, crossed = true, 0, false end
+            if drop_at and tc >= drop_at then
+                drop_at = nil
+                if #free_ids > 0 then
+                    new_brain(el, B, x + rnd(-0.1, 0.1) * u, H - 2.0 * u, rnd(0.5, 1.1) * u * (math.random() < 0.5 and -1 or 1), a, u)
+                    msg.verbose("zombie: a piece of its brain falls off")
+                end
+            end
+            if tc >= stop_dur then
+                local ate = stop_clip == "eat"
+                state, tc = (C.turn_side and not ate) and "turn_side" or "walk", 0
+                if ate then meal, face_front = nil, false end
+                if not crossed then think = false end
+                -- nothing (more) to do here: under the ground, on to another screen
+                if short and not turn_back and not free_brain(a, x) and (a.hops or 0) < MAX_HOPS
+                        and not with_guest(a) and math.random() < (el.tunnel_chance or 0.7) then
+                    state, tc, think = "down", 0, false
+                    dirt(6)
+                    msg.verbose("zombie: digs itself into the ground")
+                end
+                if turn_back then
+                    turn_back, dir = false, -dir
+                    stops, k = { dir > 0 and W + 1.5 * u or -1.5 * u }, 1
+                end
+            end
+        elseif state == "turn_side" then
+            c, m = C.turn_side, dir < 0
+            if tc >= c.count / c.fps then state, tc, face_front = "walk", 0, false end
+        end
+        if state == "down" then return true, {} end
+        frame = math.floor(tc * c.fps * (state == "walk" and hurry or 1))
+        if c.loop then frame = frame % c.count else frame = math.min(frame, c.count - 1) end
+
+        local mi = m and true or false
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local layers = { { spr = spr, frame = c.start + frame, variant = mi, x = x - ox, y = H - spr.origin[2] } }
+        a.zx, a.sx, a.sy = x, layers[1].x, layers[1].y
+        -- the thought: up beside the head, on the side it faces (or the side of the one it wants)
+        if think then
+            think_t = think_t + dt
+            if crossed and think_t > 3 then think, crossed = false, false end
+        end
+        if think then
+            local side = state == "react" and react_side or (state == "stop" and 1 or dir)
+            local f = think_t < 0.45 and math.floor(think_t / 0.15) or (3 + ({ 0, 1, 2, 1 })[math.floor(think_t * 4) % 4 + 1])
+            if crossed and f >= 3 then f = f + 3 end
+            local head = H - spr.origin[2] + spr.h - 2.15 * u
+            local tx = side > 0 and (x + 0.25 * u - th.w * 0.08) or (x - 0.25 * u - th.w * 0.92)
+            layers[2] = { spr = th, frame = f, variant = side < 0, x = tx, y = head - th.h * 0.95 }
+        end
+        return true, layers
+    end
+
+    function a.ass(out)
+        for _, q in ipairs(clods) do puff(out, q.x, q.y, q.r, 0.1, "&H1E3A5A&") end
+    end
+    -- now and then someone with a brain (or a skeleton) is invited along
+    function a.on_spawn()
+        if h and h.tunnel then return end
+        for _, inv in ipairs(el.invite or {}) do
+            if math.random() < (inv.chance or 0.5) then
+                for _, other in ipairs(M.elements) do
+                    if other.type == inv.type and (not inv.sprite or other.sprite == inv.sprite) and element_on(other) then
+                        a.invites = a.invites or {}
+                        a.invites[other] = true
+                        local soon = mp.get_time() + rnd(range(inv.after, 6))
+                        local st = elements[other]
+                        if st then st.next = math.min(st.next, soon) else elements[other] = { next = soon, active = 0 } end
+                        msg.verbose("zombie invites " .. (other.sprite or other.type))
+                    end
+                end
+                if inv.type == "prowler" then hooks.call_cat(rnd(range(inv.after, 6))) end
+                break
+            end
+        end
+    end
+    return a
 end
 
 -- frankenstein: a baked character stomping across with his arms out; at a stop he faces the
@@ -3405,8 +3595,11 @@ function spawn.wanderer(el, spr, h)
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
     -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
     local dy, clods = 0, {}
-    local down_x = TUNNEL[h.fam] and (room.left or room.right) and math.random() < (el.tunnel_chance or 0.35)
+    local zombie = h.fam == "zombie"
+    local down_x = TUNNEL[h.fam] and (room.left or room.right)
+                   and math.random() < (zombie and (el.zombie_tunnel or 0.7) or el.tunnel_chance or 0.35)
                    and rnd(0.3, 0.7) * W or nil
+    local hurry, meal_x, drop_at = 1, nil, nil
     if h.down_at then down_x = tonumber(h.down_at) end
     if h.tunnel then
         x, state, down_x = rnd(0.25, 0.75) * W, "under", nil
@@ -3569,7 +3762,39 @@ function spawn.wanderer(el, spr, h)
             local ac, am = act_step()
             if ac then cc, m = ac, am end
         end
-        if state == "walk" and down_x and math.abs(x - down_x) < v * dt * 2 and a.ttl > 20 and not a.called then
+        -- a zombie: a piece of brain lying here, off to it (in a hurry) to eat it up; a piece of its own
+        -- may fall off at its stop (see new_brain)
+        if a.eating and state == "walk" then       -- (eaten: and on, under the ground)
+            a.meal, a.eating = nil, nil
+            if (room.left or room.right) and not free_brain(a, x) then down_x = x + dir * rnd(0.2, 0.6) * u end
+        end
+        if zombie and state == "walk" and not a.meal and not a.called and a.handed_on ~= "yes" then
+            local b = free_brain(a, x)
+            if b then
+                a.meal, b.eater, b.eater_t = b, a, now
+                local side = b.cx >= x and 1 or -1
+                meal_x = math.abs(b.cx - x) < 0.7 * u and x or b.cx - side * 0.55 * u
+                if side ~= dir then dir, a.handed_on = side, nil end
+                hurry, down_x = 2, nil
+                msg.verbose("cast: the zombie is off to a piece of brain")
+            end
+        end
+        if state == "walk" and a.meal and not a.eating and (meal_x - x) * dir <= 0.01 then
+            x, hurry, a.eating = meal_x, 1, true
+            play({ C.reach and "reach" or "idle", dur = 3.6, m = dir < 0 }, { "idle", dur = rnd(0.5, 1) })
+        end
+        if a.eating and state == "act" and tc > 0.4 and not a.meal.lifted and not a.meal.gone then
+            a.meal.eat(x + dir * 0.5 * u, H - 1.55 * u)
+        end
+        if drop_at and now >= drop_at then
+            drop_at = nil
+            local B, zel = brain_sprite()
+            if B and #free_ids > 0 then
+                new_brain(zel, B, x + rnd(-0.1, 0.1) * u, H - 2.0 * u, rnd(0.5, 1.1) * u * (math.random() < 0.5 and -1 or 1), a, u)
+                msg.verbose("cast: a piece of the zombie's brain falls off")
+            end
+        end
+        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and a.ttl > 20 and not a.called then
             down_x = nil
             play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(0.5, 1.2) })
             a.digging = true
@@ -3581,8 +3806,8 @@ function spawn.wanderer(el, spr, h)
             return true, {}
         end
         if state == "walk" then
-            x = x + dir * v * dt
-            cast_cue(a, dt, x)
+            x = x + dir * v * hurry * dt
+            if not a.meal then cast_cue(a, dt, x) end
             -- wanted here: hang about (to and fro) a while
             local el2, st = nil, nil
             if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(fam, now) end
@@ -3593,8 +3818,12 @@ function spawn.wanderer(el, spr, h)
             elseif not stopped and math.abs(x - stop_x) < v * dt * 2 then
                 stopped = true
                 local show = (C.cheer and math.random() < 0.3 and "cheer") or (C.taunt and math.random() < 0.3 and "taunt") or nil
-                play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(1.5, 3.5) },
+                play(C.turn_front and { "turn_front", m = dir < 0 }, { zombie and C.sniff and "sniff" or "idle", dur = rnd(1.5, 3.5) },
                      show and { show }, C.turn_side and { "turn_side", m = dir < 0 })
+                if zombie and brains_here() < BRAINS_MAX and math.random() < (a.drop_chance or 0.3) then
+                    drop_at = now + rnd(0.8, 1.4)
+                end
+                if zombie and not down_x and (room.left or room.right) then down_x = x + dir * rnd(0.3, 1.2) * u end
             end
             local lead = dir > 0 and (x + front - W) or (front - x)
             if lead >= 0 and a.ttl > 0 then
@@ -3604,7 +3833,7 @@ function spawn.wanderer(el, spr, h)
             end
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
-        local k = math.floor(tc * cc.fps)
+        local k = math.floor(tc * cc.fps * (state == "walk" and hurry or 1))
         k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
         local mi = m and true or false
         local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
@@ -5089,7 +5318,8 @@ end)
 --   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
---   under the ground (and comes up on another screen)
+--   under the ground (and comes up on another screen), e = a piece of brain lying here and a
+--   zombie (of the cast) after it, the zombie element next too (dropping a piece of its own)
 --   (walkers started so go towards a screen next door, if there is one)
 local under_k, morph_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
@@ -5226,6 +5456,23 @@ mp.add_forced_key_binding("u", "theme-preview-under", function()
             return
         end
     end
+end)
+mp.add_forced_key_binding("e", "theme-preview-brain", function()
+    local B, zel = brain_sprite()
+    local spr = M and M.sprites.zombie3d
+    if not (B and spr) then return end
+    local z = { gone = false }
+    local b = new_brain(zel, B, 0.6 * W, H - 2 * spr.unit * H, 0.5 * spr.unit * H, z, spr.unit * H)
+    b.drop_t = 0
+    for _, el in ipairs(M.elements) do
+        if el.type == "frogs" then
+            local a = spawn.wanderer(el, spr, { fam = "zombie", dir = 1, at = 0.1 * W, ttl = 120, hops = 0 })
+            if a then adopt(a, el, { hops = 0 }) a.next_at = 1e9 end
+        end
+    end
+    elements[zel] = elements[zel] or { active = 0 }
+    elements[zel].next, elements[zel].force = mp.get_time() + 8, true
+    zel.brain_force = true
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

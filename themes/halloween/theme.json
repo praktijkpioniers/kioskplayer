@@ -119,6 +119,10 @@
       "anim": "anim/carriage",
       "unit": 0.115
     },
+    "brain": {
+      "anim": "anim/brain",
+      "unit": 0.17
+    },
     "thought": {
       "frames": ["thought/thought_0.png", "thought/thought_1.png", "thought/thought_2.png",
                  "thought/thought_3.png", "thought/thought_4.png", "thought/thought_5.png",
@@ -746,6 +750,7 @@
       "type": "zombie",
       "sprite": "zombie3d",
       "thought": "thought",
+      "brain": "brain",
       "min": 8,
       "video_min": 8,
       "every": [
