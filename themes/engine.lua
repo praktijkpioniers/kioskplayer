@@ -308,10 +308,18 @@ local function room_max()
     if not room.active or n <= 1 then return math.huge end
     return math.max(2, math.min(3, n - 1))    -- 4 screens: 3
 end
-local function chars_here(fam)             -- how many characters here (and whether one of fam)
+-- one of the cast of fam (a family, "frog" a frog) about on this screen, free to be taken over
+-- by a scene starting here (see el.recruits): its actor
+local function cast_here(fam)
+    for _, a in ipairs(actors) do
+        if (a.family == fam or (fam == "frog" and a.frog)) and not a.gone and not a.leaving
+                and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then return a end
+    end
+end
+local function chars_here(fam, skip)       -- how many characters here (and whether one of fam)
     local n, same = 0, false
     for _, a in ipairs(actors) do
-        if is_character(a) then
+        if is_character(a) and not (skip and skip[a]) then
             n = n + 1
             if actor_family(a) == fam then same = true end
             for _, f in ipairs(a.also or {}) do       -- (someone it plays a scene with)
@@ -326,7 +334,12 @@ end
 local function no_room_for(el)
     if not room.active or (room.screens or 1) <= 1 then return false end
     local fam = family_of(el)
-    local here, same = chars_here(fam)
+    local skip = {}                       -- (the cast it would take over don't count: they go)
+    for _, f in ipairs(el.recruits or {}) do
+        local c = cast_here(f)
+        if c then skip[c] = true end
+    end
+    local here, same = chars_here(fam, skip)
     if same or room.taken["chr:" .. fam] or mp.get_time() < (room.wait.chr or 0) then return true end
     return here >= 2 or here + (room.chars or 0) >= room_max()
 end
@@ -1834,14 +1847,6 @@ function spawn.frankenstein(el, spr, h)
     return a
 end
 
--- witch: walks in, faces the viewer and conjures up her cauldron (a puff: it's there, bubbling),
--- stirs it (from behind), cackles, stirs on - and out of the brew a frog jumps. It sits, croaks
--- at her; she zaps it (and misses), it hops off to the screen next door (hopper). A cackle
--- anyway, the cauldron goes in another puff and she walks back off. Or (el.pumpkin, now and
--- then) in a puff a living pumpkin-head stands in the pot: it jumps out, dances, she cackles at
--- her creation and it walks off to the screen next door (a passer there). Layers, bottom to top: the
--- witch (behind the pot), the pot, the frog (in it: hidden by the front), the pot's front.
--- Planned coming in from the left, mirrored half the time.
 -- The cast: characters stay about a while after their act (h.ttl seconds), wandering from screen
 -- to screen. A scene element lists who it can use (el.recruits: families, "frog" for a frog);
 -- one of those about on its screen is taken over (recruit) - the stories run on into each other.
@@ -1857,23 +1862,18 @@ local function wanted_here(fam, now)
         end
     end
 end
--- one of fam about here, not busy: taken over by the scene starting (its actor goes); its screen
--- x and which way it faces (1 right)
-local function recruit(fam)
-    for _, a in ipairs(actors) do
-        if (a.family == fam or (fam == "frog" and a.el.type == "hopper" and a.frog))
-                and not a.gone and not a.leaving and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then
-            a.gone = true
-            msg.verbose("cast: the " .. fam .. " joins in")
-            return a.cx, a.facing or 1, a
-        end
-    end
-end
-
 local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
     local q = clamp((p - 0.2) / 0.65, 0, 1)        -- (airborne between crouch and landing)
     return x0 + (x1 - x0) * ease(q), y0 + (y1 - y0) * q - high * math.sin(math.pi * q)
 end
+-- witch: walks in, faces the viewer and conjures up her cauldron (a puff: it's there, bubbling),
+-- stirs it (from behind), cackles, stirs on - and out of the brew a frog jumps. It sits, croaks
+-- at her; she zaps it (and misses), it hops off to the screen next door (hopper). A cackle
+-- anyway, the cauldron goes in another puff and she walks back off. Or (el.pumpkin, now and
+-- then) in a puff a living pumpkin-head stands in the pot: it jumps out, dances, she cackles at
+-- her creation and it walks off to the screen next door (a passer there). Layers, bottom to top: the
+-- witch (behind the pot), the pot, the frog (in it: hidden by the front), the pot's front.
+-- Planned coming in from the left, mirrored half the time.
 function spawn.witch(el, spr)
     local S = M.sprites
     local back, front, frog = S[el.back or ""], S[el.front or ""], S[el.frog or ""]
@@ -1887,13 +1887,30 @@ function spawn.witch(el, spr)
     if W < 12 * u then return nil end
     local a = { el = el, spr = spr, layers = 4, scene = true }
     local d = math.random() < 0.5 and 1 or -1
+    -- the cast about here taken over: the witch starts where she is; or a princess, who turns
+    -- into the witch in a puff. Now and then she turns into the princess at the end (and goes on so).
+    local pr = S[el.princess or ""]
+    if not (pr and pr.clips and pr.clips.walk and pr.clips.idle and pr.clips.turn_front and pr.clips.turn_side
+            and pr.origin) then pr = nil end
+    local her = cast_here("witch")
+    local was = not her and pr and cast_here("princess") or nil
+    local who = her or was
+    if who then d = who.facing or 1 end
+    local to_pr = false
+    if pr and not was and math.random() < (el.princess_chance or 0.25) then
+        local _, same = chars_here("princess")
+        to_pr = not same and not room.taken["chr:princess"] and not taken(pr)
+    end
+    if to_pr then a.also = { "princess" } end
+    a.recruited = { who }
     local cx = rnd(math.max(W * 0.3, 3.5 * u), math.min(W * 0.55, W - 5 * u))
     local swap = 0.4                                   -- (where the pot comes/goes in its puff)
     local rim_y = -0.58 * u                            -- the frog's feet in the pot (below the rim)
 
     -- the plan: the witch's steps (walk to, a clip once or for dur, facing m); on = what starts
     -- with a step (the pot's clip, the frog), wait = it lasts until this is true
-    local steps, X, face = {}, -1.2 * u, 1
+    local X0 = who and ((d > 0) and who.cx or (W - who.cx)) or -1.2 * u
+    local steps, X, face = {}, X0, 1
     local function add(s) steps[#steps + 1] = s; return s end
     local function turn(f)
         if f == face then return end
@@ -1920,6 +1937,13 @@ function spawn.witch(el, spr)
     local ph = { state = "hidden" }                   -- the pumpkin-head's
     local function pot_clip(c) return function() pot = { clip = c, t = 0 } end end
     local zap
+    if was then                                       -- the princess: a look round, a puff, the witch
+        add { sp = pr, clip = "turn_front", m = false, log = "witch: the princess..." }
+        add { sp = pr, clip = "idle", dur = rnd(0.8, 1.5) }
+        add { clip = "idle", dur = 1.0, puff = true, log = "witch: ...in a puff, she's the witch" }
+        face = 0
+        stop("cackle", nil, 0)
+    end
     go(cx - 2.4 * u)
     stop("cast", nil, 0, { on = pot_clip("appear") })
     stop("idle", rnd(0.8, 1.5))
@@ -1943,11 +1967,20 @@ function spawn.witch(el, spr)
     end
     stop("cast", nil, 0, { on = pot_clip("vanish") })
     stop("idle", 0.6)
-    go(-1.5 * u)
-    steps[#steps].out = true             -- (and on as one of the cast)
+    if to_pr then                                     -- a spell on herself: the princess, off she goes
+        stop("cast", nil, 0, { log = "witch: casts a spell on herself..." })
+        add { sp = pr, clip = "idle", dur = 1.2, puff = true, log = "witch: ...and she's a princess" }
+        if pr.clips.cheer then add { sp = pr, clip = "cheer", act = true } end
+        add { sp = pr, clip = "turn_side", m = true }
+        add { sp = pr, clip = "walk", to = -1.5 * u, m = true, out = "princess" }
+    else
+        go(-1.5 * u)
+        steps[#steps].out = "witch"      -- (and on as one of the cast)
+    end
 
     local si, tc = 1, 0
-    local wx = -1.2 * u
+    local wx = X0
+    local puffs = {}
     a.line = pick_line(el)
     local fa = { el = el, spr = frog, groups = {}, hops = 0 }   -- the frog, for walk_out
     local function place(sp, x, frame, mirror, dy)
@@ -2033,9 +2066,17 @@ function spawn.witch(el, spr)
         if si ~= a.logged then
             a.logged = si
             if s.on then s.on() end
+            if s.log then msg.verbose(s.log) end
+            if s.puff then
+                for _ = 1, 8 do
+                    puffs[#puffs + 1] = { x = scr(wx) + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
+                                          r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
+                end
+            end
         end
         tc = tc + dt
-        local c = C[s.clip] or C.walk
+        local sp = s.sp or spr
+        local c = sp.clips[s.clip] or sp.clips.walk
         local done
         if s.to then
             local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
@@ -2043,8 +2084,8 @@ function spawn.witch(el, spr)
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
             if s.out then
-                walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = "witch", unique = false, hops = 0,
-                                                        ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+                walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = s.out, sprite = sp.name, unique = false,
+                                                        hops = 0, ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
             end
         else
             done = tc >= (s.dur or c.count / c.fps)
@@ -2061,10 +2102,16 @@ function spawn.witch(el, spr)
         if frg.state ~= "hidden" and frg.state ~= "gone" then frog_step(dt) end
         if ph.state ~= "hidden" and ph.state ~= "gone" then pumpkin_step(dt) end
 
+        local keep = {}
+        for _, q in ipairs(puffs) do
+            q.t, q.x, q.y = q.t + dt, q.x + q.vx * dt, q.y - 0.5 * u * dt
+            if q.t < 1.2 then keep[#keep + 1] = q end
+        end
+        puffs = keep
         local layers = {}
-        local l = place(spr, wx, frame_of(c, tc), s.m, 0)
-        layers[1] = l
+        local l = place(sp, wx, frame_of(c, tc), s.m, 0)
         a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
+        if not (s.puff and tc < 0.25) then layers[1] = l end     -- (the change, in the puff)
         if pot then
             pot.t = pot.t + dt
             local pc = P[pot.clip]
@@ -2092,6 +2139,7 @@ function spawn.witch(el, spr)
         return true, layers
     end
     function a.ass(out)
+        for _, q in ipairs(puffs) do puff(out, q.x, q.y, q.r * (1 + 0.6 * q.t), 0.2 + 0.8 * q.t / 1.2) end
         if not (zap and zap < 0.5 and frg.x) then return end
         local hx, hy = scr(wx + 0.45 * u), H - 1.35 * u
         local fx = scr(frg.x + (zap > 0.35 and 0.6 or 0) * u)
@@ -2356,20 +2404,34 @@ function spawn.princess(el, spr)
     for _, p in ipairs(princes) do names[#names + 1] = p.fam end
     msg.verbose("princess: free to be the prince: " .. (#names > 0 and table.concat(names, " ") or "none")
         .. (vamp and ", the vampire about" or ""))
+    local wit = free(el.witch, "witch")             -- (the kiss may turn her into the witch)
+    if wit and not wit.clips.cackle then wit = nil end
     local story = "frog"
     if vamp and (#princes == 0 or math.random() < (el.vampire_chance or 0.4)) then story = "vampire" end
+    if story == "frog" and wit and (#princes == 0 or math.random() < (el.witch_chance or 0.25)) then story = "witch" end
     if story == "frog" and #princes == 0 then return nil end
     local prince = story == "frog" and princes[math.random(#princes)] or nil
     -- (the other one's family counts from the start: no second one of them comes meanwhile)
-    local a = { el = el, spr = spr, layers = 2, scene = true, also = { prince and prince.fam or "vampire" } }
+    local a = { el = el, spr = spr, layers = 2, scene = true,
+                also = { prince and prince.fam or (story == "witch" and "witch") or "vampire" } }
     local d = math.random() < 0.5 and 1 or -1
+    -- the cast about here taken over: the princess starts where she is; a frog sits waiting
+    local her = cast_here("princess")
+    local toad = story ~= "vampire" and cast_here("frog") or nil
+    if toad then d = toad.cx > W / 2 and 1 or -1 elseif her then d = her.facing or 1 end
+    local function sx(x) return (d > 0) and x or (W - x) end
+    a.recruited = {}
+    if her then a.recruited[#a.recruited + 1] = her end
+    if toad then a.recruited[#a.recruited + 1] = toad end
+    local A0 = her and sx(her.cx) or -1.2 * u
+    local B0
 
     local steps = {}
-    local A = { x = -1.2 * u, face = 1, rest = { clip = "idle", rest = true }, sp = spr }
+    local A = { x = A0, face = (her and (her.facing or 1) * d < 0) and -1 or 1, rest = { clip = "idle", rest = true }, sp = spr }
     local B = { face = 1, rest = { hide = true, rest = true } }
-    local function add(s)   -- (a missing part rests as planned at this point; b: as whom)
+    local function add(s)   -- (a missing part rests as planned at this point; each part: as whom)
         s.a, s.b = s.a or A.rest, s.b or B.rest
-        s.b.sp = s.b.sp or B.sp
+        s.a.sp, s.b.sp = s.a.sp or A.sp, s.b.sp or B.sp
         steps[#steps + 1] = s
         return s
     end
@@ -2387,18 +2449,42 @@ function spawn.princess(el, spr)
     end
     local hold = math.floor(C.pick.count * 0.45)       -- (bent down)
 
-    if story == "frog" then
+    if story ~= "vampire" then
         local fx = rnd(0.55, 0.65) * W
         B.sp, B.x, B.face = frog, W + 0.6 * u, -1
-        go(A, "a", rnd(0.22, 0.3) * W)
+        if toad then                                -- (sitting there already)
+            B.x = sx(toad.cx)
+            B.rest = { clip = "sit", m = true, rest = true }
+            fx = math.min(fx, B.x)
+        end
+        B0 = B.x
+        go(A, "a", math.min(rnd(0.22, 0.3) * W, fx - 2 * u))
         turn(A, 0, "a")
         B.rest = { clip = "sit", m = true, rest = true }
-        add { a = { clip = "idle", dur = 0.4 }, b = { clip = "hop", hop = fx, m = true } }
+        if B.x - fx > 0.1 * u then
+            add { a = { clip = "idle", dur = 0.4 }, b = { clip = "hop", hop = fx, m = true } }
+        else
+            add { a = { clip = "idle", dur = 0.4 } }
+        end
+        B.x = fx
         add { b = F.croak and { clip = "croak", m = true, n = 2 } or { clip = "sit", m = true, dur = 1 }, log = "princess: a frog" }
         add { a = { clip = "idle", dur = rnd(0.6, 1.2), act = true } }
         go(A, "a", fx - 0.75 * u)
         add { a = { clip = "pick", hold = hold, dur = 0.8 } }
         add { a = { clip = "pick", hold = hold, dur = 1.4 }, heart = true, log = "princess: kisses the frog" }
+      if story == "witch" then                          -- the kiss: she's the witch; the frog's off
+        add { a = { clip = "pick", from = hold } }
+        A.sp, A.face = wit, 1
+        A.rest = { clip = "idle", rest = true }
+        add { a = { clip = "idle", dur = 1.0 }, puff = "a", log = "princess: the kiss - and she is the witch" }
+        turn(A, 0, "a")
+        add { a = { clip = "cackle", act = true } }
+        B.face = 1
+        add { b = { clip = "hop", hop = W + 0.8 * u, out = "frog" } }
+        B.rest = { hide = true, rest = true }
+        go(A, "a", -1.5 * u)
+        steps[#steps].a.out = "witch"
+      else
         local P = prince.sp.clips
         B.sp, B.face = prince.sp, 0
         B.rest = { clip = "idle", rest = true }
@@ -2428,11 +2514,13 @@ function spawn.princess(el, spr)
             add { a = { clip = "run", to = -1.5 * u, m = true, out = "princess" }, b = { clip = "walk", to = W + 1.5 * u, out = prince.fam } }
             A.rest = { hide = true, rest = true }
         end
+      end
     else
         local px = rnd(0.55, 0.65) * W
         local V = vamp.clips
         local up = math.floor(V.raise.count * 0.6)
         B.sp, B.x, B.face = vamp, -1.2 * u, 1
+        B0 = B.x
         go(A, "a", px)
         turn(A, 0, "a")
         add { a = { clip = "idle", dur = 0.3 }, b = { clip = "walk", to = px - 3.2 * u } }
@@ -2461,8 +2549,7 @@ function spawn.princess(el, spr)
     local si, tc = 1, 0
     local puffs, hearts = {}, {}
     a.line = pick_line(el)
-    A.x = -1.2 * u
-    B.x = story == "frog" and W + 0.6 * u or -1.2 * u
+    A.x, B.x = A0, B0
     local hop = F.hop.count / F.hop.fps
     local function scr(x) return (d > 0) and x or (W - x) end
     local function place(sp, x, frame, mirror, dy)
@@ -2524,8 +2611,9 @@ function spawn.princess(el, spr)
             a.logged = si
             if s.log then msg.verbose(s.log) end
             if s.puff then
+                local px = s.puff == "a" and A.x or B.x
                 for _ = 1, 8 do
-                    puffs[#puffs + 1] = { x = scr(B.x) + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
+                    puffs[#puffs + 1] = { x = scr(px) + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
                                           r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
                 end
             end
@@ -2533,9 +2621,11 @@ function spawn.princess(el, spr)
             if s.heart then hearts[#hearts + 1] = { x = scr((A.x + B.x) / 2), y = H - 2.0 * u, t = 0 } end
         end
         tc = tc + dt
-        local la, da = part(A, spr, s.a, dt)
+        local la, da = part(A, s.a.sp, s.a, dt)
         local lb, db = part(B, s.b.sp, s.b, dt)
-        if s.puff and tc < 0.25 then lb = nil end       -- (the change, in the puff)
+        if s.puff and tc < 0.25 then                    -- (the change, in the puff)
+            if s.puff == "a" then la = nil else lb = nil end
+        end
         if la then a.sx, a.sy, a.cx = la.x, la.y, scr(A.x) end
         local keep = {}
         for _, q in ipairs(puffs) do
@@ -3195,6 +3285,10 @@ local function try_spawn(el, now)
     if met then                        -- come to meet someone: the two stay on this screen
         a.guest_of = a.guest_of or met
         msg.verbose(tostring(el.type) .. " comes to meet the " .. tostring(met.el.type))
+    end
+    for _, b in ipairs(a.recruited or {}) do     -- the cast it took over: in the scene now
+        b.gone = true
+        msg.verbose("cast: the " .. tostring(b.family or "frog") .. " joins the " .. tostring(el.type))
     end
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere

@@ -793,7 +793,7 @@
       "back": "cauldron_back",
       "front": "cauldron_front",
       "frog": "frog",
-      "pumpkin": "pumpkinhead3d", "cast_ttl": [120, 300], "recruits": ["witch", "princess"],
+      "pumpkin": "pumpkinhead3d", "cast_ttl": [120, 300], "recruits": ["witch", "princess"], "princess": "princess3d",
       "min": 8,
       "video_min": 8,
       "every": [
@@ -833,7 +833,7 @@
       "sprite": "princess3d",
       "frog": "frog",
       "vampire": "vampire3d",
-      "cast_ttl": [120, 300], "recruits": ["princess", "frog", "vampire"], "princes": [
+      "cast_ttl": [120, 300], "recruits": ["princess", "frog"], "witch": "witch3d", "princes": [
         {"sprite": "zombie3d", "family": "zombie"},
         {"sprite": "skeleton3d", "family": "skeleton"},
         {"sprite": "pumpkinhead3d", "family": "pumpkinhead"},
