@@ -244,7 +244,7 @@ end
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
 local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
-local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true }    -- kinds that only come in from a neighbour
+local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true, carriage = true }    -- kinds that only come in from a neighbour
 local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
     if a.guest_of then return true end
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
@@ -1960,6 +1960,7 @@ local function cast_cue(w, dt, x)
     end
 end
 
+local new_pumpkin, lying_pumpkin     -- (lying pumpkins, see below)
 local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
     local q = clamp((p - 0.2) / 0.65, 0, 1)        -- (airborne between crouch and landing)
     return x0 + (x1 - x0) * ease(q), y0 + (y1 - y0) * q - high * math.sin(math.pi * q)
@@ -2037,6 +2038,14 @@ function spawn.witch(el, spr)
     local ph = { state = "hidden" }
     local function pot_clip(c) return function() pot = { clip = c, t = 0 } end end
     local zap
+    -- a pumpkin lying about here (el.carriage): she beckons it, it rolls over and jumps into the
+    -- pot - and in a big puff there stands a carriage, mice and all, that drives off (spawn.carriage)
+    local cs = S[el.carriage or ""]
+    if not (cs and cs.clips and cs.clips.drive and cs.clips.stand and cs.origin) then cs = nil end
+    local lp = cs and pk and lying_pumpkin(pk) or nil
+    if lp and (lp.ttl < 30 or math.random() >= (el.carriage_chance or 0.5)) then lp = nil end
+    local car = { state = "hidden" }                 -- roll | jump | in | stand | drive | away | gone
+    if lp then lp.taken = true end
     if was then                                       -- the princess: a look round, a puff, the witch
         add { sp = pr, clip = "turn_front", m = false, log = "witch: the princess..." }
         add { sp = pr, clip = "idle", dur = rnd(0.8, 1.5) }
@@ -2071,15 +2080,26 @@ function spawn.witch(el, spr)
     if math.random() < (el.double_chance or 0.3) then
         second = (first == "pumpkin" or not pk or math.random() < 0.5) and "frog" or "pumpkin"
     end
-    if first == "pumpkin" then brew_pumpkin() else brew_frog(frogs[1]) end
+    if lp then first, second = "carriage", nil end
+    if first == "carriage" then
+        stop("cast", nil, 0, { on = function() car.state = "roll" end, log = "witch: beckons a pumpkin..." })
+        stop("idle", 0.5, 0, { wait = function() return car.state == "in" end })
+        stop("stir", rnd(1.5, 2.5), 1)
+        stop("cast", nil, 0, { on = function() car.state, car.t, pot = "pop", 0, { clip = "vanish", t = 0 } end,
+                               log = "witch: ...and in a big puff, a carriage" })
+        stop("cackle", nil, 0)
+        stop("idle", 0.5, 0, { wait = function() return car.state == "away" or car.state == "gone" end })
+    elseif first == "pumpkin" then brew_pumpkin() else brew_frog(frogs[1]) end
     if second then
         stop("stir", rnd(2, 3.5), 1, { log = "witch: and there's more in the brew" })
         if second == "pumpkin" then brew_pumpkin() else brew_frog(first == "frog" and frogs[2] or frogs[1]) end
     end
-    stop("cackle", nil, 0)
-    stop("idle", rnd(0.8, 1.5), 1)
-    stop("cast", nil, 0, { on = pot_clip("vanish") })
-    stop("idle", 0.6)
+    if first ~= "carriage" then
+        stop("cackle", nil, 0)
+        stop("idle", rnd(0.8, 1.5), 1)
+        stop("cast", nil, 0, { on = pot_clip("vanish") })
+        stop("idle", 0.6)
+    end
     local vanish = not to_pr and math.random() < (el.vanish_chance or 0.2)
     if vanish then                                    -- a spell on herself: gone in a puff
         stop("cackle", nil, 0)
@@ -2182,11 +2202,61 @@ function spawn.witch(el, spr)
         end
     end
 
+    -- the pumpkin rolling over (screen x), jumping in; the carriage (plan x: its door)
+    local Hd = pk and pk.clips.head
+    local ca = cs and { el = el, spr = cs, groups = {}, hops = 0 }
+    local function carriage_step(dt)
+        local f = car
+        f.t = (f.t or 0) + dt
+        if f.state == "roll" then                   -- (bouncing along: little hops)
+            if not f.x then
+                f.x, f.t = scr(lp.cx), 0
+                lp.gone = true
+            end
+            f.to = f.to or ((f.x > cx) and cx + 1.5 * u or cx - 1.6 * u)    -- (beside the pot, its side)
+            local to = f.to
+            local step = 0.6 * u
+            local dir = to > f.x and 1 or -1
+            f.x0 = f.x0 or f.x
+            local p = f.t / 0.35
+            f.x = f.x0 + dir * step * math.min(p, 1)
+            f.dy = -0.18 * u * math.sin(math.pi * math.min(p, 1))
+            if p >= 1 then
+                f.x0, f.t = f.x, 0
+                if math.abs(to - f.x) < step then f.state, f.t, f.x0, f.y0 = "jump", 0, f.x, 0 end
+            end
+        elseif f.state == "jump" then               -- (up and over the rim, in)
+            f.x, f.dy = hop_at(math.min(f.t / 0.9, 1), f.x0, cx, 0, rim_y + 0.3 * u, 1.8 * u)
+            if f.t >= 0.9 then
+                f.state, f.t = "in", 0
+                pot = { clip = "splash", t = 0 }
+                msg.verbose("witch: the pumpkin jumps into the pot")
+            end
+        elseif f.state == "pop" then
+            if f.t >= swap * P.vanish.count / P.vanish.fps then
+                f.state, f.t, f.x = "stand", 0, cx + 1.3 * u     -- (clear of her, behind the pot)
+                for _ = 1, 14 do
+                    puffs[#puffs + 1] = { x = scr(f.x + rnd(-1.2, 2.6) * u), y = H - rnd(0.2, 2.0) * u,
+                                          r = rnd(0.35, 0.6) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
+                end
+            end
+        elseif f.state == "stand" then
+            if f.t > 1.8 then f.state, f.t = "drive", 0 end
+        elseif f.state == "drive" then              -- (off over the screens: a few along)
+            local c = cs.clips.drive
+            f.x = f.x + c.stride_px * c.fps / c.count * dt
+            walk_out(ca, scr(f.x), d, 2.7 * u, { kind = "carriage", unique = false, hops = 0, from = el.type,
+                                                legs = math.random(0, 2) })
+            if f.x > W + 1.4 * u then f.state = "away" end
+        end
+    end
+
     function a.update(dt, t)
         local s = steps[si]
         if not s then                    -- (she's gone; her frog or pumpkin-head still on its way off)
             local busy = ph.state == "off"
             for _, f in ipairs(frogs) do if f.state == "away" then busy = true end end
+            if car.state == "drive" then busy = true end
             if not busy then return false end
             s = { clip = "idle", gone = true }
         end
@@ -2231,6 +2301,7 @@ function spawn.witch(el, spr)
             if f.state ~= "hidden" and f.state ~= "gone" then frog_step(f, dt) end
         end
         if ph.state ~= "hidden" and ph.state ~= "gone" then pumpkin_step(dt) end
+        if car.state ~= "hidden" and car.state ~= "away" and car.state ~= "gone" then carriage_step(dt) end
 
         local keep = {}
         for _, q in ipairs(puffs) do
@@ -2265,6 +2336,14 @@ function spawn.witch(el, spr)
         end
         if ph.x and ph.state ~= "gone" and (ph.show or ph.state ~= "pop") and K[ph.clip] then
             layers[4] = place(pk, ph.x, frame_of(K[ph.clip], ph.t), ph.m, ph.dy)
+        end
+        if car.x and (car.state == "roll" or car.state == "jump") then
+            local h0 = Hd.track.head[1]
+            layers[4] = { spr = pk, frame = Hd.start, variant = false, x = scr(car.x) - h0[1] - pk.origin[1],
+                          y = H - pk.origin[2] - 0.34 * u - h0[2] + car.dy }
+        elseif car.state == "stand" or car.state == "drive" then
+            local cc = cs.clips[car.state]
+            layers[3] = place(cs, car.x, frame_of(cc, car.t), false, 0)
         end
         a.talking = a.line and s.act and true or false
         if a.talking and not a.say_t then a.say_t = t end
@@ -3472,9 +3551,124 @@ function spawn.wanderer(el, spr, h)
     return a
 end
 
+-- carriage: the witch's pumpkin carriage, mice and all (tools/bake/carriage.py), come over from the
+-- screen next door (h.legs: screens still to go). It drives through - or stops, the door opens and
+-- someone steps out (el.riders: one of the cast not about), the door shuts and on it drives; on
+-- its last screen, after that, in a puff it's a pumpkin again (lying there: see below).
+function spawn.carriage(el, spr, h)
+    local C = spr.clips
+    if not (C and C.drive and C.stand and C.door and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local dir = h.dir == 1 and 1 or -1
+    local c = C.drive
+    local v = c.stride_px * c.fps / c.count
+    local front = 2.7 * u
+    local x = walk_in_x(h, v, front)
+    local legs = tonumber(h.legs) or 0
+    local a = { el = el, spr = spr, layers = 1, groups = {}, scene = true }
+    local plan = legs <= 0 and "end" or (math.random() < 0.55 and "through" or "drop")
+    local stop_x = rnd(0.4, 0.6) * W
+    local state, tc, stopped = "drive", 0, false
+    local puffs = {}
+    local function rider()                         -- one of the cast not about (sprite, family)
+        local ok = {}
+        for _, r in ipairs(el.riders or {}) do
+            local sp = M.sprites[r.sprite or ""]
+            local n, same = chars_here(r.family)
+            if sp and r.family and not same and n < 2 and not room.taken["chr:" .. r.family] and not taken(sp) then
+                ok[#ok + 1] = { sp, r.family }
+            end
+        end
+        if #ok > 0 then
+            local r = ok[math.random(#ok)]
+            return r[1], r[2]
+        end
+    end
+    local function len(n) return C[n].count / C[n].fps end
+    function a.update(dt)
+        tc = tc + dt
+        local cc, k = C.stand, nil
+        if state == "drive" then
+            cc = C.drive
+            x = x + dir * v * dt
+            if plan ~= "through" and not stopped and (dir > 0 and x >= stop_x or dir < 0 and x <= stop_x) then
+                stopped, state, tc = true, "stand", 0
+            elseif plan ~= "end" then
+                walk_out(a, x, dir, front, { kind = "carriage", unique = false, hops = 0, from = h.from, legs = legs - 1 })
+            end
+        elseif state == "stand" then
+            if tc > 1.0 then
+                a.who, a.fam = rider()
+                state, tc = a.who and "open" or (plan == "end" and "poof" or "drive"), 0
+                if state == "poof" then a.poof() end
+            end
+        elseif state == "open" then
+            cc = C.door
+            if tc >= len("door") then
+                local b = spawn.wanderer(el, a.who, { fam = a.fam, dir = -dir, at = x, hops = 0, from = h.from,
+                                                      ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+                if b and #free_ids >= 1 then
+                    adopt(b, el, { hops = 0 })
+                    if b.id < a.id then                 -- (in front of the coach, stepping out)
+                        a.id, b.id = b.id, a.id
+                        a.ids, b.ids = { a.id }, { b.id }
+                    end
+                    msg.verbose("carriage: out steps the " .. a.fam)
+                end
+                state, tc = "wait", 0
+            end
+        elseif state == "wait" then
+            cc, k = C.door, C.door.count - 1
+            if tc > 1.6 then state, tc = "close", 0 end
+        elseif state == "close" then
+            cc = C.door
+            k = math.max(0, C.door.count - 1 - math.floor(tc * cc.fps))
+            if tc >= len("door") then state, tc = "shut", 0 end
+        elseif state == "shut" then
+            if tc > 0.8 then
+                if plan == "end" then a.poof() else state, tc = "drive", 0 end
+            end
+        elseif state == "poof" then
+            if tc > 1.3 then return false end
+        end
+        local keep = {}
+        for _, q in ipairs(puffs) do
+            q.t, q.x, q.y = q.t + dt, q.x + q.vx * dt, q.y - 0.5 * u * dt
+            if q.t < 1.2 then keep[#keep + 1] = q end
+        end
+        puffs = keep
+        if (dir > 0 and x > W + 1.4 * u) or (dir < 0 and x < -1.4 * u) then return false end
+        a.cx = x
+        if state == "poof" and tc > 0.25 then return true, {} end
+        if not k then
+            k = math.floor(tc * cc.fps)
+            k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
+        end
+        local mi = dir < 0
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        return true, { { spr = spr, frame = cc.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] } }
+    end
+    function a.poof()                                -- a pumpkin again, lying there
+        state, tc = "poof", 0
+        for _ = 1, 14 do
+            puffs[#puffs + 1] = { x = x + dir * rnd(-1.2, 2.6) * u, y = H - rnd(0.2, 2.0) * u,
+                                  r = rnd(0.35, 0.6) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
+        end
+        local pk = M.sprites[el.pumpkin or ""]
+        if pk and pk.clips and pk.clips.head and pk.clips.head.track and new_pumpkin then
+            new_pumpkin(el, pk, x, dir < 0, rnd(range(el.pumpkin_ttl, 240)))
+        end
+        msg.verbose("carriage: in a puff, a pumpkin again")
+    end
+    function a.ass(out)
+        for _, q in ipairs(puffs) do puff(out, q.x, q.y, q.r * (1 + 0.6 * q.t), 0.2 + 0.8 * q.t / 1.2) end
+    end
+    return a
+end
+
 -- Lying pumpkins: a pumpkin-head's head, set down (see below). It lies a while (or till a headless
 -- one picks it up), then sinks into the ground. x: its middle; m: facing left.
-local function new_pumpkin(el, spr, x, m, ttl)
+function new_pumpkin(el, spr, x, m, ttl)
     local Hd = spr.clips.head
     local h0 = Hd.track.head[1]
     local u = spr.unit * H
@@ -3493,7 +3687,7 @@ local function new_pumpkin(el, spr, x, m, ttl)
     adopt(a, el, { hops = 0 })
     return a
 end
-local function lying_pumpkin(spr, not_this)
+function lying_pumpkin(spr, not_this)
     for _, a in ipairs(actors) do
         if a.lying and a ~= not_this and not a.taken and not a.gone and a.ttl > 5 and a.spr == spr then return a end
     end

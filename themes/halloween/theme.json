@@ -115,6 +115,10 @@
       "anim": "anim/zombie",
       "unit": 0.115
     },
+    "carriage": {
+      "anim": "anim/carriage",
+      "unit": 0.115
+    },
     "thought": {
       "frames": ["thought/thought_0.png", "thought/thought_1.png", "thought/thought_2.png",
                  "thought/thought_3.png", "thought/thought_4.png", "thought/thought_5.png",
@@ -794,6 +798,10 @@
       "front": "cauldron_front",
       "frog": "frog",
       "pumpkin": "pumpkinhead3d", "cast_ttl": [120, 300], "recruits": ["witch", "princess"], "princess": "princess3d",
+      "carriage": "carriage", "carriage_chance": 0.5,
+      "riders": [{"sprite": "princess3d", "family": "princess"}, {"sprite": "werewolf_man3d", "family": "werewolf"},
+                 {"sprite": "frankenstein3d", "family": "frankenstein"}, {"sprite": "skeleton3d", "family": "skeleton"},
+                 {"sprite": "zombie3d", "family": "zombie"}, {"sprite": "pumpkinhead3d", "family": "pumpkinhead"}],
       "min": 8,
       "video_min": 8,
       "every": [

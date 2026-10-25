@@ -1,0 +1,32 @@
+{
+ "view": "front",
+ "model": "carriage.py",
+ "clips": {
+  "drive": {
+   "files": "drive_*.png",
+   "count": 12,
+   "fps": 12,
+   "loop": true,
+   "stride": 0.2827433388230814
+  },
+  "stand": {
+   "files": "stand_*.png",
+   "count": 12,
+   "fps": 8,
+   "loop": true,
+   "stride": 0
+  },
+  "door": {
+   "files": "door_*.png",
+   "count": 8,
+   "fps": 10,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  184.61538461538458,
+  384
+ ]
+}
