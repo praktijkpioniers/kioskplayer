@@ -1,5 +1,5 @@
 {
- "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. A scarecrow: the Barbarian in a T-pose on a pole (a prop, with a cross bar), burlap face with button eyes and a stitched mouth, straw hat, a sack for a head, straw hands, straw sticking out at the neck and ankles, a patch, a patched blue shirt. Still clips (one frame each: the engine snaps between them - a head that jerks round is creepier): stand, look_l, look_r, tilt. wave: one arm (Cheer, the rest held in the T-pose); shoo: both arms flapping (at a crow).",
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. A scarecrow, a faded straw man (background: the theme shows it small and see-through): the Barbarian in a T-pose hung up on a pole (feet off the ground) (a prop, with a cross bar), burlap sack head with button eyes and a stitched mouth, a battered straw hat, drab clothes, straw sticking out of the sleeves, neck, ankles and from under the hat. Still clips only (one frame each: the engine snaps between them): stand, look_l, look_r, tilt.",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
  "hide": [
   "Icosphere",
@@ -13,16 +13,28 @@
  ],
  "recolor": {
   "barbarian_texture": {
-   "0,0": "#c9a674",
-   "1,0": "#b48e5c",
-   "0,1": "#5a7db0",
-   "1,1": "#4a6a9a",
-   "7,0": "#b03a2e",
-   "5,1": "#a88a50",
-   "6,0": "#e3c25a",
-   "6,1": "#e3c25a",
-   "7,2": "#e3c25a",
-   "3,2": "#5a4030"
+   "0,0": "#9a8462",
+   "1,0": "#8c7652",
+   "0,1": "#5e5648",
+   "1,1": "#4e473c",
+   "7,0": "#4a4034",
+   "5,1": "#6e5c3c",
+   "6,0": "#8a7444",
+   "6,1": "#a89058",
+   "7,2": "#a89058",
+   "3,2": "#3a3028",
+   "5,0": "#5a4c36",
+   "4,0": "#4a4034",
+   "2,1": "#4a4034",
+   "3,0": "#5a4c36",
+   "3,1": "#4a4034",
+   "1,2": "#5a4c36",
+   "2,2": "#4a4034",
+   "4,2": "#5a4c36",
+   "5,2": "#4a4034",
+   "0,2": "#6e5c3c",
+   "0,3": "#6e5c3c",
+   "1,3": "#5a4c36"
   }
  },
  "outline": 0.008,
@@ -40,7 +52,7 @@
     2.3
    ],
    "axis": "z",
-   "color": "#6b4a2b"
+   "color": "#4a3a2a"
   },
   {
    "bone": "chest",
@@ -55,7 +67,7 @@
     2.1
    ],
    "axis": "x",
-   "color": "#6b4a2b"
+   "color": "#4a3a2a"
   },
   {
    "bone": "head",
@@ -70,7 +82,7 @@
     0.04
    ],
    "axis": "z",
-   "color": "#d4ad4c"
+   "color": "#9a8250"
   },
   {
    "bone": "head",
@@ -85,7 +97,7 @@
     0.33,
     0.26
    ],
-   "color": "#d9b452"
+   "color": "#9a8250"
   },
   {
    "bone": "head",
@@ -100,7 +112,7 @@
     0.07
    ],
    "axis": "z",
-   "color": "#8a3a2a"
+   "color": "#5a4632"
   },
   {
    "bone": "head",
@@ -224,7 +236,7 @@
     15,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "foot.l",
@@ -243,7 +255,7 @@
     15,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "foot.r",
@@ -262,7 +274,7 @@
     -15,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "foot.r",
@@ -281,7 +293,7 @@
     -15,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "head",
@@ -300,7 +312,7 @@
     30,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "head",
@@ -319,7 +331,7 @@
     -30,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "head",
@@ -338,7 +350,7 @@
     0,
     0
    ],
-   "color": "#e3c25a"
+   "color": "#a89058"
   },
   {
    "bone": "chest",
@@ -353,7 +365,235 @@
     0.04,
     0.16
    ],
-   "color": "#c0503a"
+   "color": "#6a6250"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.8,
+    0,
+    0.09999999999999998
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    90,
+    0
+   ],
+   "color": "#a89058"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.8,
+    0,
+    0.12
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    104,
+    22
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.8,
+    0,
+    0.13999999999999996
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    76,
+    -22
+   ],
+   "color": "#a89058"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.8,
+    0,
+    0.15999999999999998
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    98,
+    -12
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    -0.8,
+    0,
+    0.09999999999999998
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    -90,
+    0
+   ],
+   "color": "#a89058"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    -0.8,
+    0,
+    0.12
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    -76,
+    22
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    -0.8,
+    0,
+    0.13999999999999996
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    -104,
+    -22
+   ],
+   "color": "#a89058"
+  },
+  {
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    -0.8,
+    0,
+    0.15999999999999998
+   ],
+   "size": [
+    0.05,
+    0.3
+   ],
+   "rot": [
+    0,
+    -82,
+    -12
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    0,
+    0.72
+   ],
+   "size": [
+    0.05,
+    0.22
+   ],
+   "rot": [
+    180,
+    -60,
+    0
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    0,
+    0.72
+   ],
+   "size": [
+    0.05,
+    0.22
+   ],
+   "rot": [
+    180,
+    -25,
+    0
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    0,
+    0.72
+   ],
+   "size": [
+    0.05,
+    0.22
+   ],
+   "rot": [
+    180,
+    25,
+    0
+   ],
+   "color": "#8a7444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    0,
+    0.72
+   ],
+   "size": [
+    0.05,
+    0.22
+   ],
+   "rot": [
+    180,
+    60,
+    0
+   ],
+   "color": "#8a7444"
   }
  ],
  "frame": {
@@ -361,7 +601,7 @@
    -1.3,
    1.3
   ],
-  "h": 2.6
+  "h": 3.7
  },
  "clips": {
   "stand": {
@@ -404,54 +644,14 @@
      22
     ]
    }
-  },
-  "wave": {
-   "action": "Cheer",
-   "yaw": 10,
-   "step": 2,
-   "hold": [
-    {
-     "from": "T-Pose",
-     "frame": 0,
-     "bones": [
-      "hips",
-      "upperleg.l",
-      "lowerleg.l",
-      "foot.l",
-      "upperleg.r",
-      "lowerleg.r",
-      "foot.r",
-      "spine",
-      "chest",
-      "upperarm.l",
-      "lowerarm.l",
-      "wrist.l",
-      "hand.l"
-     ]
-    }
-   ]
-  },
-  "shoo": {
-   "action": "Cheer",
-   "yaw": 10,
-   "step": 2,
-   "hold": [
-    {
-     "from": "T-Pose",
-     "frame": 0,
-     "bones": [
-      "hips",
-      "upperleg.l",
-      "lowerleg.l",
-      "foot.l",
-      "upperleg.r",
-      "lowerleg.r",
-      "foot.r",
-      "spine",
-      "chest"
-     ]
-    }
-   ]
   }
+ },
+ "bone_scale": {
+  "head": 0.8,
+  "spine": [
+   1,
+   1.08,
+   1
+  ]
  }
 }

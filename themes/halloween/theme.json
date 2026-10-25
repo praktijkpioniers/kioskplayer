@@ -147,13 +147,20 @@
     },
     "scarecrow3d": {
       "anim": "anim/scarecrow",
-      "unit": 0.115
+      "unit": 0.07,
+      "opacity": 0.55
     },
-    "crow": {
-      "file": "raven.png",
-      "height": 0.045,
-      "flap": 4,
-      "fps": 10
+    "crow3d": {
+      "anim": "anim/crow",
+      "unit": 0.07
+    },
+    "raven3d": {
+      "anim": "anim/crow",
+      "unit": 0.095
+    },
+    "vulture3d": {
+      "anim": "anim/vulture",
+      "unit": 0.07
     },
     "princess3d": {
       "anim": "anim/princess",
@@ -790,8 +797,8 @@
       "min": 8,
       "video_min": 8,
       "every": [
-        300,
-        600
+        200,
+        420
       ],
       "delay": [
         30,
@@ -806,8 +813,15 @@
     {
       "type": "scarecrow",
       "sprite": "scarecrow3d",
-      "crow": "crow",
-      "stay": [60, 150],
+      "birds": [
+        {"sprite": "crow3d", "perch": ["arm", "arm", "hat"]},
+        {"sprite": "raven3d", "perch": ["arm", "hat"]},
+        {"sprite": "vulture3d", "perch": ["hat", "arm"]}
+      ],
+      "stay": [120, 300],
+      "tics": [12, 30],
+      "bird_after": [10, 40],
+      "bird_every": [30, 70],
       "min": 6,
       "video_min": 8,
       "every": [240, 480],

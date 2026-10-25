@@ -2229,7 +2229,7 @@ function spawn.werewolf(el, spr, h)
         if s.f == "wolf" and not a.fled then
             a.wolf_x = scr(wx)
             for _, cat in ipairs(cats) do
-                if cat.arched and math.abs(cat.p.x - a.wolf_x) < 0.32 * H then flee(cat.p.x) return true end
+                if cat.arched and math.abs(cat.p.x - a.wolf_x) < 0.32 * H then flee(cat.p.x) return a.update(0, t) end
             end
         else
             a.wolf_x = (s.f == "wolf") and scr(wx) or nil
@@ -2501,41 +2501,54 @@ function spawn.princess(el, spr)
     return a
 end
 
--- scarecrow: up out of the ground on its pole, and there it stands a minute or two (el.stay) -
--- stock still, but now and then its head jerks round (look_l/look_r: still frames, snapped
--- to), it tilts its head, waves; whoever comes by close, it watches. A crow (el.crow, a still
--- drawing with a wing beat: frame 0 sitting) comes flapping down onto one of its arms, sits a
--- while; the scarecrow turns its head to it and flaps its arms (shoo): off the crow goes. Down
--- it goes when its time is up, or when a scene wants the floor. Layers: it, the crow.
-local SCARECROW_HAND = { 0.36, 0.53 }      -- a hand from the foot of the pole, in sprite heights
+-- scarecrow: a straw man up on a pole, in the background (the theme draws it small and see-
+-- through). Up out of the ground, and there it hangs a few minutes (el.stay), stock still - only
+-- now and then its head jerks round or tilts (still frames, snapped to), and sometimes to
+-- whoever comes by close. Now and then a bird (el.birds: {sprite, perch = {"arm", "hat"}}, baked
+-- with clips sit/fly/spread, see tools/bake/bird.py) comes flying down onto its arm or hat, sits
+-- a while (a vulture spreads its wings) and flies off again - or when someone comes close, or
+-- the scarecrow goes. Down it goes when its time is up, or when a scene wants the floor.
+-- Layers: it, the bird.
+local SCARECROW_PERCH = { arm = { 0.27, 0.745 }, hat = { 0, 0.98 } }  -- from the foot of the pole, in sprite heights
 function spawn.scarecrow(el, spr)
     local C = spr.clips
     if not (C and C.stand and C.look_l and C.look_r and spr.origin) then return nil end
-    local crow = M.sprites[el.crow or ""]
     local u = (spr.unit or 0.115) * H
     local cx
-    for _ = 1, 12 do                -- (not on top of another actor standing about)
-        local x = rnd(0.15, 0.85) * W
+    for _ = 1, 12 do                -- (not on top of a scene, nor another scarecrow)
+        local x = rnd(0.12, 0.88) * W
         local ok = true
         for _, b in ipairs(actors) do
-            if b.cx and (b.scene or b.el.type == "scarecrow") and math.abs(b.cx - x) < 2.5 * u then ok = false end
+            if b.cx and (b.scene or b.el.type == "scarecrow") and math.abs(b.cx - x) < 0.2 * W then ok = false end
         end
         if ok then cx = x break end
     end
     if not cx then return nil end
+    local birds = {}
+    for _, b in ipairs(el.birds or {}) do
+        local sp = M.sprites[b.sprite or ""]
+        if sp and sp.clips and sp.clips.sit and sp.clips.fly and sp.origin then birds[#birds + 1] = { sp = sp, perch = b.perch or { "arm" } } end
+    end
     local a = { el = el, spr = spr, layers = 2, cx = cx }
-    local stay = rnd(range(el.stay, 90))
+    local stay = rnd(range(el.stay, 150))
     local state, ts = "rise", 0            -- rise | stand | sink
     local pose, tp, pose_for = "stand", 0, 0
-    local next_tic = rnd(3, 6)
-    local cr = nil                         -- the crow: {state, t, x, y, side, x0, y0}
-    local crow_done = not crow or math.random() > (el.crow_chance or 0.7)
+    local next_tic = rnd(range(el.tics, 20))
+    local next_bird = rnd(range(el.bird_after, 20))
+    local bd = nil                         -- the bird: {sp, state, t, x, y, side, perch, ...}
     local watching = nil
-    local function hand(side)              -- (side: -1 left on the screen, 1 right)
-        return cx + side * SCARECROW_HAND[1] * spr.h, H - SCARECROW_HAND[2] * spr.h
+    local function perch_at(p, side)
+        local q = SCARECROW_PERCH[p]
+        return cx + side * q[1] * spr.h, H - q[2] * spr.h
     end
-    local function look(side) return side < 0 and (el.look_left or "look_r") or (el.look_right or "look_l") end
     local function set(p, dur) pose, tp, pose_for = p, 0, dur or 0 end
+    local function bird_off(why)
+        if bd and bd.state ~= "off" then
+            bd.state, bd.t, bd.x0, bd.y0 = "off", 0, bd.x, bd.y
+            bd.dir = (math.random() < 0.5) and -1 or 1
+            msg.verbose("scarecrow: the bird flies off" .. (why and (" (" .. why .. ")") or ""))
+        end
+    end
 
     function a.update(dt, t)
         ts = ts + dt
@@ -2546,85 +2559,104 @@ function spawn.scarecrow(el, spr)
             dy = (1 - ease(p)) * spr.h
             if p >= 1 then state, ts = "stand", 0 msg.verbose("scarecrow: up") end
         elseif state == "stand" then
-            if (ts > stay and not cr) or floor_busy("scenes") then
-                msg.verbose("scarecrow: down" .. (ts > stay and "" or " (making way)"))
+            local busy = floor_busy("scenes")
+            if ts > stay or busy then
+                msg.verbose("scarecrow: down" .. (busy and " (making way)" or ""))
                 state, ts = "sink", 0
-                if cr and cr.state ~= "off" then cr.state, cr.t = "off", 0 end
+                bird_off()
                 set("stand")
             end
         elseif state == "sink" then
             local p = clamp(ts / DECOR_MOVE_S, 0, 1)
             dy = ease(p) * spr.h
-            if p >= 1 and not cr then return false end
+            if p >= 1 and not bd then return false end
         end
 
-        -- its tics, while standing still (a pose held, then back to standing)
-        local c = C[pose] or C.stand
-        local held = (c.count <= 1) and tp >= pose_for or (c.count > 1 and tp >= c.count / c.fps)
-        if pose ~= "stand" and held then set("stand") end
+        -- someone coming by close: the bird goes; the scarecrow may watch them
+        local who
+        for _, b in ipairs(actors) do
+            if b ~= a and b.cx and is_character(b) and math.abs(b.cx - cx) < 3 * u then who = b end
+        end
+        if who and bd and bd.state == "sit" then bird_off("someone came by") end
+
+        -- its head, now and then (a still pose held, then back)
+        if pose ~= "stand" and tp >= pose_for then set("stand") end
         if state == "stand" and pose == "stand" then
-            -- someone coming by close: it watches them
-            local who
-            for _, b in ipairs(actors) do
-                if b ~= a and b.cx and is_character(b) and math.abs(b.cx - cx) < 3 * u then who = b end
-            end
             if who and who ~= watching then
                 watching = who
-                set(look(who.cx < cx and -1 or 1), rnd(1.5, 3))
-                msg.verbose("scarecrow: watches " .. tostring(who.el.type))
+                if math.random() < 0.5 then
+                    set(who.cx < cx and "look_r" or "look_l", rnd(1.5, 3))
+                    msg.verbose("scarecrow: watches " .. tostring(who.el.type))
+                end
             elseif not who then watching = nil end
-            if cr and cr.state == "sit" and cr.t > cr.sit then
-                if C.shoo then set("shoo") else set("tilt", 1) end
-                cr.state, cr.t = "off", 0
-                msg.verbose("scarecrow: shoo!")
-            elseif cr and cr.state == "sit" and not cr.seen and cr.t > 1.5 then
-                cr.seen = true
-                set(look(cr.side), rnd(1.5, 2.5))
+            if bd and bd.state == "sit" and not bd.seen and bd.t > 2 then
+                bd.seen = true
+                if math.random() < 0.6 then set(bd.side < 0 and "look_r" or "look_l", rnd(1.5, 2.5)) end
             elseif ts > next_tic and pose == "stand" then
-                next_tic = ts + rnd(range(el.tics, 7))
+                next_tic = ts + rnd(range(el.tics, 20))
                 local r = math.random()
-                if not crow_done and not cr and ts > 4 then
-                    crow_done = true
-                    local side = math.random() < 0.5 and -1 or 1
-                    local hx, hy = hand(side)
-                    cr = { state = "in", t = 0, side = side, sit = rnd(4, 9),
-                           x0 = hx + side * rnd(0.3, 0.45) * W, y0 = -crow.h, x = hx, y = hy }
-                    msg.verbose("scarecrow: a crow comes")
-                elseif r < 0.4 then set(math.random() < 0.5 and "look_l" or "look_r", rnd(1.2, 2.5))
-                elseif r < 0.7 and C.tilt then set("tilt", rnd(1.5, 3))
-                elseif C.wave then set("wave") end
+                if r < 0.6 then set(math.random() < 0.5 and "look_l" or "look_r", rnd(1.2, 2.5))
+                elseif C.tilt then set("tilt", rnd(2, 4)) end
+            end
+            -- a bird comes
+            if not bd and #birds > 0 and ts > next_bird and ts < stay - 20 then
+                next_bird = ts + rnd(range(el.bird_every, 40))
+                if math.random() < (el.bird_chance or 0.7) then
+                    local b = birds[math.random(#birds)]
+                    local perch = b.perch[math.random(#b.perch)]
+                    local side = perch == "hat" and 0 or (math.random() < 0.5 and -1 or 1)
+                    local from = side ~= 0 and side or (math.random() < 0.5 and -1 or 1)
+                    local px, py = perch_at(perch, side)
+                    bd = { sp = b.sp, state = "in", t = 0, side = side, perch = perch, sit = rnd(8, 20),
+                           x0 = px + from * rnd(0.3, 0.45) * W, y0 = rnd(0.05, 0.25) * H, x = px, y = py,
+                           face = math.random() < 0.5 and -1 or 1 }
+                    msg.verbose("scarecrow: a " .. tostring(b.sp.name) .. " comes, for its " .. perch)
+                end
             end
         end
-        c = C[pose] or C.stand
-        local k = c.count <= 1 and 0 or math.min(c.count - 1, math.floor(tp * c.fps))
-        local layers = { { spr = spr, frame = c.start + k, variant = false, x = cx - spr.origin[1], y = H - spr.origin[2] + dy } }
+        local c = C[pose] or C.stand
+        local layers = { { spr = spr, frame = c.start, variant = false, x = cx - spr.origin[1], y = H - spr.origin[2] + dy } }
         a.sx, a.sy = layers[1].x, layers[1].y
 
-        -- the crow: down in a swoop, flapping; sits (frame 0); up and away, flapping
-        if cr then
-            cr.t = cr.t + dt
-            local fps = crow.fps or 12
-            local frame, x, y, mirror = 0, cr.x, cr.y, cr.side < 0     -- (drawn facing left)
-            local hx, hy = hand(cr.side)
-            hy = hy + dy
-            if cr.state == "in" then
-                local p = clamp(cr.t / 2.6, 0, 1)
-                x = cr.x0 + (hx - cr.x0) * ease(p)
-                y = cr.y0 + (hy - cr.y0) * math.sin(p * math.pi / 2)
-                frame = math.floor(cr.t * fps) % crow.frames
-                if p >= 1 then cr.state, cr.t = "sit", 0 msg.verbose("scarecrow: the crow sits on its arm") end
-            elseif cr.state == "sit" then
-                x, y, mirror = hx, hy, cr.side < 0
-            else                           -- off, the other way it came, up and away
-                local p = cr.t / 2.2
-                x = hx + cr.side * p * 0.5 * W
-                y = hy - (H * 0.7) * p * p - 0.4 * u * math.sin(math.min(p, 0.3) / 0.3 * math.pi)
-                frame = math.floor(cr.t * fps * 1.3) % crow.frames
-                mirror = cr.side > 0
-                if p >= 1 then cr = nil end
+        -- the bird: down in a glide (flapping), sits, off up and away (flapping)
+        if bd then
+            local B = bd.sp.clips
+            bd.t = bd.t + dt
+            local px, py = perch_at(bd.perch, bd.side)
+            py = py + dy
+            local clip, k, x, y, mirror = "sit", 0, px, py, bd.face < 0
+            if bd.state == "in" then
+                local p = clamp(bd.t / 3.0, 0, 1)
+                x = bd.x0 + (px - bd.x0) * ease(p)
+                y = bd.y0 + (py - bd.y0) * math.sin(p * math.pi / 2)
+                clip, mirror = "fly", px < bd.x0
+                k = math.floor(bd.t * B.fly.fps) % B.fly.count
+                if p >= 1 then
+                    bd.state, bd.t, bd.face = "sit", 0, px < bd.x0 and -1 or 1
+                    msg.verbose("scarecrow: the bird sits on its " .. bd.perch)
+                end
+            elseif bd.state == "sit" then
+                bd.x, bd.y = px, py
+                if B.spread and not bd.spread_t and bd.t > bd.sit * 0.4 and bd.sp.name:find("vulture") then bd.spread_t = bd.t end
+                local sp_len = B.spread and B.spread.count / B.spread.fps or 0
+                if bd.spread_t and bd.t - bd.spread_t < sp_len then
+                    clip, k = "spread", math.min(B.spread.count - 1, math.floor((bd.t - bd.spread_t) * B.spread.fps))
+                else
+                    k = math.floor(bd.t * B.sit.fps) % B.sit.count
+                end
+                if bd.t > bd.sit then bird_off() end
+            else                           -- off, up and away
+                local p = bd.t / 2.6
+                x = bd.x0 + bd.dir * p * 0.55 * W
+                y = bd.y0 - (H * 0.8) * p * p - 0.3 * u * math.sin(math.min(p, 0.25) / 0.25 * math.pi)
+                clip, mirror = "fly", bd.dir < 0
+                k = math.floor(bd.t * B.fly.fps * 1.2) % B.fly.count
+                if p >= 1 or y < -bd.sp.h then bd = nil end
             end
-            if cr then
-                layers[2] = { spr = crow, frame = frame, variant = mirror, x = x - crow.w / 2, y = y - crow.h }
+            if bd then
+                local sp = bd.sp
+                local ox = mirror and (sp.w - sp.origin[1]) or sp.origin[1]
+                layers[2] = { spr = sp, frame = B[clip].start + k, variant = mirror, x = x - ox, y = y - sp.origin[2] }
             end
         end
         return true, layers
@@ -3353,7 +3385,12 @@ local function tick()
 
     local keep = {}
     for _, a in ipairs(actors) do
-        local alive, x, y, frame, mirror = a.update(dt, t)
+        local ok, alive, x, y, frame, mirror = pcall(a.update, dt, t)
+        if ok and alive and a.ids and type(x) ~= "table" then ok, alive = false, "no layers" end
+        if not ok then          -- (one broken actor must not take the whole theme down with it)
+            msg.error(string.format("%s dropped: %s", tostring(a.el and a.el.type), tostring(alive)))
+            alive = false
+        end
         if alive and not a.leaving then
             if not a.handed and not element_on(a.el) then leave(a) else grave_check(a, x, y) end
         end

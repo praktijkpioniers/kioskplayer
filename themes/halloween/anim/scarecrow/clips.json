@@ -29,25 +29,11 @@
    "fps": 24.0,
    "loop": false,
    "stride": 0.0
-  },
-  "wave": {
-   "files": "wave_*.png",
-   "count": 21,
-   "fps": 12.0,
-   "loop": false,
-   "stride": 0.0
-  },
-  "shoo": {
-   "files": "shoo_*.png",
-   "count": 21,
-   "fps": 12.0,
-   "loop": false,
-   "stride": 0.0
   }
  },
- "unit_px": 147.69230769230768,
+ "unit_px": 103.78378378378378,
  "origin_px": [
-  192.0,
+  135.0,
   384
  ]
 }

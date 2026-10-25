@@ -1,0 +1,32 @@
+{
+ "view": "front",
+ "model": "bird.py vulture",
+ "clips": {
+  "sit": {
+   "files": "sit_*.png",
+   "count": 24,
+   "fps": 8,
+   "loop": true,
+   "stride": 0
+  },
+  "fly": {
+   "files": "fly_*.png",
+   "count": 8,
+   "fps": 14,
+   "loop": true,
+   "stride": 0
+  },
+  "spread": {
+   "files": "spread_*.png",
+   "count": 14,
+   "fps": 10,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  110.76923076923076,
+  199
+ ]
+}
