@@ -829,7 +829,7 @@
       "group": ["scarecrow"]
     },
     {
-      "type": "frogs", "sprite": "frog", "recruits": ["frog"], "cast_ttl": [120, 300],
+      "type": "frogs", "sprite": "frog", "recruits": ["frog"], "pile": ["pumpkin_group", "pumpkin_group2", "pumpkin_group3"], "cast_ttl": [120, 300],
       "ladies": [{"sprite": "princess3d", "family": "princess"}, {"sprite": "witch3d", "family": "witch"}],
       "heroes": [
         {"sprite": "werewolf_man3d", "family": "werewolf"},

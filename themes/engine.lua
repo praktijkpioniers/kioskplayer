@@ -311,9 +311,12 @@ local function room_max()
 end
 -- one of the cast of fam (a family, "frog" a frog) about on this screen, free to be taken over
 -- by a scene starting here (see el.recruits): its actor
-local function cast_here(fam)
+local function cast_here(fam, skip)
     for _, a in ipairs(actors) do
-        if (a.family == fam or (fam == "frog" and a.frog)) and not a.scene and not a.gone and not a.leaving
+        if fam == "frog" and a.pile and a.list then         -- (frogs sitting on the pile)
+            for _, f in ipairs(a.list()) do if f ~= skip then return f end end
+        end
+        if a ~= skip and (a.family == fam or (fam == "frog" and a.frog)) and not a.scene and not a.gone and not a.leaving
                 and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then return a end
     end
 end
@@ -1896,7 +1899,7 @@ local function next_act(w)
                 and (el.type ~= w.from or (w.here_t or 0) > 30) then   -- (not straight back where it came from)
             local calls = false
             for _, f in ipairs(el.recruits or {}) do if f == fam then calls = true end end
-            if calls then
+            if calls and not (has_group(groups_of(el), "walker") and no_room_for(el)) then
                 options[#options + 1] = { el = el, st = st }
             elseif OWN_ACT[el.type] and family_of(el) == fam and el.sprite == w.spr.name then
                 options[#options + 1] = { el = el, st = st, own = true }
@@ -2229,9 +2232,110 @@ function spawn.witch(el, spr)
     return a
 end
 
+-- The frogs' pile: a frog of the cast with time to wait raises a pile of pumpkins (el.pile, on
+-- the frogs element: its sprites) near a side of the screen and jumps up onto it; up to three sit
+-- there (croaking, looking round) till a scene takes one over or their time's up (a hop down and
+-- off). Empty a while, it sinks. The sitters are its layers (above it); cast_here finds them.
+local PILE_SLOTS = { { 0, 0.84 }, { -0.3, 0.66 }, { 0.3, 0.66 } }    -- (on top: x from the middle, y up, of its size)
+local function pile_sprite()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.pile then
+            local list = type(el.pile) == "table" and el.pile or { el.pile }
+            return M.sprites[list[math.random(#list)] or ""], el
+        end
+    end
+end
+local function pile_here()
+    for _, a in ipairs(actors) do if a.pile and not a.sinking then return a end end
+end
+local spawn_hopper
+local function new_pile(el, near_x)
+    local spr, pel = pile_sprite()
+    if not spr or #free_ids < 1 + #PILE_SLOTS then return nil end
+    local px = (near_x < W / 2) and 0.2 * W or 0.8 * W
+    local a = { el = pel or el, spr = spr, layers = 1 + #PILE_SLOTS, groups = {}, pile = true, sitters = {} }
+    local rise, empty_t, t0 = 0, 0, 0
+    -- a free spot on top: its index (reserved), screen x, height above the ground
+    function a.slot()
+        for k = 1, #PILE_SLOTS do
+            if not a.sitters[k] then
+                a.sitters[k] = { reserved = true }
+                return k, px + PILE_SLOTS[k][1] * spr.w, PILE_SLOTS[k][2] * spr.h
+            end
+        end
+    end
+    function a.unreserve(k) if a.sitters[k] and a.sitters[k].reserved then a.sitters[k] = nil end end
+    function a.sit(k, f)          -- f: {spr, ttl, from, facing}
+        local sx, sy = px + PILE_SLOTS[k][1] * spr.w, PILE_SLOTS[k][2] * spr.h
+        a.sitters[k] = { spr = f.spr, ttl = f.ttl, from = f.from, facing = f.facing, frog = true, cx = sx, dy = -sy,
+                         t = 0, croak = rnd(2, 6), look = rnd(4, 10) }
+    end
+    function a.list()             -- (for cast_here)
+        local l = {}
+        for k = 1, #PILE_SLOTS do
+            local f = a.sitters[k]
+            if f and not f.reserved and not f.gone then l[#l + 1] = f end
+        end
+        return l
+    end
+    function a.update(dt, t)
+        t0 = t0 + dt
+        local busy = false
+        local layers = {}
+        if a.sinking then rise = math.max(0, rise - dt / 1.2) else rise = math.min(1, rise + dt / 1.0) end
+        local dy = (1 - ease(rise)) * (spr.h + 4)
+        layers[1] = { spr = spr, frame = 0, variant = false, x = px - spr.w / 2, y = H - spr.h + dy }
+        for k = 1, #PILE_SLOTS do
+            local f = a.sitters[k]
+            if f and f.gone then a.sitters[k], f = nil, nil end
+            if f then busy = true end
+            if f and not f.reserved then
+                f.t, f.ttl = f.t + dt, (f.ttl or 0) - dt
+                if f.ttl <= 0 and not f.called then              -- (time's up: down and off)
+                    local dir = (f.cx < W / 2) and -1 or 1
+                    if spawn_hopper and #free_ids > 0 then
+                        local b = spawn_hopper(f.el or a.el, f.spr, { dir = dir, at = f.cx, y0 = f.dy, ttl = 0, hops = 0 })
+                        if b then adopt(b, a.el, { hops = 0 }) end
+                    end
+                    a.sitters[k] = nil
+                else
+                    cast_cue(f, dt, f.cx)
+                    local F = f.spr.clips
+                    local clip, k2 = "sit", nil
+                    if f.t >= f.look then f.facing, f.look = -(f.facing or 1), f.t + rnd(5, 12) end
+                    if F.croak and f.t >= f.croak then
+                        local len = F.croak.count / F.croak.fps * 2
+                        if f.t < f.croak + len then
+                            clip, k2 = "croak", math.floor((f.t - f.croak) * F.croak.fps) % F.croak.count
+                        else f.croak = f.t + rnd(5, 14) end
+                    end
+                    local c = F[clip]
+                    k2 = k2 or math.floor(f.t * c.fps) % c.count
+                    local mi = (f.facing or 1) < 0
+                    local ox = mi and (f.spr.w - f.spr.origin[1]) or f.spr.origin[1]
+                    layers[1 + k] = { spr = f.spr, frame = c.start + k2, variant = mi, x = f.cx - ox,
+                                      y = H - f.spr.origin[2] + f.dy + dy }
+                end
+            end
+        end
+        if busy then empty_t = 0 else empty_t = empty_t + dt end
+        if not a.sinking and empty_t > 15 then a.sinking = true end
+        if a.sinking and rise <= 0 then
+            for k = 1, #PILE_SLOTS do if a.sitters[k] and not a.sitters[k].reserved then return true, layers end end
+            return false
+        end
+        a.cx = px
+        return true, layers
+    end
+    adopt(a, a.el, { hops = 0 })
+    msg.verbose("frogs: a pile of pumpkins to sit on")
+    return a
+end
+
 -- hopper: a frog (the witch's, the vampire kissed), hopping over from the screen next door: across
 -- (a croak on the way, now and then) and on. With h.ttl it's one of the cast: it stays about that
--- long (turning back where it can't go on), and sits waiting where a scene wants a frog.
+-- long (turning back where it can't go on), and mostly makes for the pile of pumpkins (see above)
+-- to sit and wait. h.y0: it starts up there (off the pile).
 function spawn.hopper(el, spr, h)
     local F = spr.clips
     if not (F and F.hop and F.sit and spr.origin and spr.unit) then return nil end
@@ -2240,17 +2344,21 @@ function spawn.hopper(el, spr, h)
     local hop = F.hop.count / F.hop.fps / 1.3
     local step = 1.3 * u
     local x = walk_in_x(h, step / hop, 0.3 * u)
-    local a = { el = el, spr = spr, layers = 1, groups = {}, floor = true, frog = true }
+    local a = { el = el, spr = spr, layers = 1, groups = {}, floor = true, frog = true, from = h.from }
     a.hops = tonumber(h.hops) or 1
     a.ttl = tonumber(h.ttl)
     if a.ttl then a.hops = 0 end
     local x0, tc, rest = x, 0, math.random() < 0.6 and rnd(0.3, 0.7) * W or nil
+    local y0 = tonumber(h.y0)                 -- (the first hop: down from there)
     local resting, linger = nil, 0
+    local goal                                -- {pile, k, x, y}: making for a spot on the pile
+    local decided = false
     function a.update(dt)
         tc = tc + dt
         if a.ttl then a.ttl = a.ttl - dt end
         local clip, dy = "hop", 0
         local wanted = a.ttl and a.ttl > 0 and linger < 60 and wanted_here("frog", mp.get_time())
+        if goal and goal.pile.sinking then goal = nil end
         if resting then
             clip = (F.croak and resting > 1 and resting < 1 + F.croak.count / F.croak.fps * 2) and "croak" or "sit"
             resting = resting + dt
@@ -2259,22 +2367,46 @@ function spawn.hopper(el, spr, h)
                 if resting > 7 then resting = 0.5 end         -- (sits on, a croak now and then)
             elseif resting > 4 then resting, tc = nil, 0 end
         else
-            x, dy = hop_at(tc / hop, x0, x0 + dir * step, 0, 0, 0.6 * u)
+            local to = x0 + dir * step
+            local y1 = 0
+            if goal and math.abs(goal.x - x0) <= step * 1.05 then to, y1 = goal.x, -goal.y end   -- (up onto it)
+            x, dy = hop_at(tc / hop, x0, to, y0 or 0, y1, 0.6 * u + (y1 < 0 and 0.3 * u or 0))
             if tc >= hop then
-                x0, tc = x0 + dir * step, 0
-                if (rest and math.abs(x0 - rest) < step) or (wanted and x0 > 0.2 * W and x0 < 0.8 * W) then
+                x0, tc, y0 = to, 0, nil
+                if goal and to == goal.x then          -- (sitting on the pile now: one of its frogs)
+                    goal.pile.sit(goal.k, { spr = spr, ttl = a.ttl, from = a.from, facing = -dir })
+                    msg.verbose("frogs: a frog sits on the pile")
+                    return false
+                end
+                if not decided and a.ttl and a.ttl > 20 and x0 > 0.1 * W and x0 < 0.9 * W then
+                    decided = true
+                    if math.random() < 0.75 then
+                        local p = pile_here() or new_pile(el, x0)
+                        local k, gx, gy
+                        if p then k, gx, gy = p.slot() end
+                        if k then
+                            goal = { pile = p, k = k, x = gx, y = gy }
+                            dir = gx > x0 and 1 or -1
+                        end
+                    end
+                end
+                if not goal and ((rest and math.abs(x0 - rest) < step) or (wanted and x0 > 0.2 * W and x0 < 0.8 * W)) then
                     rest, resting = nil, 0
                 end
             end
         end
         if not a.ttl then
             walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false })
-        elseif a.ttl > 0 and not resting and ((dir > 0 and x0 + 0.3 * u > W) or (dir < 0 and x0 - 0.3 * u < 0)) then
-            if not walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false, ttl = math.floor(a.ttl), hops = 0 }) then
+        elseif a.ttl > 0 and not goal and not resting and ((dir > 0 and x0 + 0.3 * u > W) or (dir < 0 and x0 - 0.3 * u < 0)) then
+            if not walk_out(a, x, dir, 0.3 * u, { kind = "hopper", unique = false, ttl = math.floor(a.ttl), hops = 0, from = a.from }) then
                 dir, a.handed_on, resting = -dir, nil, 3     -- (no way on there: a moment, and back)
             end
         end
-        if (dir > 0 and x > W + 0.6 * u) or (dir < 0 and x < -0.6 * u) then return false end
+        if (dir > 0 and x > W + 0.6 * u) or (dir < 0 and x < -0.6 * u) then
+            if goal then goal.pile.unreserve(goal.k) end
+            return false
+        end
+        if not goal and not resting then cast_cue(a, dt, x) end
         local c = F[clip]
         local k = math.floor((clip == "croak" and resting - 1 or resting or tc) * c.fps * (clip == "hop" and 1.3 or 1))
         k = c.loop and k % c.count or math.min(k, c.count - 1)
@@ -2284,8 +2416,10 @@ function spawn.hopper(el, spr, h)
         a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
         return true, { layer }
     end
+    function a.release() if goal then goal.pile.unreserve(goal.k) end end
     return a
 end
+spawn_hopper = spawn.hopper
 
 -- werewolf: a man (a lumberjack) comes in, stops, looks about - and spins round, faster and
 -- faster, a puff of fur and he's the wolf, spinning out of it; a howl and on he prowls, over to
@@ -2537,6 +2671,7 @@ function spawn.princess(el, spr)
             B.x = sx(toad.cx)
             B.rest = { clip = "sit", m = true, rest = true }
             fx = math.min(fx, B.x)
+            if toad.dy and B.x - fx <= 0.1 * u then fx = B.x - 0.9 * u end    -- (down off the pile)
         end
         B0 = B.x
         go(A, "a", math.min(rnd(0.22, 0.3) * W, fx - 2 * u))
@@ -2631,6 +2766,7 @@ function spawn.princess(el, spr)
     local puffs, hearts = {}, {}
     a.line = pick_line(el)
     A.x, B.x = A0, B0
+    B.y = toad and toad.dy or 0
     local hop = F.hop.count / F.hop.fps
     local function scr(x) return (d > 0) and x or (W - x) end
     local function place(sp, x, frame, mirror, dy)
@@ -2666,14 +2802,15 @@ function spawn.princess(el, spr)
             t.h0, t.ht = t.h0 or t.x, (t.ht or 0) + dt
             local to = t.h0 + dir * 1.2 * u
             if (dir > 0) == (to > p.hop) then to = p.hop end
-            t.x, dy = hop_at(t.ht / hop, t.h0, to, 0, 0, 0.6 * u)
+            t.x, dy = hop_at(t.ht / hop, t.h0, to, t.y or 0, 0, 0.6 * u)
             k = math.min(c.count - 1, math.floor(t.ht * c.fps))
             if p.out then hand_on(t, sp, p, dir) end
             if t.ht >= hop then
-                t.x, t.h0, t.ht = to, nil, nil
+                t.x, t.h0, t.ht, t.y = to, nil, nil, 0
                 done = to == p.hop
             end
         else
+            dy = t.y or 0                               -- (up on the pile, still)
             local n = math.floor(tc * c.fps)
             local len = c.count / c.fps * (p.n or 1)
             if p.hold then k = math.min(p.hold, n)
@@ -2765,15 +2902,16 @@ function spawn.frogs(el, spr)
     local toad = cast_here("frog")
     if toad then d = toad.cx < W / 2 and 1 or -1 end    -- (the one on the left)
     local function sx(x) return (d > 0) and x or (W - x) end
-    a.recruited = { toad }
+    local toad2 = toad and cast_here("frog", toad) or nil
+    a.recruited = { toad, toad2 }
     local mx = rnd(0.42, 0.58) * W
 
     local steps = {}
     local A = { x = toad and sx(toad.cx) or -0.6 * u, face = 1, sp = spr, rest = { clip = "sit", rest = true } }
-    local B = { x = W + 0.6 * u, face = -1, sp = spr, rest = { clip = "sit", m = true, rest = true } }
+    local B = { x = toad2 and sx(toad2.cx) or W + 0.6 * u, face = -1, sp = spr, rest = { clip = "sit", m = true, rest = true } }
     local A0, B0 = A.x, B.x
     if not toad then A.rest = { hide = true, rest = true } end
-    B.rest = { hide = true, rest = true }
+    if not toad2 then B.rest = { hide = true, rest = true } end
     local function add(s)
         s.a, s.b = s.a or A.rest, s.b or B.rest
         s.a.sp, s.b.sp = s.a.sp or A.sp, s.b.sp or B.sp
@@ -2792,7 +2930,7 @@ function spawn.frogs(el, spr)
     end
 
     -- the frogs: in, a croak each, the kiss
-    add { a = { clip = "hop", hop = mx - 0.5 * u, m = A.x > mx - 0.5 * u }, b = { clip = "hop", hop = mx + 0.5 * u, m = true } }
+    add { a = { clip = "hop", hop = mx - 0.5 * u, m = A.x > mx - 0.5 * u }, b = { clip = "hop", hop = mx + 0.5 * u, m = B.x > mx + 0.5 * u } }
     A.x, B.x = mx - 0.5 * u, mx + 0.5 * u
     A.rest = { clip = "sit", rest = true }
     B.rest = { clip = "sit", m = true, rest = true }
@@ -2833,6 +2971,7 @@ function spawn.frogs(el, spr)
     local si, tc = 1, 0
     local puffs, hearts = {}, {}
     A.x, B.x = A0, B0
+    A.y, B.y = toad and toad.dy or 0, toad2 and toad2.dy or 0
     local hop = F.hop.count / F.hop.fps
     local function scr(x) return (d > 0) and x or (W - x) end
     local function place(sp, x, frame, mirror, dy)
@@ -2862,13 +3001,14 @@ function spawn.frogs(el, spr)
             t.h0, t.ht = t.h0 or t.x, (t.ht or 0) + dt
             local to = t.h0 + dir * 1.2 * u
             if (dir > 0) == (to > p.hop) then to = p.hop end
-            t.x, dy = hop_at(t.ht / hop, t.h0, to, 0, 0, 0.6 * u)
+            t.x, dy = hop_at(t.ht / hop, t.h0, to, t.y or 0, 0, 0.6 * u)
             k = math.min(c.count - 1, math.floor(t.ht * c.fps))
             if t.ht >= hop then
-                t.x, t.h0, t.ht = to, nil, nil
+                t.x, t.h0, t.ht, t.y = to, nil, nil, 0
                 done = to == p.hop
             end
         else
+            dy = t.y or 0                               -- (up on the pile, still)
             local n = math.floor(tc * c.fps)
             local len = c.count / c.fps * (p.n or 1)
             if c.loop or p.n then k = n % c.count else k = math.min(n, c.count - 1) end
