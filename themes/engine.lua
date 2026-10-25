@@ -249,12 +249,20 @@ local function with_guest(a)          -- a zombie's guest, or the zombie while i
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
     return false
 end
+-- two characters on the screen next door already (they meet): a walker doesn't come over too
+local function full_next_door(a, side)
+    if HANDED_ONLY[a.el.type] then return false end
+    for _, g in ipairs(a.groups or {}) do
+        if g == "walker" then return #(room.near[side] or {}) >= 2 end
+    end
+    return false
+end
 local function walk_out(a, x, dir, front, h)
     if a.handed_on then return a.handed_on == "yes" end
     local lead = dir > 0 and (x + front - W) or (front - x)
     if lead < 0 then return false end
     a.handed_on = "no"
-    if (a.hops or 0) >= MAX_HOPS or with_guest(a) then return false end   -- (one walker in the room)
+    if (a.hops or 0) >= MAX_HOPS or with_guest(a) or full_next_door(a, dir > 0 and "right" or "left") then return false end
     h = h or {}
     h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, h.hops or (a.hops or 0) + 1, lead / H
     h.sprite = h.sprite or a.spr.name
@@ -331,7 +339,8 @@ local function walk_dir(el)
     return math.random() < 0.5 and 1 or -1
 end
 local function can_walk_on(a, dir)
-    return room[dir > 0 and "right" or "left"] and (a.hops or 0) < MAX_HOPS and not with_guest(a)
+    local side = dir > 0 and "right" or "left"
+    return room[side] and (a.hops or 0) < MAX_HOPS and not with_guest(a) and not full_next_door(a, side)
 end
 
 -- ── decor (static, optionally bobbing / animated) ───────────────────────────
@@ -2156,7 +2165,12 @@ local function try_spawn(el, now)
         table.sort(a.ids)
     end
     actors[#actors + 1] = a
-    if unique then msg.verbose("start " .. tostring(el.type) .. " " .. tostring(a.spr and a.spr.name)) end
+    if unique then
+        local tk = {}
+        for k in pairs(room.taken) do if k:sub(1, 4) == "chr:" then tk[#tk + 1] = k:sub(5) end end
+        msg.verbose(string.format("start %s %s (room: %d elsewhere: %s%s)", tostring(el.type), tostring(a.spr and a.spr.name),
+            room.chars or 0, table.concat(tk, " "), a.guest_of and ", a guest" or ""))
+    end
     if a.on_spawn then a.on_spawn() end
     local lo, hi = range(el.every, 30)
     -- higher level → shorter pauses (down to a third at the element's full level)
