@@ -255,6 +255,8 @@ def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int,
         files = sorted(d.glob(c.get("files", f"{n}_*.png")))
         clips[n] = {"start": len(raw), "count": len(files), "fps": float(c.get("fps", 24)),
                     "loop": bool(c.get("loop", True)), "stride": float(c.get("stride", 0))}
+        if c.get("track"):
+            clips[n]["track"] = c["track"]
         raw.extend(Image.open(f).convert("RGBA") for f in files)
 
     render_w = raw[0].width
@@ -277,6 +279,14 @@ def _load_anim(theme_dir: Path, sdef: dict[str, Any], height_px: int,
     for c in clips.values():
         # baked stride is a fraction of the full render width → pixels per cycle on screen
         c["stride_px"] = c.pop("stride") * render_w * scale
+        # tracked bones (render pixels) → sprite pixels from the origin, per frame (y down)
+        if "track" in c:
+            if origin:
+                ox, oy = info["origin_px"]
+                c["track"] = {b: [[round((x - ox) * scale, 1), round((y - oy) * scale, 1)] for x, y in pts]
+                              for b, pts in c["track"].items()}
+            else:
+                del c["track"]
     return frames, clips, origin
 
 

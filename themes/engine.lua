@@ -2133,20 +2133,28 @@ function spawn.witch(el, spr)
             f.clip = K[f.dance] and f.dance or "idle"
             if f.t >= (K[f.dance] and len(f.dance) or 2) then f.state, f.t = "turn", 0 end
         elseif f.state == "turn" then
-            f.clip = K.turn_side and "turn_side" or "idle"
+            -- (off towards a screen next door: on past the witch if there's none ahead)
+            if not f.pd then
+                local ahead, back = (d > 0) and "right" or "left", (d > 0) and "left" or "right"
+                f.pd = (room[ahead] or not room[back]) and 1 or -1
+            end
+            f.clip, f.m = K.turn_side and "turn_side" or "idle", f.pd < 0
             if f.t >= (K.turn_side and len("turn_side") or 0.3) then f.state, f.t = "off", 0 end
         elseif f.state == "off" then
             f.clip = "walk"
-            f.x = f.x + K.walk.stride_px * K.walk.fps / K.walk.count * dt
-            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "wanderer", fam = "pumpkinhead", unique = false, hops = 0, from = el.type,
-                                                ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
-            if f.x > W + 1.5 * u then f.state = "gone" end
+            f.x = f.x + f.pd * K.walk.stride_px * K.walk.fps / K.walk.count * dt
+            walk_out(pa, scr(f.x), d * f.pd, 0.5 * u, { kind = "wanderer", fam = "pumpkinhead", unique = false, hops = 0, from = el.type,
+                                                       ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+            if f.x > W + 1.5 * u or f.x < -1.5 * u then f.state = "gone" end
         end
     end
 
     function a.update(dt, t)
         local s = steps[si]
-        if not s then return false end
+        if not s then                    -- (she's gone; her frog or pumpkin-head still on its way off)
+            if ph.state ~= "off" and frg.state ~= "away" then return false end
+            s = { clip = "idle", gone = true }
+        end
         if si ~= a.logged then
             a.logged = si
             if s.on then s.on() end
@@ -2195,7 +2203,7 @@ function spawn.witch(el, spr)
         local layers = {}
         local l = place(sp, wx, frame_of(c, tc), s.m, 0)
         a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
-        if not (s.puff and tc < 0.25) then layers[1] = l end     -- (the change, in the puff)
+        if not (s.puff and tc < 0.25) and not s.gone then layers[1] = l end     -- (the change, in the puff)
         if pot then
             pot.t = pot.t + dt
             local pc = P[pot.clip]
@@ -3229,6 +3237,7 @@ end
 -- it walks off the screen and is gone.
 function spawn.wanderer(el, spr, h)
     local C = spr.clips
+    if h.fam == "pumpkinhead" and C and C.lift_nh and spawn.pumpkinhead then return spawn.pumpkinhead(el, spr, h) end
     if not (C and C.walk and C.idle and spr.origin and spr.unit and h.fam) then return nil end
     local u = spr.unit * H
     local c = C.walk
@@ -3310,6 +3319,212 @@ function spawn.wanderer(el, spr, h)
         a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
         return true, { layer }
     end
+    return a
+end
+
+-- Lying pumpkins: a pumpkin-head's head, set down (see below). It lies a while (or till a headless
+-- one picks it up), then sinks into the ground. x: its middle; m: facing left.
+local function new_pumpkin(el, spr, x, m, ttl)
+    local Hd = spr.clips.head
+    local h0 = Hd.track.head[1]
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, layers = 1, groups = {}, lying = true, cx = x, ttl = ttl or 240 }
+    local sink = 0
+    function a.update(dt)
+        a.ttl = a.ttl - dt
+        if a.gone then return false end
+        if a.ttl <= 0 and not a.taken then sink = sink + dt * 0.4 end
+        if sink >= 1 then return false end
+        local sg = m and -1 or 1
+        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
+        return true, { { spr = spr, frame = Hd.start, variant = m, x = x - sg * h0[1] - ox,
+                         y = H - spr.origin[2] - 0.34 * u - h0[2] + sink * 0.8 * u } }
+    end
+    adopt(a, el, { hops = 0 })
+    return a
+end
+local function lying_pumpkin(spr, not_this)
+    for _, a in ipairs(actors) do
+        if a.lying and a ~= not_this and not a.taken and not a.gone and a.ttl > 5 and a.spr == spr then return a end
+    end
+end
+
+-- pumpkin-head: one of the cast (the witch's living pumpkin-head, a prince that was a frog), its
+-- sprite with headless clips (*_nh) and its head alone ("head", the hands tracked: tools/bake). Near
+-- a screen edge or something in its way (a scene, the frogs' pile, a pumpkin) it lifts its head off,
+-- carries it down and leaves it lying - and walks on without it (h.headless). Headless, it makes for
+-- a pumpkin lying about, picks it up and puts it on: a pumpkin-head again. More pumpkins about, so.
+function spawn.pumpkinhead(el, spr, h)
+    local C = spr.clips
+    if not (C.walk and C.walk_nh and C.idle_nh and C.lift_nh and C.pick_nh and C.head and C.head.track
+            and C.lift_nh.track and C.pick_nh.track and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local dir = h.dir == 1 and 1 or -1
+    local headless = h.headless and true or false
+    local front = 0.5 * u
+    local x = walk_in_x(h, C.walk.stride_px * C.walk.fps / C.walk.count, front)
+    local a = { el = el, spr = spr, layers = 2, groups = { "walker" }, family = "pumpkinhead", from = h.from }
+    a.hops, a.ttl = 0, tonumber(h.ttl) or 60
+    local h0 = C.head.track.head[1]
+    local LT, PT = C.lift_nh.track, C.pick_nh.track
+    local function mean(k) return { (LT["hand.l"][k + 1][1] + LT["hand.r"][k + 1][1]) / 2,
+                                    (LT["hand.l"][k + 1][2] + LT["hand.r"][k + 1][2]) / 2 } end
+    local function handr(k) return PT["hand.r"][k + 1] end
+    local UP, LOW = 3, 6                         -- (lift_nh: hands at the head; pick_nh: at the ground)
+    local lift = -0.12 * u
+    local K = { h0[1] - mean(UP)[1], h0[2] + lift - mean(UP)[2] }        -- (the head over the hands)
+    local G = { handr(LOW)[1], -0.34 * u }                              -- (lying, at the hand)
+    local relC = { mean(0)[1] + K[1] - handr(0)[1], mean(0)[2] + K[2] - handr(0)[2] }
+    local relG = { G[1] - handr(LOW)[1], G[2] - handr(LOW)[2] }
+    local function lerp2(p, q, t) return { p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t } end
+    local function add2(p, q) return { p[1] + q[1], p[2] + q[2] } end
+
+    local state, tc = "walk", 0
+    local seq, si = nil, 0
+    local decided, target = false, nil
+    local pumpkin                                -- (the one lying it's picking up)
+    local down                                   -- (the one just set down: {x, m})
+    local function leave_it()
+        if not down then return end
+        a.dropped = new_pumpkin(el, spr, down.x, down.m, rnd(range(el.pumpkin_ttl, 240)))
+        down = nil
+    end
+    -- the head-off and head-on: phases {clip, f0, f1 (frames, either way) or hold+dur, head(k, p):
+    -- where its middle is (sprite px from the feet, facing right), nil: on the body / not drawn}
+    local function doff()
+        return {
+            { clip = "lift_nh", f0 = 0, f1 = UP, head = function() return h0 end },
+            { clip = "lift_nh", hold = UP, dur = 0.5, head = function(_, p) return { h0[1], h0[2] + lift * p } end },
+            { clip = "lift_nh", f0 = UP, f1 = 0, rate = 0.5, head = function(k) return add2(mean(k), K) end },
+            { clip = "pick_nh", f0 = 0, f1 = LOW, rate = 0.6, head = function(k) return add2(handr(k), lerp2(relC, relG, k / LOW)) end },
+            { clip = "pick_nh", f0 = LOW, f1 = 15, head = false, on = function()
+                -- (it lies there: drawn under it while it steps past, then left lying)
+                down = { x = x + dir * G[1], m = dir < 0 }
+                headless = true
+                msg.verbose("pumpkin-head: off with its head - a pumpkin lies there")
+            end },
+        }
+    end
+    local function don()
+        return {
+            { clip = "pick_nh", f0 = 0, f1 = LOW, head = false },
+            { clip = "pick_nh", f0 = LOW, f1 = 15, on = function()
+                if pumpkin then pumpkin.gone = true end
+                msg.verbose("pumpkin-head: picks up a pumpkin")
+            end, head = function(k) return add2(handr(k), lerp2(relG, relC, (k - LOW) / (15 - LOW))) end },
+            { clip = "lift_nh", f0 = 0, f1 = UP, head = function(k) return add2(mean(k), K) end },
+            { clip = "lift_nh", hold = UP, dur = 0.5, head = function(_, p) return { h0[1], h0[2] + lift * (1 - p) } end },
+            { clip = "cheer", f0 = 0, f1 = C.cheer and C.cheer.count - 1 or 0, head = false, on = function()
+                headless = false
+                msg.verbose("pumpkin-head: and it's on - a pumpkin-head again")
+            end },
+        }
+    end
+    local function turn_round()
+        dir = -dir
+        a.handed_on = nil
+    end
+    local function in_the_way()
+        for _, b in ipairs(actors) do
+            if b ~= a and (b.scene or b.pile or b.lying) and b.cx then
+                local ahead = (b.cx - x) * dir
+                if ahead > 0.8 * u and ahead < 2.2 * u then return true end
+            end
+        end
+        return false
+    end
+
+    function a.update(dt, t)
+        tc = tc + dt
+        a.ttl = a.ttl - dt
+        local clip, k, headp = headless and "walk_nh" or "walk", nil, nil
+        if state == "walk" then
+            local c = C[clip]
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            x = x + dir * v * dt
+            k = math.floor(tc * c.fps) % c.count
+            if not headless and not decided then
+                -- (near the edge: off it comes - not quite there, where the decor stands)
+                local edge = (dir > 0 and x > 0.82 * W) or (dir < 0 and x < 0.18 * W)
+                if h.doff_at then edge = (x - h.doff_at) * dir > 0 end
+                if (edge and x > 0.1 * W and x < 0.9 * W) or in_the_way() then
+                    decided = true
+                    if h.doff_at or math.random() < (el.doff_chance or 0.7) then
+                        state, seq, si, tc = "seq", doff(), 1, 0
+                        msg.verbose("pumpkin-head: lifts its head off")
+                    end
+                end
+            elseif headless and a.ttl > 0 then
+                target = target and not target.gone and target or lying_pumpkin(spr, a.dropped)   -- (not its own)
+                if target and not target.taken then
+                    local face = target.cx > x and 1 or -1
+                    if face ~= dir and math.abs(target.cx - x) > G[1] + 0.2 * u then turn_round() end   -- (the other way)
+                    local spot = target.cx - dir * G[1]             -- (where it stands to pick it up)
+                    local ahead = (spot - x) * dir
+                    if math.abs(ahead) <= v * dt * 1.5 then
+                        x, pumpkin, target.taken = spot, target, a
+                        state, seq, si, tc = "seq", don(), 1, 0
+                        msg.verbose("pumpkin-head: headless, it bends down to a pumpkin")
+                    elseif ahead < 0 and ahead > -1.0 * u then x = x - dir * v * dt * 2 end     -- (a step back)
+                end
+            end
+            local lead = dir > 0 and (x + front - W) or (front - x)
+            if state == "walk" and lead >= 0 and a.ttl > 0 then
+                if not walk_out(a, x, dir, front, { kind = "wanderer", fam = "pumpkinhead", headless = headless or nil,
+                                                    ttl = math.floor(a.ttl), unique = false, hops = 0, from = a.from }) then
+                    turn_round()
+                end
+            end
+            if down and math.abs(x - down.x) > 1.3 * u then leave_it() end
+            if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then leave_it() return false end
+        end
+        if state == "seq" then
+            local ph = seq[si]
+            if not ph then state, tc, decided = "walk", 0, true
+            else
+                if ph.on and not ph.done_on then ph.done_on = true ph.on() end
+                local c = C[ph.clip]
+                local p
+                if ph.hold then
+                    k, p = ph.hold, math.min(1, tc / ph.dur)
+                    if tc >= ph.dur then si, tc = si + 1, 0 end
+                else
+                    local n, fps = math.abs(ph.f1 - ph.f0), c.fps * (ph.rate or 1)
+                    local f = math.min(n, math.floor(tc * fps))
+                    k = ph.f0 + (ph.f1 > ph.f0 and f or -f)
+                    p = n > 0 and f / n or 1
+                    if tc >= (n + 1) / fps then si, tc = si + 1, 0 end
+                end
+                clip = ph.clip
+                if ph.head then headp = ph.head(k, p) end
+                if ph.head == false then headp = false end
+            end
+            if state == "walk" then
+                clip = headless and "walk_nh" or "walk"
+                k = 0
+            end
+        end
+        local c = C[clip]
+        k = math.max(0, math.min(c.count - 1, k or 0))
+        local mi = dir < 0
+        local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
+        local body = { spr = spr, frame = c.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
+        local head = nil
+        if headp then                                -- (the head where it's carried)
+            local sg = dir
+            head = { spr = spr, frame = C.head.start, variant = mi, x = x - ox + sg * (headp[1] - h0[1]),
+                     y = H - spr.origin[2] + (headp[2] - h0[2]) }
+        end
+        a.sx, a.sy, a.cx, a.facing = body.x, body.y, x, dir
+        if down then                                 -- (the head it set down, under it)
+            local sg, dm = down.m and -1 or 1, down.m
+            local dox = dm and (spr.w - spr.origin[1]) or spr.origin[1]
+            return true, { { spr = spr, frame = C.head.start, variant = dm, x = down.x - sg * h0[1] - dox,
+                             y = H - spr.origin[2] - 0.34 * u - h0[2] }, body }
+        end
+        return true, { body, head }
+    end
+    function a.release() leave_it() end
     return a
 end
 
@@ -4347,7 +4562,7 @@ end)
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next,
---   r = the scarecrow next, g = the two frogs next
+--   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head)
 --   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
@@ -4433,6 +4648,19 @@ end)
 mp.add_forced_key_binding("g", "theme-preview-frogs", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "frogs" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("j", "theme-preview-pumpkinhead", function()
+    local spr = M and M.sprites.pumpkinhead3d
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "witch" and spr and spawn.pumpkinhead then
+            local lying = false                  -- (one lying here: a headless one comes for it)
+            for _, b in ipairs(actors) do if b.lying and not b.taken then lying = true end end
+            local a = spawn.pumpkinhead(el, spr, { dir = 1, at = 0.1 * W, ttl = 120, hops = 0, headless = lying or nil,
+                                                    doff_at = not lying and 0.5 * W or nil })
+            if a then adopt(a, el, { hops = 0 }) end
+            return
+        end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

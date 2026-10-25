@@ -1,5 +1,5 @@
 {
- "_doc": "KayKit Skeletons (CC0, Kay Lousberg), see skeleton_minion.json. The Minion with a pumpkin for a head (props: lobes, stem, glowing carved eyes and grin): the witch's living pumpkin-head, out of her cauldron. Shown smaller than the others (its unit in theme.json).",
+ "_doc": "KayKit Skeletons (CC0, Kay Lousberg), see skeleton_minion.json. The Minion with a pumpkin for a head (props: lobes, stem, glowing carved eyes and grin): the witch's living pumpkin-head, out of her cauldron. Shown smaller than the others (its unit in theme.json). Without its head (*_nh, \"drop\"): it lifts it off (lift_nh: the hands tracked) and sets it down (pick_nh backwards), or picks one up; \"head\": the head alone, where it sits (tracked: its middle).",
  "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
  "hide": [
   "Icosphere",
@@ -179,6 +179,102 @@
    "action": "Taunt_Longer",
    "yaw": 15,
    "step": 2
+  },
+  "walk_nh": {
+   "action": "Walking_D_Skeletons",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "drop": [
+    "prop"
+   ]
+  },
+  "idle_nh": {
+   "action": "Idle_B",
+   "yaw": 15,
+   "loop": true,
+   "step": 2,
+   "drop": [
+    "prop"
+   ]
+  },
+  "turn_front_nh": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6,
+   "drop": [
+    "prop"
+   ]
+  },
+  "turn_side_nh": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6,
+   "drop": [
+    "prop"
+   ]
+  },
+  "lift_nh": {
+   "action": "Cheer",
+   "yaw": 90,
+   "step": 2,
+   "drop": [
+    "prop"
+   ],
+   "track": {
+    "hand.l": [
+     0,
+     0,
+     0
+    ],
+    "hand.r": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  "pick_nh": {
+   "action": "PickUp",
+   "yaw": 90,
+   "step": 2,
+   "drop": [
+    "prop"
+   ],
+   "track": {
+    "hand.l": [
+     0,
+     0,
+     0
+    ],
+    "hand.r": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  "head": {
+   "action": "Idle",
+   "yaw": 90,
+   "frames": 1,
+   "only": [
+    "prop"
+   ],
+   "track": {
+    "head": [
+     0,
+     0,
+     0.42
+    ]
+   }
   }
  }
 }

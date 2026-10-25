@@ -33,6 +33,9 @@
 #              that rises from the feet to the head (with a spiral edge)
 #   per clip "only": ["Knight_Head", "prop"]  render only the meshes whose names contain one of these
 #   per clip "show": ["2H_Staff"]  show meshes "hide" hides everywhere else (a stick for stirring)
+#   per clip "drop": ["prop"]  hide these meshes in this clip (a pumpkin-head without its head)
+#   per clip "track": {"hand.r": [0, 0, 0]}  where these bones (plus a world offset) are in each
+#              frame, in render pixels: clips.json "track" (the engine carries something along)
 #   per clip "spin": true  turn what shows about its own middle, a full turn over the clip's frames
 #              (in the picture plane): pieces flying off
 #   "props":   [{"bone": "head", "at": [0.3, 0, 0.1], "size": [0.05, 0.2], "axis": "x", "color": "#999"}]
@@ -467,10 +470,18 @@ for name, (a, fr) in clips.items():
     only = c.get("only")
     for o in meshes:
         o.hide_render = ((shown[o] and not any(n in o.name for n in c.get("show", [])))
-                         or bool(only and not any(n in o.name for n in only)))
+                         or bool(only and not any(n in o.name for n in only))
+                         or any(n in o.name for n in c.get("drop", [])))
+    track = {b: [] for b in c.get("track", {})}
     for i, (f, yaw) in enumerate(fr):
         pose(a, f, yaw)
         wrap_state(c, i, len(fr))
+        if track:
+            bpy.context.view_layer.update()
+            for b, off in c["track"].items():
+                p = rig.matrix_world @ rig.pose.bones[b].head + Vector(off)
+                track[b].append([round((p.x - x_lo) / frame_w * RES[0], 1),
+                                 round(RES[1] - (p.z - ground) / frame_h * RES[1], 1)])
         loc, rot = pivot.location.copy(), pivot.rotation_euler.copy()
         if c.get("spin"):
             # turn what shows about its own middle, in the picture plane: a piece flying off
@@ -489,6 +500,8 @@ for name, (a, fr) in clips.items():
     meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1) * c.get("speed", 1),
                   "loop": bool(c.get("loop", False)),
                   "stride": stride(a, fr) if c.get("stride") == "auto" else float(c.get("stride", 0))}
+    if track:
+        meta[name]["track"] = track
 json.dump({"view": "front", "model": R["model"], "clips": meta,
            "unit_px": RES[1] / frame_h, "origin_px": [RES[0] * -x_lo / frame_w, RES[1]]},
           open(os.path.join(OUT, "clips.json"), "w"), indent=1)
