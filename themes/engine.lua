@@ -1679,11 +1679,12 @@ function spawn.zombie(el, spr, h)
             dirt(10)
             msg.verbose("zombie: up out of the ground")
         end
-        if state == "up" or state == "down" then      -- (digging itself in, or out, in a spray of dirt)
-            local len = 1.6
+        if state == "up" or state == "down" then      -- (climbing out, or back in, in a spray of dirt)
+            local R = C.rise                           -- (its climbing out of the grave, played back to go in)
+            local len = R and R.count / R.fps or 1.6
             local p = clamp(tc / len, 0, 1)
             if state == "down" then p = 1 - p end
-            dy = (1 - p) * 2.6 * u
+            dy = R and 0 or (1 - p) * 2.6 * u
             if math.random() < dt * 8 and p < 0.9 then dirt(1) end
             if tc >= len then
                 if state == "down" then
@@ -1693,9 +1694,10 @@ function spawn.zombie(el, spr, h)
                     dy, state, tc, face_front = 0, "walk", 0, false
                 end
             end
-            c = C.sniff
+            c = R or C.sniff
             local f = c.start + math.floor(tc * c.fps) % c.count
-            local mi = dir < 0
+            if R then f = c.start + math.min(c.count - 1, math.floor(p * c.count)) end
+            local mi = not R and dir < 0
             local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
             local layer = { spr = spr, frame = f, variant = mi, x = x - ox, y = H - spr.origin[2] + dy }
             a.zx, a.sx, a.sy = x, layer.x, layer.y
@@ -2078,7 +2080,7 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
-local MORPH_CHANCE = { witch = 0.6, princess = 0.3 }
+local MORPH_CHANCE = { witch = 0.6, princess = 0.12 }
 local function witch_el()
     for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
 end
@@ -2974,7 +2976,7 @@ function spawn.princess(el, spr)
     if wit and not wit.clips.cackle then wit = nil end
     local story = "frog"
     if vamp and (#princes == 0 or math.random() < (el.vampire_chance or 0.4)) then story = "vampire" end
-    if story == "frog" and wit and (#princes == 0 or math.random() < (el.witch_chance or 0.25)) then story = "witch" end
+    if story == "frog" and wit and (#princes == 0 or math.random() < (el.witch_chance or 0.15)) then story = "witch" end
     if story == "frog" and #princes == 0 then return nil end
     local prince = story == "frog" and princes[math.random(#princes)] or nil
     -- (the other one's family counts from the start: no second one of them comes meanwhile)
@@ -3718,7 +3720,7 @@ function spawn.wanderer(el, spr, h)
             end
             clods = keep
         end
-        local rising = C.rise and fam == "skeleton"      -- (its own clip; a zombie digs itself in/out)
+        local rising = C.rise and TUNNEL[fam]           -- (its climbing out of the grave, played back to go in)
         if state == "under" then                         -- (on its way here, under the screens)
             a.under_t = a.under_t - dt
             if a.under_t > 0 then return true, {} end
@@ -3904,7 +3906,7 @@ function spawn.bird(el, spr, h)
             clip, k = "sit", math.floor(t * B.sit.fps) % B.sit.count
             if t > 3 and not a.asked then
                 a.asked = true
-                if math.random() < (el.witch_back or 0.35) and hooks.witch_from(x, dir) then
+                if math.random() < (el.witch_back or 0.15) and hooks.witch_from(x, dir) then
                     msg.verbose("bird: in a puff, the raven is the witch")
                     return false
                 end
@@ -4189,7 +4191,9 @@ function spawn.pumpkinhead(el, spr, h)
                 end
             end
             local lead = dir > 0 and (x + front - W) or (front - x)
-            if state == "walk" and lead >= 0 and a.ttl > 0 then
+            -- (at the edge mostly gone for good: off it walks, not over to the screen next door)
+            if state == "walk" and lead >= 0 and a.goes_off == nil then a.goes_off = math.random() < (el.pumpkin_off or 0.85) end
+            if state == "walk" and lead >= 0 and a.ttl > 0 and not a.goes_off then
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = "pumpkinhead", headless = headless or nil,
                                                     ttl = math.floor(a.ttl), unique = false, hops = 0, from = a.from }) then
                     turn_round()
@@ -5035,6 +5039,24 @@ local function tick()
     end
     actors = keep
 
+    -- zombies one at a time (the element, the cast; coming over, up from under the ground): a second
+    -- one here, or one here while another screen had one first (a while: one walking over is on
+    -- both for a moment), sinks back into the ground
+    do
+        local first
+        for _, a in ipairs(actors) do
+            if not a.leaving and not a.gone and a.handed_on ~= "yes" and is_character(a) and actor_family(a) == "zombie" then
+                local dup = first or room.taken["chr:zombie"]
+                a.dup_t = dup and (a.dup_t or 0) + dt or 0
+                if a.dup_t > (first and 0.5 or 10) then
+                    leave(a, "grave")
+                    msg.verbose("room: one zombie at a time, this one sinks into the ground")
+                end
+                first = first or a
+            end
+        end
+    end
+
     -- tell the room what this screen shows (the player passes it on when it changed)
     if room.active then
         room.claim_t = (room.claim_t or 0) - dt
@@ -5045,8 +5067,10 @@ local function tick()
             for _, a in ipairs(actors) do
                 if a.unique and a.spr then set[claim_key(a.spr)] = true end
                 for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then set["grp:" .. g] = true end end
-                if is_character(a) then set["chr:" .. actor_family(a)] = true end
-                for _, f in ipairs(a.also or {}) do set["chr:" .. f] = true end   -- (a duet: the other one)
+                if a.handed_on ~= "yes" then          -- (one walking off to next door: theirs to claim now)
+                    if is_character(a) then set["chr:" .. actor_family(a)] = true end
+                    for _, f in ipairs(a.also or {}) do set["chr:" .. f] = true end   -- (a duet: the other one)
+                end
             end
             if #cats > 0 then set["spr:cat"] = true end
             for g in pairs(ROOM_GROUPS) do
@@ -5319,7 +5343,7 @@ end)
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
---   zombie (of the cast) after it, the zombie element next too (dropping a piece of its own)
+--   zombie (of the cast) after it (one here already: that one, and its next stop drops a piece)
 --   (walkers started so go towards a screen next door, if there is one)
 local under_k, morph_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
@@ -5464,15 +5488,15 @@ mp.add_forced_key_binding("e", "theme-preview-brain", function()
     local z = { gone = false }
     local b = new_brain(zel, B, 0.6 * W, H - 2 * spr.unit * H, 0.5 * spr.unit * H, z, spr.unit * H)
     b.drop_t = 0
+    for _, a in ipairs(actors) do
+        if actor_family(a) == "zombie" and is_character(a) then zel.brain_force = true return end
+    end
     for _, el in ipairs(M.elements) do
         if el.type == "frogs" then
             local a = spawn.wanderer(el, spr, { fam = "zombie", dir = 1, at = 0.1 * W, ttl = 120, hops = 0 })
             if a then adopt(a, el, { hops = 0 }) a.next_at = 1e9 end
         end
     end
-    elements[zel] = elements[zel] or { active = 0 }
-    elements[zel].next, elements[zel].force = mp.get_time() + 8, true
-    zel.brain_force = true
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

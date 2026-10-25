@@ -7,6 +7,10 @@
    "meshes": [
     "Knight_Head"
    ]
+  },
+  {
+   "model": "../models/kaykit-skeletons/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb",
+   "meshes": []
   }
  ],
  "hide": [
@@ -297,6 +301,11 @@
      5
     ]
    }
+  },
+  "rise": {
+   "action": "Spawn_Ground_Skeletons",
+   "yaw": 15,
+   "step": 2
   }
  },
  "props": [
