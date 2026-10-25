@@ -183,7 +183,9 @@ if SHELL:
 
 # props: simple shapes riding on a bone (neck bolts), placed in the rest pose relative to the
 # bone's head: {"bone": "head", "at": [x, y, z], "shape": "cylinder", "size": [radius, length],
-# "axis": "x", "color": "#..."}  (or "shape": "cube", "size": [sx, sy, sz])
+# "axis": "x", "color": "#..."}  (or "shape": "cube", "size": [sx, sy, sz]; "shape": "sphere",
+# "size": [rx, ry, rz]; "shape": "cone", "size": [radius, length], pointing up; both turned by
+# "rot": [x, y, z] degrees)
 for i, pr in enumerate(R.get("props", [])):
     b = rig.data.bones[pr["bone"]]
     at = rig.matrix_world @ b.head_local + Vector(pr.get("at", [0, 0, 0]))
@@ -191,6 +193,15 @@ for i, pr in enumerate(R.get("props", [])):
         bpy.ops.mesh.primitive_cube_add(size=1, location=at)
         o = bpy.context.object
         o.scale = pr["size"]
+    elif pr["shape"] in ("cone", "sphere"):
+        if pr["shape"] == "cone":
+            r, ln = pr["size"]
+            bpy.ops.mesh.primitive_cone_add(radius1=r, radius2=0, depth=ln, vertices=12, location=at)
+        else:
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=1, segments=20, ring_count=10, location=at)
+            bpy.context.object.scale = pr["size"]
+        o = bpy.context.object
+        o.rotation_euler = [math.radians(v) for v in pr.get("rot", [0, 0, 0])]
     else:
         r, ln = pr["size"]
         bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=ln, vertices=16, location=at)

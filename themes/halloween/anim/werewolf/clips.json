@@ -1,0 +1,74 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 19,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.3410609337416562
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "spin": {
+   "files": "spin_*.png",
+   "count": 16,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "howl": {
+   "files": "howl_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "flinch": {
+   "files": "flinch_*.png",
+   "count": 9,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "back": {
+   "files": "back_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.3843474794517864
+  },
+  "run": {
+   "files": "run_*.png",
+   "count": 10,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 1.5375957231629978
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  147.72727272727272,
+  384
+ ]
+}

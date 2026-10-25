@@ -28,6 +28,7 @@ local OX, OY = 0, 0       -- where the visible area starts
 local overscan = { 0, 0, 0, 0 }  -- left, top, right, bottom: fractions a TV hides (theme-overscan)
 local decor = {}         -- static/bobbing actors
 local actors = {}        -- transient actors (walkers, flyers, peekers, particles, droppers)
+local cats = {}          -- the cats (prowler.lua), see tick_cats
 local webs = {}          -- orb weavers (weaver.lua): not cleared by refresh, a video starting must not wipe a half-built web
 local elements = {}      -- element state (next spawn time, active count)
 local shown = {}         -- id -> last draw key (skip redundant overlay-add)
@@ -583,6 +584,15 @@ local hooks = { cats = function() return {} end }   -- (filled in where the cats
 local function zombie_near(x, dist)
     for _, a in ipairs(actors) do
         if a.zx and not a.leaving and math.abs(a.zx - x) < dist then return a.zx end
+    end
+end
+
+-- the werewolf (as a wolf) ahead of a cat at x walking dir: his x, or nil (see prowler.lua standoff)
+local function werewolf_near(x, dir)
+    for _, a in ipairs(actors) do
+        if a.wolf_x and not a.leaving and (a.wolf_x - x) * dir > 0 and math.abs(a.wolf_x - x) < 0.3 * H then
+            return a.wolf_x
+        end
     end
 end
 
@@ -2039,6 +2049,158 @@ function spawn.hopper(el, spr, h)
     return a
 end
 
+-- werewolf: a man (a lumberjack) comes in, stops, looks about - and spins round, faster and
+-- faster, a puff of fur and he's the wolf, spinning out of it; a howl and on he prowls, over to
+-- the screen next door (h.form: as what he goes on). Come in as the wolf he may turn back. A cat
+-- coming at him (it arches its back, red eyes, hisses: prowler.lua) frightens the wolf: he
+-- flinches, backs off and runs back the way he came. Sprites: el.sprite the man, el.wolf the
+-- wolf (same rig and frame). Planned coming in from the left, mirrored half the time.
+function spawn.werewolf(el, spr, h)
+    local wolf = M.sprites[el.wolf or ""]
+    local C, Wc = spr.clips, wolf and wolf.clips
+    if not (C and C.walk and C.spin and Wc and Wc.walk and Wc.spin and Wc.flinch and Wc.back
+            and spr.origin and wolf.origin and spr.unit) then
+        return nil
+    end
+    local u = spr.unit * H
+    local a = { el = el, spr = spr, layers = 1 }
+    local d
+    local form = (h and h.form == "wolf") and "wolf" or "man"
+    local wx
+    if h then
+        d = h.dir == 1 and 1 or -1
+        local c = (form == "wolf" and Wc or C).walk
+        local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+        local sx = walk_in_x(h, v, 0.5 * u)
+        wx = d > 0 and sx or W - sx
+    else
+        d = walk_dir(el)
+        wx = -1.2 * u
+    end
+    local function clips(f) return f == "wolf" and Wc or C end
+    local function sprite(f) return f == "wolf" and wolf or spr end
+
+    -- the plan: steps (f: man or wolf; walk to, a clip once or for dur, facing m; spin: turns,
+    -- rate from..to; puff: the change)
+    local steps, X, face, F = {}, wx, 1, form
+    local function add(s) s.f = s.f or F; steps[#steps + 1] = s; return s end
+    local function turn(f)
+        if f == face then return end
+        if face ~= 0 and clips(F).turn_front then add { clip = "turn_front", m = face < 0 } end
+        if f ~= 0 and clips(F).turn_side then add { clip = "turn_side", m = f < 0 } end
+        face = f
+    end
+    local function go(to, clip)
+        turn(to > X and 1 or -1)
+        add { clip = clip or "walk", to = to, m = face < 0 }
+        X = to
+    end
+    local function stop(clip, dur) turn(0) return add { clip = clip, dur = dur, act = true } end
+    local function change()                        -- spin up as one, spin down as the other
+        turn(0)
+        add { clip = "spin", spin = { 2, 0.4, 2.2 } }
+        F = F == "man" and "wolf" or "man"
+        add { clip = "spin", spin = { 2, 2.2, 0.4 }, puff = true, log = "werewolf: turns into a " .. F }
+    end
+    local at = rnd(math.max(2 * u, W * 0.3), math.min(W - 2 * u, W * 0.65))
+    if at < X + 2 * u then at = math.min(W - 2 * u, X + 3 * u) end
+    go(at)
+    stop("idle", rnd(1, 2))
+    if F == "man" or math.random() < 0.5 then
+        if F == "man" then stop("idle", rnd(0.8, 1.5)) end   -- (the moon...)
+        change()
+        if F == "wolf" and clips(F).howl then stop("howl") end
+        stop("idle", rnd(0.8, 1.6))
+    elseif clips(F).howl then
+        stop("howl")
+    end
+    go(W + 1.5 * u)
+
+    local si, tc, ph = 1, 0, 0
+    local puffs = {}
+    a.line = pick_line(el)
+    a.hops = h and tonumber(h.hops) or 0
+    local function scr(x) return (d > 0) and x or (W - x) end
+    local function flee(cx)                         -- the cat at cx (screen): back off, run back
+        local side = ((d > 0 and cx or W - cx) > wx) and 1 or -1    -- (scene space)
+        local new = {}
+        steps, X, face, F = new, wx, side, "wolf"
+        add { clip = "flinch", m = side < 0, log = "werewolf: frightened by the cat" }
+        add { clip = "back", to = wx - side * 1.6 * u, m = side < 0, back = true }
+        turn(-side)
+        local off = side > 0 and -1.5 * u or W + 1.5 * u
+        add { clip = Wc.run and "run" or "walk", to = off, m = side > 0 }
+        si, tc, a.fled = 1, 0, true
+    end
+
+    function a.update(dt, t)
+        local s = steps[si]
+        if not s then return false end
+        if si ~= a.logged then
+            a.logged = si
+            if s.log then msg.verbose(s.log) end
+            if s.puff then
+                for _ = 1, 8 do
+                    puffs[#puffs + 1] = { x = scr(wx) + rnd(-0.5, 0.5) * u, y = H - rnd(0.3, 2.2) * u,
+                                          r = rnd(0.25, 0.45) * u, vx = rnd(-0.8, 0.8) * u, t = 0 }
+                end
+            end
+        end
+        local CC = clips(s.f)
+        local c = CC[s.clip] or CC.walk
+        tc = tc + dt
+        local done, frame
+        if s.to then
+            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local dir = s.to > wx and 1 or -1
+            wx = wx + dir * v * dt
+            if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
+            if not s.back then walk_out(a, scr(wx), dir * d, 0.5 * u, { form = s.f, sprite = spr.name }) end
+            frame = c.start + math.floor(tc * c.fps) % c.count
+        elseif s.spin then
+            local n, r0, r1 = s.spin[1], s.spin[2], s.spin[3]
+            local total = c.count * n
+            local q = clamp(ph / total, 0, 1)
+            ph = ph + c.fps * (r0 + (r1 - r0) * q) * dt
+            frame = c.start + math.floor(ph) % c.count
+            if ph >= total then done, ph = true, 0 end
+        else
+            local k = math.floor(tc * c.fps)
+            frame = c.start + (c.loop and k % c.count or math.min(k, c.count - 1))
+            done = tc >= (s.dur or c.count / c.fps)
+        end
+        -- as the wolf, a cat standing up to him (close by) sends him off
+        if s.f == "wolf" and not a.fled then
+            a.wolf_x = scr(wx)
+            for _, cat in ipairs(cats) do
+                if cat.arched and math.abs(cat.p.x - a.wolf_x) < 0.32 * H then flee(cat.p.x) return true end
+            end
+        else
+            a.wolf_x = (s.f == "wolf") and scr(wx) or nil
+        end
+        local sp = sprite(s.f)
+        local mi = (s.m and true or false) ~= (d < 0)
+        local ox = mi and (sp.w - sp.origin[1]) or sp.origin[1]
+        local l = { spr = sp, frame = frame, variant = mi, x = scr(wx) - ox, y = H - sp.origin[2] }
+        a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
+        a.talking = a.line and s.act and true or false
+        if a.talking and not a.say_t then a.say_t = t end
+        local keep = {}
+        for _, p in ipairs(puffs) do
+            p.t, p.x, p.y = p.t + dt, p.x + p.vx * dt, p.y - 0.5 * u * dt
+            if p.t < 1.3 then keep[#keep + 1] = p end
+        end
+        puffs = keep
+        if done then si, tc = si + 1, 0 end
+        if (wx < -1.4 * u or wx > W + 1.4 * u) and s.to and not s.back then return false end
+        return true, { l }
+    end
+    function a.ass(out)
+        for _, p in ipairs(puffs) do puff(out, p.x, p.y, p.r * (1 + p.t), 0.3 + 0.7 * p.t / 1.3) end
+    end
+    return a
+end
+
 -- passer: someone just passing through, come over from the screen next door (or, from_far,
 -- coming in at the far side, hurrying towards it): walks (clip, rate) across and off, and on to
 -- the next screen, if any.
@@ -2499,7 +2661,6 @@ end
 -- ── prowlers (prowler.lua): a cat strolling along the bottom edge ────────────
 
 local prowler = load_module("prowler.lua")
-local cats = {}
 local cat_next = {}  -- element name -> time the next cat may come
 local cat_dir        -- (preview key) the next cat walks this way
 
@@ -2531,7 +2692,7 @@ hooks.cat_in = function(el, h)          -- a cat come over from next door (see t
     local speed = clamp(tonumber(h.speed) or 6, 2, 10)
     local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things, dir = h.dir == 1 and 1 or -1,
         speed = speed, lead = (tonumber(h.lead) or 0) + speed * late - room.gap / u0,
-        scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end })
+        scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end, threat = werewolf_near })
     c.name, c.hops = el.name or "prowler", tonumber(h.hops) or 1
     cats[#cats + 1] = c
     room.claim_t = 0
@@ -2577,7 +2738,7 @@ local function tick_cats(dt, now)
         cat_next[name] = cat_next[name] or now + rnd(range(el.delay, 10))
         if (count[name] or 0) < 1 and now >= cat_next[name] and not holding() and not room.taken["spr:cat"] then
             local c = prowler.new({ W = W, H = H, size = el.size, obstacles = bottom_things, dir = cat_dir,
-                scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end })
+                scare = function(x) return zombie_near(x, 0.46 * H) or fright_near(x) end, threat = werewolf_near })
             c.name, cat_dir = name, nil
             cats[#cats + 1] = c
             room.claim_t = 0
@@ -3074,7 +3235,7 @@ end)
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
---   h = the witch (and her cauldron) next
+--   h = the witch (and her cauldron) next, l = the werewolf next
 --   (walkers started so go towards a screen next door, if there is one)
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
@@ -3140,6 +3301,11 @@ end)
 mp.add_forced_key_binding("h", "theme-preview-witch", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "witch" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("l", "theme-preview-werewolf", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "werewolf" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

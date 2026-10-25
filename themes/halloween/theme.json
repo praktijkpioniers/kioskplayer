@@ -137,6 +137,14 @@
       "anim": "anim/frog",
       "unit": 0.115
     },
+    "werewolf_man3d": {
+      "anim": "anim/werewolf_man",
+      "unit": 0.115
+    },
+    "werewolf3d": {
+      "anim": "anim/werewolf",
+      "unit": 0.115
+    },
     "mummy3d": {
       "anim": "anim/mummy",
       "unit": 0.115
@@ -769,6 +777,26 @@
       "delay": [
         30,
         150
+      ],
+      "say": true,
+      "group": [
+        "monster",
+        "walker"
+      ]
+    },
+    {
+      "type": "werewolf",
+      "sprite": "werewolf_man3d",
+      "wolf": "werewolf3d",
+      "min": 8,
+      "video_min": 8,
+      "every": [
+        300,
+        600
+      ],
+      "delay": [
+        40,
+        180
       ],
       "say": true,
       "group": [

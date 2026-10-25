@@ -1,0 +1,70 @@
+{
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The werewolf as a man: the Barbarian without helmet, cape and weapons, a red lumberjack shirt. spin: a double turn (the engine speeds it up; halfway through the wolf's spin takes over, see werewolf.json).",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
+ "hide": [
+  "Icosphere",
+  "1H_Axe",
+  "1H_Axe_Offhand",
+  "2H_Axe",
+  "Barbarian_Round_Shield",
+  "Mug",
+  "Barbarian_Hat",
+  "Barbarian_Cape"
+ ],
+ "recolor": {
+  "barbarian_texture": {
+   "1,0": "#6b4a2b",
+   "0,1": "#a8322d",
+   "1,1": "#8a2a26",
+   "7,0": "#2f3a4a",
+   "6,1": "#d8cfc0"
+  }
+ },
+ "outline": 0.008,
+ "frame": {
+  "x": [
+   -0.9,
+   1.0
+  ],
+  "h": 2.6
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6
+  },
+  "spin": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    735
+   ],
+   "frames": 16
+  }
+ }
+}

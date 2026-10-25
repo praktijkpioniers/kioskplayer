@@ -22,6 +22,7 @@ local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
 -- colours (&HBBGGRR&)
 local FUR, FUR_FAR, RIM = "&H241C18&", "&H3E3631&", "&H8C847E&"
 local EYE, PUPIL, PINK, WHISKER = "&H30C4E4&", "&H080808&", "&H9C8CE6&", "&HC8C8C8&"
+local RED_EYE = "&H1010F0&"
 
 -- body measures (u)
 local FL1, FL2 = 2.9, 2.9            -- front leg: upper arm, forearm (to the wrist)
@@ -34,6 +35,10 @@ local CLIMB, MAX_UP = 3, 22          -- steps up to this it walks; jumps no high
 local STAND = { hh = 6.4, ba = 0.02, bl = 8.6, nx = 2.2, ny = -2.9, hp = 0, fold = 0 }
 local SIT   = { hh = 2.7, ba = 0.79, bl = 6.4, nx = 0.9, ny = -3.0, hp = 0, fold = 1,
                 ta = 1.9, tk = -0.32, tc = 0, tw = 0.04 }
+-- a fright (the werewolf): up on its toes, the back arched high, the tail up and bristling, red
+-- eyes, hissing
+local ARCH = { hh = 7.6, ba = 0.0, bl = 8.0, nx = 2.0, ny = -2.0, hp = 0.15, fold = 0, arch = 1, red = 1, hiss = 1,
+               ta = -1.45, tk = -0.02, tc = 0, tw = 0.03, bristle = 1 }
 local SCRATCH = { hh = 6.9, ba = 0.95, bl = 8.0, nx = 1.5, ny = -2.6, hp = -0.1, fold = 0,
                   ta = -1.65, tk = 0.04, tc = 0.05, tw = 0.25 }
 local TAILS = {
@@ -123,12 +128,13 @@ local function new_cat(o)
     self.speed = o.speed or rnd(5.5, 7.0) -- u/s
     self.obstacles = o.obstacles or function() return {} end   -- {x1, x2, pumpkin, x, y, w, h, profile, mirror}
     self.scare = o.scare or function() end                        -- (x) → x of a zombie near x, or nil
+    self.threat = o.threat or function() end                      -- (x, dir) → x of a werewolf ahead, or nil
     self.elev, self.air = 0, false        -- u above the ground: standing on something / in a jump
     self.phase, self.bob = 0, 0
     self.T = 0
     self.blink_at, self.blink = rnd(1, 4), 1
     self.face_want, self.back = 1, 0
-    local p = { x = 0, sx = 1, hs = 1, face = 1, eye = 1, gx = 0, tongue = 0 }
+    local p = { x = 0, sx = 1, hs = 1, face = 1, eye = 1, gx = 0, tongue = 0, arch = 0, red = 0, hiss = 0, bristle = 0 }
     for k, v in pairs(STAND) do p[k] = v end
     for k, v in pairs(TAILS[math.random(#TAILS)]) do p[k] = v end
     self.tail = { ta = p.ta, tk = p.tk, tc = p.tc, tw = p.tw }
@@ -377,6 +383,11 @@ function C:walk_to(tx, noleap)
             rem = (tx - p.x) * self.dir / u
             if rem <= 0.05 then break end
         end
+        -- a werewolf ahead: it stops and stands up to him, until he's gone
+        if self.threat(p.x, self.dir) then
+            self:standoff()
+            v = 0
+        end
         -- a zombie near: dash past it (no slowing down for the stop), looking back at it once past
         local zx = self.scare(p.x)
         local want = zx and self.speed * 2.4 or math.min(self.speed, sqrt(2 * acc * rem) + 0.3)
@@ -473,6 +484,38 @@ function C:pause_here()
         self:look_around()
         self:stand_up()
     end
+end
+
+-- face up to the werewolf: arch, hiss (a lunge or two at him) until he's backed off
+function C:standoff()
+    local p = self.p
+    self.v = 0
+    self:settle(0.15)
+    self:look(1)
+    local t = {}
+    for k, v in pairs(ARCH) do t[k] = v end
+    for k, v in pairs(self:neutral_feet({}, ARCH)) do t[k] = v end
+    self.arched = true
+    require("mp.msg").verbose("cat: arches its back at the werewolf")
+    self:tween(t, 0.35)
+    local held = 0
+    while self.threat(p.x, self.dir) and held < 8 do
+        local x0 = p.x
+        self:tween({ x = x0 + self.dir * 1.2 * self.u, hp = 0.3 }, 0.15)     -- a lunge
+        self:tween({ x = x0, hp = 0.15 }, 0.3)
+        local w = rnd(0.6, 1.4)
+        self:wait(w)
+        held = held + 0.45 + w
+    end
+    self:wait(rnd(0.5, 1))
+    self.arched = false
+    local b = self:neutral_feet({}, STAND)
+    for k, v in pairs(STAND) do b[k] = v end
+    for k, v in pairs(self.tail) do b[k] = v end
+    b.arch, b.red, b.hiss, b.bristle = 0, 0, 0, 0
+    self:tween(b, 0.6)
+    self:look(-1, 0.6)           -- a look back: and stay away
+    self:look(1)
 end
 
 function C:pumpkin_there(edge)
@@ -667,14 +710,18 @@ function C:frame()
         x, y = x + TAIL_SEG * cos(a), math.min(-0.5, y + TAIL_SEG * sin(a))
         chain[#chain + 1] = x; chain[#chain + 1] = y
     end
-    body[#body + 1] = strip(chain, 0.95, 0.5)
+    body[#body + 1] = strip(chain, 0.95 + 0.9 * p.bristle, 0.5 + 0.8 * p.bristle)   -- (bristling: thick)
     -- torso: a flat back, a full belly, deep chest, round haunch (offsets turn with the body)
     local function B(x0, y0, ox, oy) return x0 + ox * cb + oy * sb, y0 - ox * sb + oy * cb end
     local ax, ay = B(hpx, hpy, 0, -0.3)
     local bx2, by2 = B(shx, shy, 0, -0.25)
     body[#body + 1] = capsule(ax, ay, 1.95, bx2, by2, 1.9)
-    local mx, my = B(hpx, hpy, p.bl * 0.5, 0.75)
-    body[#body + 1] = ellipse(mx, my, p.bl * 0.4, 2.45, -p.ba)
+    local mx, my = B(hpx, hpy, p.bl * 0.5, 0.75 - 2.6 * p.arch)     -- (arched: the middle up high)
+    body[#body + 1] = ellipse(mx, my, p.bl * 0.4, 2.45 + 0.4 * p.arch, -p.ba)
+    if p.arch > 0 then             -- the hump, joining haunch and shoulders over the top
+        local ux, uy = B(hpx, hpy, p.bl * 0.5, -1.3 - 2.4 * p.arch)
+        body[#body + 1] = ellipse(ux, uy, p.bl * 0.38, 1.6 * p.arch + 0.01, -p.ba)
+    end
     local cx, cy = B(hpx, hpy, -0.2, 0.15)
     body[#body + 1] = ellipse(cx, cy, 2.6 + 0.3 * p.fold, 2.7, -p.ba)
     cx, cy = B(shx, shy, 0.2, 0.75)
@@ -728,9 +775,10 @@ function C:frame()
         if open > 0.3 then pupils[#pupils + 1] = oval(1.1, -0.35, 0.13, 0.33 * open) end
         pink[#pink + 1] = oval(2.55, 0.2, 0.2, 0.16)
         if p.tongue > 0.5 then pink[#pink + 1] = oval(2.3, 1.15, 0.4, 0.26) end
+        if p.hiss > 0.5 then pink[#pink + 1] = poly({ 1.4, 0.9, 2.6, 0.7, 2.4, 1.6 }) end   -- hissing
         for k = -1, 1 do line(2.0, 0.75, 4.3, 0.55 + k * 0.6) end
     end
-    ev[#ev + 1] = self:event(eyes, EYE)
+    ev[#ev + 1] = self:event(eyes, p.red > 0.5 and RED_EYE or EYE)
     if #pupils > 0 then ev[#ev + 1] = self:event(pupils, PUPIL) end
     ev[#ev + 1] = self:event(pink, PINK)
     -- whiskers: hairlines (degenerate paths drawn by their outline)
@@ -747,4 +795,4 @@ function C:render(now, out, hz)
     for _, e in ipairs(self.drawn) do out[#out + 1] = e end
 end
 
-return { new = new_cat, NOSE = NOSE, poses = { STAND = STAND, SIT = SIT, SCRATCH = SCRATCH, TAILS = TAILS } }
+return { new = new_cat, NOSE = NOSE, poses = { STAND = STAND, SIT = SIT, SCRATCH = SCRATCH, ARCH = ARCH, TAILS = TAILS } }

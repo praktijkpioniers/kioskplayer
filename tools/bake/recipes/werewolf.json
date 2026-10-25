@@ -1,0 +1,269 @@
+{
+ "_doc": "The werewolf as a wolf: the same Barbarian (werewolf_man.json), fur where the skin was, the beard a ruff, the shirt torn; ears, snout, nose and yellow eyes are props; hunched (spine turned). spin: the same double turn as the man's. howl: Cheer, the head up. flinch: Hit_A (the cat!), back: walking backwards, run: off.",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
+ "hide": [
+  "Icosphere",
+  "1H_Axe",
+  "1H_Axe_Offhand",
+  "2H_Axe",
+  "Barbarian_Round_Shield",
+  "Mug",
+  "Barbarian_Hat",
+  "Barbarian_Cape"
+ ],
+ "recolor": {
+  "barbarian_texture": {
+   "0,0": "#7a6250",
+   "1,0": "#4e3e33",
+   "0,1": "#8a2a26",
+   "1,1": "#6e2420",
+   "7,0": "#2f3a4a",
+   "5,1": "#5a4636",
+   "6,0": "#4a3b30",
+   "6,1": "#7a6250",
+   "5,0": "#4a3b30"
+  }
+ },
+ "outline": 0.008,
+ "bone_scale": {
+  "head": 0.85
+ },
+ "props": [
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0.3,
+    0.08,
+    1.0
+   ],
+   "size": [
+    0.19,
+    0.55
+   ],
+   "rot": [
+    0,
+    22,
+    0
+   ],
+   "color": "#6a5444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    -0.3,
+    0.08,
+    1.0
+   ],
+   "size": [
+    0.19,
+    0.55
+   ],
+   "rot": [
+    0,
+    -22,
+    0
+   ],
+   "color": "#6a5444"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    -0.6,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.42
+   ],
+   "rot": [
+    95,
+    0,
+    0
+   ],
+   "color": "#7a6250"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.8,
+    0.33
+   ],
+   "size": [
+    0.09,
+    0.06,
+    0.07
+   ],
+   "color": "#151515"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0.19,
+    -0.47,
+    0.42
+   ],
+   "size": [
+    0.06,
+    0.03,
+    0.05
+   ],
+   "color": "#ffd23a"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    -0.19,
+    -0.47,
+    0.42
+   ],
+   "size": [
+    0.06,
+    0.03,
+    0.05
+   ],
+   "color": "#ffd23a"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.5,
+    0.27
+   ],
+   "size": [
+    0.24,
+    0.2,
+    0.16
+   ],
+   "color": "#7a6250"
+  }
+ ],
+ "frame": {
+  "x": [
+   -1.0,
+   1.2
+  ],
+  "h": 2.6
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_C",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "turn": {
+    "spine": [
+     18,
+     0,
+     0
+    ]
+   }
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2,
+   "turn": {
+    "spine": [
+     12,
+     0,
+     0
+    ]
+   }
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6,
+   "turn": {
+    "spine": [
+     12,
+     0,
+     0
+    ]
+   }
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6,
+   "turn": {
+    "spine": [
+     12,
+     0,
+     0
+    ]
+   }
+  },
+  "spin": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    735
+   ],
+   "frames": 16,
+   "turn": {
+    "spine": [
+     12,
+     0,
+     0
+    ]
+   }
+  },
+  "howl": {
+   "action": "Cheer",
+   "yaw": 40,
+   "step": 2,
+   "turn": {
+    "head": [
+     -30,
+     0,
+     0
+    ]
+   }
+  },
+  "flinch": {
+   "action": "Hit_A",
+   "yaw": 90,
+   "step": 2
+  },
+  "back": {
+   "action": "Walking_Backwards",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "turn": {
+    "spine": [
+     18,
+     0,
+     0
+    ]
+   }
+  },
+  "run": {
+   "action": "Running_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  }
+ }
+}
