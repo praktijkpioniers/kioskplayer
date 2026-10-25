@@ -320,6 +320,30 @@ local function cast_here(fam, skip)
                 and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then return a end
     end
 end
+-- the frogs about: here (hopping about, on the pile), each with a token the room hears of
+-- ("frog:<token>" claims), and in the whole room (those on other screens too)
+local function frogs_here(each)
+    local n = 0
+    for _, a in ipairs(actors) do
+        if a.frog and not a.gone and not a.leaving then
+            n = n + 1
+            if each then each(a) end
+        end
+        if a.pile and a.list then
+            for _, f in ipairs(a.list()) do
+                n = n + 1
+                if each then each(f) end
+            end
+        end
+    end
+    return n
+end
+local function room_frogs()
+    local n = frogs_here()
+    for k in pairs(room.taken) do if k:sub(1, 5) == "frog:" then n = n + 1 end end
+    return n
+end
+local FEW_FROGS = 3                         -- (fewer about: the witch comes sooner, brews more frogs)
 local function chars_here(fam, skip)       -- how many characters here (and whether one of fam)
     local n, same = 0, false
     for _, a in ipairs(actors) do
@@ -2094,7 +2118,9 @@ local function next_act(w)
     if not M then return false end
     local fam = w.family or (w.frog and "frog")
     local now = mp.get_time()
-    if w.morph and (w.force_morph or math.random() < (MORPH_CHANCE[fam] or 0)) then    -- a spell on herself
+    -- (the witch only once she's done something: cooked, or been the princess)
+    local may_go = fam ~= "witch" or w.cooked or w.was_pr
+    if w.morph and (w.force_morph or (may_go and math.random() < (MORPH_CHANCE[fam] or 0))) then    -- a spell on herself
         local opts = {}
         local wel = witch_el()
         if fam == "witch" then
@@ -2268,7 +2294,8 @@ function spawn.witch(el, spr)
     local cs = S[el.carriage or ""]
     if not (cs and cs.clips and cs.clips.drive and cs.clips.stand and cs.origin) then cs = nil end
     local lp = cs and pk and lying_pumpkin(pk) or nil
-    if lp and (lp.ttl < 30 or math.random() >= (el.carriage_chance or 0.5)) then lp = nil end
+    local few = room_frogs() < FEW_FROGS                -- (frogs wanted: more of them, fewer other brews)
+    if lp and (lp.ttl < 30 or math.random() >= (el.carriage_chance or 0.5) * (few and 0.4 or 1)) then lp = nil end
     local car = { state = "hidden" }                 -- roll | jump | in | stand | drive | away | gone
     if lp then lp.taken = true end
     if was then                                       -- the princess: a look round, a puff, the witch
@@ -2300,9 +2327,9 @@ function spawn.witch(el, spr)
         stop("cast", nil, 1, { on = function() zap = { t = 0, f = f } end })
         stop("idle", rnd(1, 2), 1)
     end
-    local first = (pk and math.random() < (el.pumpkin_chance or 0.4)) and "pumpkin" or "frog"
+    local first = (pk and math.random() < (el.pumpkin_chance or 0.4) * (few and 0.5 or 1)) and "pumpkin" or "frog"
     local second = nil
-    if math.random() < (el.double_chance or 0.3) then
+    if math.random() < (few and 0.55 or el.double_chance or 0.3) then
         second = (first == "pumpkin" or not pk or math.random() < 0.5) and "frog" or "pumpkin"
     end
     if lp then first, second = "carriage", nil end
@@ -2325,7 +2352,7 @@ function spawn.witch(el, spr)
         stop("cast", nil, 0, { on = pot_clip("vanish") })
         stop("idle", 0.6)
     end
-    local vanish = not to_pr and math.random() < (el.vanish_chance or 0.2)
+    local vanish = not to_pr and math.random() < (el.vanish_chance or 0.45)     -- (she's cooked: may go now)
     if vanish then                                    -- a spell on herself: gone in a puff
         stop("cackle", nil, 0)
         stop("cast", nil, 0, { log = "witch: casts a spell on herself..." })
@@ -2507,7 +2534,8 @@ function spawn.witch(el, spr)
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
             if s.out then
                 walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = s.out, sprite = sp.name, unique = false, from = el.type,
-                                                        hops = 0, ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
+                                                        hops = 0, ttl = math.floor(rnd(range(el.cast_ttl, 180))),
+                                                        cooked = s.out == "witch" or nil })
             end
         else
             done = tc >= (s.dur or c.count / c.fps)
@@ -3593,6 +3621,7 @@ function spawn.wanderer(el, spr, h)
     local x = walk_in_x(h, v, front)
     local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam, from = h.from }
     a.hops, a.ttl = 0, tonumber(h.ttl) or 60
+    a.cooked, a.was_pr = h.cooked, h.was_pr      -- (a witch: cooked once, been the princess - she may go)
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
     -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
@@ -3693,6 +3722,7 @@ function spawn.wanderer(el, spr, h)
         local sw = a.swap
         if sw and not sw.done and now >= sw.at then
             sw.done = true
+            if fam == "princess" and sw.fam == "witch" then a.was_pr = true end
             spr, C, fam = sw.spr, sw.spr.clips, sw.fam
             c = C.walk
             v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
@@ -3816,7 +3846,8 @@ function spawn.wanderer(el, spr, h)
             if el2 then
                 linger = linger + dt
                 if st.next > now + 8 and not st.wait_since then st.next = now + rnd(3, 8) end
-                if (dir > 0 and x > 0.8 * W) or (dir < 0 and x < 0.2 * W) then turn_round() end
+                -- (the witch walks on, to the screen next door: her cooking may be there)
+                if fam ~= "witch" and ((dir > 0 and x > 0.8 * W) or (dir < 0 and x < 0.2 * W)) then turn_round() end
             elseif not stopped and math.abs(x - stop_x) < v * dt * 2 then
                 stopped = true
                 local show = (C.cheer and math.random() < 0.3 and "cheer") or (C.taunt and math.random() < 0.3 and "taunt") or nil
@@ -3831,7 +3862,8 @@ function spawn.wanderer(el, spr, h)
             if lead >= 0 and a.ttl > 0 then
                 -- (no screen that way, or full there: back the other way - to the other neighbour)
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = fam, sprite = spr.name, ttl = math.floor(a.ttl),
-                                                    unique = false, hops = 0, from = h.from }) then turn_round() end
+                                                    unique = false, hops = 0, from = h.from, cooked = a.cooked,
+                                                    was_pr = a.was_pr }) then turn_round() end
             end
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
@@ -4660,6 +4692,7 @@ local function try_spawn(el, now)
     local lo, hi = range(el.every, 30)
     -- higher level → shorter pauses (down to a third at the element's full level)
     local f = 1 - 0.66 * growth(el)
+    if el.type == "witch" and room_frogs() < FEW_FROGS then f = f * 0.6 end     -- (frogs wanted)
     st.next = now + rnd(lo, hi) * f
 end
 
@@ -5073,6 +5106,10 @@ local function tick()
                 end
             end
             if #cats > 0 then set["spr:cat"] = true end
+            frogs_here(function(f)
+                f.token = f.token or tostring(math.random(1, 1e9))
+                set["frog:" .. f.token] = true
+            end)
             for g in pairs(ROOM_GROUPS) do
                 local on = set["grp:" .. g] or false
                 if on ~= (room.here[g] or false) then
