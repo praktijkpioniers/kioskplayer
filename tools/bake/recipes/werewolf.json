@@ -1,5 +1,5 @@
 {
- "_doc": "The werewolf as a wolf: the same Barbarian (werewolf_man.json), fur where the skin was, the beard a ruff, the shirt torn; ears, snout, nose and yellow eyes are props; hunched (spine turned). spin: the same double turn as the man's. howl: Cheer, the head up. flinch: Hit_A (the cat!), back: walking backwards, run: off.",
+ "_doc": "The werewolf as a wolf: the same Barbarian (werewolf_man.json), fur where the skin was, the beard a ruff, the shirt torn; ears, snout, nose and yellow eyes are props; hunched (spine turned). spin: the same double turn as the man's. howl: Cheer, the head up. flinch: Hit_A (the cat!), back: walking backwards, run: off. Fur all over now (the shirt fur too), a tail and tufts. lie_down / lie / stand_up: asleep at a spot (waiting for the princess, or a quiet way out), the head to the right.",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
  "hide": [
   "Icosphere",
@@ -15,8 +15,8 @@
   "barbarian_texture": {
    "0,0": "#7a6250",
    "1,0": "#4e3e33",
-   "0,1": "#8a2a26",
-   "1,1": "#6e2420",
+   "0,1": "#6a5444",
+   "1,1": "#5a4636",
    "7,0": "#2f3a4a",
    "5,1": "#5a4636",
    "6,0": "#4a3b30",
@@ -145,12 +145,76 @@
     0.16
    ],
    "color": "#7a6250"
+  },
+  {
+   "bone": "hips",
+   "shape": "cone",
+   "at": [
+    0,
+    0.32,
+    0.12
+   ],
+   "size": [
+    0.13,
+    0.62
+   ],
+   "rot": [
+    -125,
+    0,
+    0
+   ],
+   "color": "#6a5444"
+  },
+  {
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    0.3,
+    0,
+    0.32
+   ],
+   "size": [
+    0.16,
+    0.16,
+    0.14
+   ],
+   "color": "#7a6250"
+  },
+  {
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    -0.3,
+    0,
+    0.32
+   ],
+   "size": [
+    0.16,
+    0.16,
+    0.14
+   ],
+   "color": "#7a6250"
+  },
+  {
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.2,
+    0.2
+   ],
+   "size": [
+    0.26,
+    0.12,
+    0.22
+   ],
+   "color": "#8a7260"
   }
  ],
  "frame": {
   "x": [
-   -1.0,
-   1.2
+   -1.6,
+   1.6
   ],
   "h": 2.6
  },
@@ -263,6 +327,22 @@
    "yaw": 90,
    "loop": true,
    "stride": "auto",
+   "step": 2
+  },
+  "lie_down": {
+   "action": "Lie_Down",
+   "yaw": -90,
+   "step": 2
+  },
+  "lie": {
+   "action": "Lie_Idle",
+   "yaw": -90,
+   "loop": true,
+   "step": 2
+  },
+  "stand_up": {
+   "action": "Lie_StandUp",
+   "yaw": -90,
    "step": 2
   }
  }

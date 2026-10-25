@@ -7,7 +7,7 @@
    "count": 19,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.3410609337416562
+   "stride": 0.23447939194738865
   },
   "idle": {
    "files": "idle_*.png",
@@ -56,19 +56,40 @@
    "count": 13,
    "fps": 12.0,
    "loop": true,
-   "stride": 0.3843474794517864
+   "stride": 0.26423889212310314
   },
   "run": {
    "files": "run_*.png",
    "count": 10,
    "fps": 12.0,
    "loop": true,
-   "stride": 1.5375957231629978
+   "stride": 1.057097059674561
+  },
+  "lie_down": {
+   "files": "lie_down_*.png",
+   "count": 37,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "lie": {
+   "files": "lie_*.png",
+   "count": 32,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "stand_up": {
+   "files": "stand_up_*.png",
+   "count": 29,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
  "unit_px": 147.69230769230768,
  "origin_px": [
-  147.72727272727272,
+  236.5,
   384
  ]
 }

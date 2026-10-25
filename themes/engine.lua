@@ -2907,23 +2907,33 @@ function spawn.werewolf(el, spr, h)
     local function stop(clip, dur) turn(0) return add { clip = clip, dur = dur, act = true } end
     local function change()                        -- spin up as one, spin down as the other
         turn(0)
-        add { clip = "spin", spin = { 2, 0.4, 2.2 } }
+        add { clip = "spin", spin = { 1, 0.9, 3.2 } }
         F = F == "man" and "wolf" or "man"
-        add { clip = "spin", spin = { 2, 2.2, 0.4 }, puff = true, log = "werewolf: turns into a " .. F }
+        add { clip = "spin", spin = { 1, 3.2, 0.9 }, puff = true, log = "werewolf: turns into a " .. F }
     end
+    -- the wolf lies down at a spot and sleeps, his one task the princess: she comes by (called in,
+    -- see the princess in spawn.wanderer), he wakes - she's turned; no one comes, he sleeps away
+    local function sleep()
+        local mx = (d > 0 and X or W - X) > W / 2          -- (the head to the middle of the screen)
+        local m = mx ~= (d < 0)
+        add { clip = "lie_down", m = m, log = "werewolf: lies down to sleep" }
+        add { clip = "lie", m = m, sleep = true, dur = rnd((el.sleep_for or {})[1] or 45, (el.sleep_for or {})[2] or 90) }
+        add { clip = "lie", m = m, fade = true, dur = 2.5, log = "werewolf: sleeps away" }
+    end
+    local sleeps = Wc.lie and Wc.lie_down and Wc.stand_up and (el.sleep_force or math.random() < (el.sleep_chance or 0.4))
+    el.sleep_force = nil
     local at = rnd(math.max(2 * u, W * 0.3), math.min(W - 2 * u, W * 0.65))
     if at < X + 2 * u then at = math.min(W - 2 * u, X + 3 * u) end
     go(at)
-    stop("idle", rnd(1, 2))
-    if F == "man" or math.random() < 0.5 then
-        if F == "man" then stop("idle", rnd(0.8, 1.5)) end   -- (the moon...)
+    stop("idle", rnd(0.3, 0.7))
+    if F == "man" or (math.random() < 0.5 and not sleeps) then
         change()
         if F == "wolf" and clips(F).howl then stop("howl") end
-        stop("idle", rnd(0.8, 1.6))
+        if not (F == "wolf" and sleeps) then stop("idle", rnd(0.5, 1.0)) end
     elseif clips(F).howl then
         stop("howl")
     end
-    go(W + 1.5 * u)
+    if F == "wolf" and sleeps then sleep() else go(W + 1.5 * u) end
 
     local si, tc, ph = 1, 0, 0
     local puffs = {}
@@ -2940,6 +2950,34 @@ function spawn.werewolf(el, spr, h)
         local off = side > 0 and -1.5 * u or W + 1.5 * u
         add { clip = Wc.run and "run" or "walk", to = off, m = side > 0 }
         si, tc, a.fled = 1, 0, true
+    end
+    local zs, slept = {}, 0
+    local function wake(s)                          -- the princess near: up, a howl, off
+        local new = {}
+        steps, X, face, F = new, wx, s.m and 1 or -1, "wolf"
+        add { clip = "stand_up", m = s.m, log = "werewolf: wakes up - the princess!" }
+        if Wc.howl then stop("howl") end
+        stop("idle", rnd(0.6, 1.2))
+        go(W + 1.5 * u)
+        si, tc, a.asleep_x = 1, 0, nil
+    end
+    local function call_princess(hx)                -- (one of the cast walks in, from the head's side)
+        local pe, sp = princess_el(), nil
+        sp = pe and M.sprites[pe.sprite or ""]
+        if not (sp and may_be("princess")) then return end
+        for _, e in ipairs(M.elements) do
+            if e.type == "frogs" then
+                local side = hx > a.cx and -1 or 1
+                local b = spawn.wanderer(e, sp, { fam = "princess", dir = side, at = side > 0 and 0.02 * W or 0.98 * W,
+                                                  ttl = 120, hops = 0 })
+                if b then
+                    adopt(b, e, { hops = 0 })
+                    b.next_at, b.turn_sure = 1e9, true
+                    msg.verbose("werewolf: the princess called in")
+                end
+                return
+            end
+        end
     end
 
     function a.update(dt, t)
@@ -2959,6 +2997,30 @@ function spawn.werewolf(el, spr, h)
         local c = CC[s.clip] or CC.walk
         tc = tc + dt
         local done, frame
+        if s.sleep or s.fade then                   -- asleep: zzz; the princess near wakes him
+            local hd = ((s.m and true or false) ~= (d < 0)) and -1 or 1
+            local hx = scr(wx) + hd * 1.0 * u
+            a.asleep_x = s.sleep and hx or nil
+            slept = slept + dt
+            if math.floor((slept - dt) / 1.1) ~= math.floor(slept / 1.1) and s.sleep then
+                zs[#zs + 1] = { x = hx, y = H - 0.9 * u, t = 0, r = 0.22 * u }
+            end
+            if s.sleep then
+                if not a.called_in and slept > (a.call_at or 0) then
+                    a.call_at = a.call_at or rnd(4, 12)
+                    if slept > a.call_at then a.called_in = true call_princess(hx) end
+                end
+                for _, b in ipairs(actors) do
+                    if b ~= a and actor_family(b) == "princess" and b.cx and not b.leaving and math.abs(b.cx - hx) < 4.2 * u then
+                        wake(s)
+                        return a.update(0, t)
+                    end
+                end
+            elseif tc < dt * 1.5 or math.random() < dt * 6 then
+                puffs[#puffs + 1] = { x = scr(wx) + rnd(-1.2, 1.2) * u, y = H - rnd(0.1, 0.9) * u,
+                                      r = rnd(0.3, 0.55) * u, vx = rnd(-0.3, 0.3) * u, t = 0 }
+            end
+        end
         if s.to then
             local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
             local dir = s.to > wx and 1 or -1
@@ -3000,12 +3062,24 @@ function spawn.werewolf(el, spr, h)
             if p.t < 1.3 then keep[#keep + 1] = p end
         end
         puffs = keep
+        keep = {}
+        for _, z in ipairs(zs) do
+            z.t, z.y, z.x = z.t + dt, z.y - 0.35 * u * dt, z.x + 0.15 * u * dt
+            if z.t < 2.6 then keep[#keep + 1] = z end
+        end
+        zs = keep
+        if done and s.fade then return false end
         if done then si, tc = si + 1, 0 end
         if (wx < -1.4 * u or wx > W + 1.4 * u) and s.to and not s.back then return false end
         return true, { l }
     end
     function a.ass(out)
         for _, p in ipairs(puffs) do puff(out, p.x, p.y, p.r * (1 + p.t), 0.3 + 0.7 * p.t / 1.3) end
+        for _, z in ipairs(zs) do
+            local al = math.floor(clamp(z.t / 2.6, 0, 1) * 255)
+            out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\b1\\bord2\\shad0\\1c&HF0E8E0&\\3c&H302020&\\1a&H%02X&\\3a&H%02X&}z",
+                z.x, z.y, z.r * (1 + 0.6 * z.t / 2.6) * 2, al, al)
+        end
     end
     return a
 end
@@ -3918,6 +3992,16 @@ function spawn.wanderer(el, spr, h)
         if state == "walk" then
             x = x + dir * v * hurry * dt
             if not a.meal and not a.doomed then cast_cue(a, dt, x) end
+            -- a wolf asleep here: the princess goes to him
+            if fam == "princess" and not a.swap and not a.called and not a.lured then
+                for _, b in ipairs(actors) do
+                    if b.asleep_x and not b.leaving then
+                        a.lured, a.turn_sure, a.next_at = true, true, 1e9
+                        if (b.asleep_x - x) * dir < 0 then turn_round() end
+                        break
+                    end
+                end
+            end
             -- the princess meets the werewolf, a zombie, the vampire: she may be turned
             if fam == "princess" and not a.swap and not a.morphing and not a.called then
                 for _, b in ipairs(actors) do
@@ -5469,7 +5553,7 @@ end)
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
---   h = the witch (and her cauldron) next, l = the werewolf next, p = the princess next,
+--   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
 --   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
@@ -5548,6 +5632,11 @@ end)
 mp.add_forced_key_binding("l", "theme-preview-werewolf", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "werewolf" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("o", "theme-preview-werewolf-sleeps", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "werewolf" and elements[el] then elements[el].next, elements[el].force, el.sleep_force = 0, true, true end
     end
 end)
 mp.add_forced_key_binding("p", "theme-preview-princess", function()
