@@ -174,6 +174,18 @@
       "anim": "anim/princess",
       "unit": 0.115
     },
+    "princess_wolf3d": {
+      "anim": "anim/princess_wolf",
+      "unit": 0.115
+    },
+    "princess_zombie3d": {
+      "anim": "anim/princess_zombie",
+      "unit": 0.115
+    },
+    "princess_vampire3d": {
+      "anim": "anim/princess_vampire",
+      "unit": 0.115
+    },
     "werewolf3d": {
       "anim": "anim/werewolf",
       "unit": 0.115
@@ -840,6 +852,7 @@
       "sprite": "princess3d",
       "frog": "frog",
       "vampire": "vampire3d",
+      "turns": {"werewolf": "princess_wolf3d", "zombie": "princess_zombie3d", "vampire": "princess_vampire3d"},
       "cast_ttl": [120, 300], "recruits": ["princess", "frog"], "witch": "witch3d", "princes": [
         {"sprite": "zombie3d", "family": "zombie"},
         {"sprite": "skeleton3d", "family": "skeleton"},

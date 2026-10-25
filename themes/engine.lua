@@ -2104,7 +2104,7 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
-local MORPH_CHANCE = { witch = 0.85, princess = 0.12 }
+local MORPH_CHANCE = { witch = 0.85, princess = 0.3 }
 local function witch_el()
     for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
 end
@@ -2112,7 +2112,24 @@ local function may_be(fam)                 -- one of the cast may turn into fam:
     local n, same = chars_here(fam)
     return not same and not room.taken["chr:" .. fam] and n <= 2
 end
-local TUNNEL = { skeleton = true, zombie = true }     -- (cast that go about under the ground)
+local TUNNEL = { skeleton = true, zombie = true, princess_zombie = true }     -- (cast that go about under the ground)
+-- the princess turned by one she meets (the princess element's el.turns: werewolf, zombie, vampire
+-- → a sprite): a she-wolf, a zombie, a vampire - she goes (runs off, digs herself in), see spawn.wanderer
+local TURNED = { werewolf = "princess_wolf", zombie = "princess_zombie", vampire = "princess_vampire" }
+local DOOMED = { princess_wolf = true, princess_zombie = true, princess_vampire = true }
+local function princess_el()
+    for _, el in ipairs(M and M.elements or {}) do if el.type == "princess" then return el end end
+end
+local function turned_sprite(kind)
+    local el = princess_el()
+    local sp = el and el.turns and M.sprites[el.turns[kind] or ""]
+    if sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit then return sp end
+end
+local function frog_sprite()
+    local el = princess_el()
+    local fr = el and M.sprites[el.frog or ""]
+    if fr and fr.clips and fr.clips.hop and fr.clips.sit and fr.origin and fr.unit then return fr end
+end
 local OWN_ACT = { zombie = true, frankenstein = true, werewolf = true, performer = true }
 local function next_act(w)
     if not M then return false end
@@ -2133,6 +2150,8 @@ local function next_act(w)
         elseif fam == "princess" then
             local ws = wel and M.sprites[wel.sprite or ""]
             if ws and may_be("witch") then opts[#opts + 1] = { "person", ws, "witch" } end
+            local fr = frog_sprite()                       -- (the kiss the other way round: a frog)
+            if fr and #free_ids > 0 then opts[#opts + 1] = { "frog", fr } end
         end
         if w.force_morph then                     -- (preview key y)
             local keep = {}
@@ -2504,7 +2523,40 @@ function spawn.witch(el, spr)
         end
     end
 
+    -- one of the cast walking by her pot (while it's there): up in smoke, and out of it someone else
+    -- (one not about: the room evens out), or a frog (most likely when frogs are few)
+    local function pot_poof(b)
+        local fr = frog_sprite()
+        local function frog()
+            b.morphing = { kind = "frog", at = mp.get_time(), sp = fr }
+            msg.verbose("witch: the " .. tostring(b.family) .. " by her pot - up in smoke, a frog")
+        end
+        if fr and #free_ids > 0 and math.random() < (room_frogs() < FEW_FROGS and 0.5 or 0.2) then return frog() end
+        local opts = {}
+        for _, r in ipairs(el.riders or {}) do
+            local sp = M.sprites[r.sprite or ""]
+            if sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit and r.family ~= b.family
+                    and may_be(r.family) and not taken(sp) then opts[#opts + 1] = { sp, r.family } end
+        end
+        if #opts == 0 then                 -- (all the others about: a frog then)
+            if fr and #free_ids > 0 then frog() end
+            return
+        end
+        local o = opts[math.random(#opts)]
+        b.swap = { spr = o[1], fam = o[2], at = mp.get_time() }
+        msg.verbose("witch: the " .. tostring(b.family) .. " by her pot - up in smoke, the " .. o[2])
+    end
     function a.update(dt, t)
+        if pot then
+            local px = scr(cx)
+            for _, b in ipairs(actors) do
+                if b ~= a and b.family and b.swap_into and not b.swap and not b.morphing and not b.doomed and not b.called
+                        and not b.potted and b.cx and math.abs(b.cx - px) < 0.9 * u then
+                    b.potted = true
+                    if math.random() < (el.pot_poof or 0.7) then pot_poof(b) end
+                end
+            end
+        end
         local s = steps[si]
         if not s then                    -- (she's gone; her frog or pumpkin-head still on its way off)
             local busy = ph.state == "off"
@@ -3645,6 +3697,7 @@ function spawn.wanderer(el, spr, h)
         end
     end
     local queue = {}                 -- clips to play (a stop, a turn)
+    local met = {}                   -- (the princess: those she met)
     local stopped = math.random() < 0.4         -- (one stop per screen at most, and not always)
     local stop_x = rnd(0.3, 0.7) * W
     local linger = 0
@@ -3720,6 +3773,9 @@ function spawn.wanderer(el, spr, h)
                 if b then adopt(b, el, { hops = 0 }) end
             elseif mo.kind == "cat" and hooks.cat_at then
                 hooks.cat_at(x, dir)
+            elseif mo.kind == "frog" and mo.sp and #free_ids > 0 then
+                local f = spawn.hopper(el, mo.sp, { dir = dir, at = x, hops = 0, from = h.from, ttl = math.floor(rnd(60, 150)) })
+                if f then adopt(f, el, { hops = 0 }) end
             end
             msg.verbose("cast: in a puff, the " .. fam .. " is a " .. mo.kind)
         end
@@ -3738,14 +3794,16 @@ function spawn.wanderer(el, spr, h)
             sw.done = true
             if fam == "princess" and sw.fam == "witch" then a.was_pr = true end
             spr, C, fam = sw.spr, sw.spr.clips, sw.fam
-            c = C.walk
+            a.doomed = DOOMED[fam]                     -- (the princess turned: she goes)
+            c = a.doomed and C.run or C.walk
             v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
             a.spr, a.family = spr, fam
+            if fam == "princess_zombie" then down_x = x + dir * rnd(1.2, 2.2) * u end
             for _ = 1, 8 do
                 puffs[#puffs + 1] = { x = x + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
                                       r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
             end
-            local show = (C.cackle and "cackle") or (C.cheer and "cheer") or (C.taunt and "taunt") or nil
+            local show = (C.cackle and "cackle") or (C.howl and "howl") or (C.cheer and "cheer") or (C.taunt and "taunt") or nil
             play({ "idle", dur = 1.2 }, show and { show }, C.turn_side and { "turn_side", m = dir < 0 })
             msg.verbose("cast: in a puff, the " .. fam)
         end
@@ -3780,6 +3838,7 @@ function spawn.wanderer(el, spr, h)
             if math.random() < dt * 8 and p < 0.9 then dirt(1) end
             if tc >= len then
                 if state == "down" then
+                    if a.doomed then return false end          -- (the zombie princess: gone)
                     -- off under the ground: to a screen a few along (one side or the other)
                     local sides = {}
                     if room.left then sides[#sides + 1] = "left" end
@@ -3840,7 +3899,7 @@ function spawn.wanderer(el, spr, h)
                 msg.verbose("cast: a piece of the zombie's brain falls off")
             end
         end
-        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and a.ttl > 20 and not a.called then
+        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and (a.ttl > 20 or a.doomed) and not a.called then
             down_x = nil
             play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(0.5, 1.2) })
             a.digging = true
@@ -3853,7 +3912,23 @@ function spawn.wanderer(el, spr, h)
         end
         if state == "walk" then
             x = x + dir * v * hurry * dt
-            if not a.meal then cast_cue(a, dt, x) end
+            if not a.meal and not a.doomed then cast_cue(a, dt, x) end
+            -- the princess meets the werewolf, a zombie, the vampire: she may be turned
+            if fam == "princess" and not a.swap and not a.morphing and not a.called then
+                for _, b in ipairs(actors) do
+                    local bx = b ~= a and not b.leaving and not b.gone and b.groups and #b.groups > 0 and (b.cx or b.zx)
+                    local kind = bx and math.abs(bx - x) < 2.5 * u and not met[b] and TURNED[actor_family(b)] and actor_family(b)
+                    if kind then
+                        met[b] = true
+                        local sp = turned_sprite(kind)
+                        if sp and (a.turn_sure or math.random() < (el.turn_chance or 0.6)) then
+                            a.swap_into(sp, TURNED[kind], now + 1.6, "shock")
+                            msg.verbose("cast: the princess meets the " .. kind .. " - she's turned")
+                            break
+                        end
+                    end
+                end
+            end
             -- wanted here: hang about (to and fro) a while
             local el2, st = nil, nil
             if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(fam, now) end
@@ -3873,7 +3948,7 @@ function spawn.wanderer(el, spr, h)
                 if zombie and not down_x and (room.left or room.right) then down_x = x + dir * rnd(0.3, 1.2) * u end
             end
             local lead = dir > 0 and (x + front - W) or (front - x)
-            if lead >= 0 and a.ttl > 0 then
+            if lead >= 0 and a.ttl > 0 and not a.doomed then
                 -- (no screen that way, or full there: back the other way - to the other neighbour)
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = fam, sprite = spr.name, ttl = math.floor(a.ttl),
                                                     unique = false, hops = 0, from = h.from, cooked = a.cooked,
@@ -5394,9 +5469,11 @@ end)
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
---   zombie (of the cast) after it (one here already: that one, and its next stop drops a piece)
+--   zombie (of the cast) after it (one here already: that one, and its next stop drops a piece),
+--   q = the princess meeting the werewolf, a zombie, the vampire in turn (she's turned); the witch
+--   cooking here: the princess alone, past her pot
 --   (walkers started so go towards a screen next door, if there is one)
-local under_k, morph_k
+local under_k, morph_k, turn_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
     "a few decorations, a rare creepy-crawly", "decorations, some movement", "busier, crawling spiders",
     "busy, bats and ghosts", "nearly there (the day before)", "full blown (the day itself)", "demo: all artwork" }
@@ -5546,6 +5623,21 @@ mp.add_forced_key_binding("e", "theme-preview-brain", function()
         if el.type == "frogs" then
             local a = spawn.wanderer(el, spr, { fam = "zombie", dir = 1, at = 0.1 * W, ttl = 120, hops = 0 })
             if a then adopt(a, el, { hops = 0 }) a.next_at = 1e9 end
+        end
+    end
+end)
+mp.add_forced_key_binding("q", "theme-preview-turned", function()
+    turn_k = (turn_k or 0) + 1
+    local who = ({ { "werewolf_man3d", "werewolf" }, { "zombie3d", "zombie" }, { "vampire3d", "vampire" } })[(turn_k - 1) % 3 + 1]
+    local pr, mo = M and M.sprites.princess3d, M and M.sprites[who[1]]
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "frogs" and pr and mo then
+            local a = spawn.wanderer(el, pr, { fam = "princess", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+            if a then adopt(a, el, { hops = 0 }) a.next_at, a.turn_sure = 1e9, true end
+            for _, w in ipairs(actors) do if w.el.type == "witch" and w.scene then return end end   -- (by her pot, alone)
+            local b = spawn.wanderer(el, mo, { fam = who[2], dir = -1, at = 0.85 * W, ttl = 120, hops = 0 })
+            if b then adopt(b, el, { hops = 0 }) b.next_at = 1e9 end
+            return
         end
     end
 end)
