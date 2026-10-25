@@ -76,11 +76,6 @@
      "from": "Running_A",
      "frame": 3,
      "bones": ["spine", "chest"]
-    },
-    {
-     "from": "Interact",
-     "frame": 8,
-     "bones": ["upperarm.l", "lowerarm.l", "wrist.l", "hand.l", "upperarm.r", "lowerarm.r", "wrist.r", "hand.r"]
     }
    ]
   },

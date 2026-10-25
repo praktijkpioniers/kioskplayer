@@ -195,14 +195,15 @@ end
 -- screens in the room show the same thing. At start a screen first listens (room.ready) before it
 -- puts anything up; if two screens took the same thing at once, the player tells the later one
 -- to give it up (taken).
-local room = { active = false, left = false, right = false, gap = 0, ready = true, taken = {} }
+local room = { active = false, left = false, right = false, gap = 0, ready = true, taken = {},
+               wait = {}, here = {} }   -- room groups: wait till (s), going on here
 local handed_in = {}       -- handed-over actors, spawned on the next tick
 local mine_sent = nil      -- the claims last told to the player
 local NOT_UNIQUE = { flyer = true, particles = true }   -- travel from screen to screen / just leaves
 
 local function claim_key(spr) return "spr:" .. tostring(spr and spr.name) end
 -- groups that are one at a time in the whole room, not just on a screen (claimed as "grp:<name>")
-local ROOM_GROUPS = { walker = true }
+local ROOM_GROUPS = { walker = true, flying = true }
 local function taken(spr) return room.taken[claim_key(spr)] == true end
 local function holding() return room.active and not room.ready end
 
@@ -240,16 +241,21 @@ end
 -- that far in (minus the gap, plus what it walked meanwhile). x: its middle (screen), front: from
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
-local FLY_HOPS = 6        -- (screens may go all round the room: no flying round for ever)
+local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
 local HANDED_ONLY = { piece = true, passer = true }    -- kinds that only come in from a neighbour
+local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
+    if a.guest_of then return true end
+    for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
+    return false
+end
 local function walk_out(a, x, dir, front, h)
     if a.handed_on then return a.handed_on == "yes" end
     local lead = dir > 0 and (x + front - W) or (front - x)
     if lead < 0 then return false end
     a.handed_on = "no"
-    if (a.hops or 0) >= MAX_HOPS then return false end
+    if (a.hops or 0) >= MAX_HOPS or with_guest(a) then return false end   -- (one walker in the room)
     h = h or {}
-    h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, (a.hops or 0) + 1, lead / H
+    h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, h.hops or (a.hops or 0) + 1, lead / H
     h.sprite = h.sprite or a.spr.name
     if h.unique == nil then h.unique = a.unique end
     if hand_over(dir > 0 and "right" or "left", h) then
@@ -275,7 +281,9 @@ local function walk_dir(el)
     if st and st.force and room.right ~= room.left then return room.right and 1 or -1 end
     return math.random() < 0.5 and 1 or -1
 end
-local function can_walk_on(a, dir) return room[dir > 0 and "right" or "left"] and (a.hops or 0) < MAX_HOPS end
+local function can_walk_on(a, dir)
+    return room[dir > 0 and "right" or "left"] and (a.hops or 0) < MAX_HOPS and not with_guest(a)
+end
 
 -- ── decor (static, optionally bobbing / animated) ───────────────────────────
 
@@ -451,8 +459,16 @@ end
 
 -- another screen in the room has one of these room-wide groups going (someone walking about)
 local function room_busy(groups)
+    local now = mp.get_time()
     for _, g in ipairs(groups) do
-        if ROOM_GROUPS[g] and room.taken["grp:" .. g] then return true end
+        if ROOM_GROUPS[g] then
+            if room.taken["grp:" .. g] or now < (room.wait[g] or 0) then return true end
+            for _, a in ipairs(actors) do   -- ours, gone on to a screen next door: still about
+                if a.handed_on == "yes" then
+                    for _, ag in ipairs(a.groups or {}) do if ag == g then return true end end
+                end
+            end
+        end
     end
     return false
 end
@@ -624,11 +640,11 @@ function spawn.flyer(el, spr, h)
         -- moment both show a part)
         local lead = (a.dir > 0) and (a.x + spr.w - W) or (-a.x)
         if lead >= 0 and not a.handed_on and not a.exit then
-            a.handed_on = true
-            if (a.hops or 0) < FLY_HOPS then hand_over(a.dir > 0 and "right" or "left", {
+            a.handed_on = "no"
+            if (a.hops or 0) < FLY_HOPS and hand_over(a.dir > 0 and "right" or "left", {
                 kind = "flyer", el = el.index, sprite = spr.name, dir = a.dir, lead = lead / H, hops = (a.hops or 0) + 1,
                 y0 = a.y0 / H, bend = a.bend / H, v = a.v / W, freq = a.freq, ph = t * a.freq + a.ph,
-                rate = a.rate, dph = t * a.rate + a.dph }) end
+                rate = a.rate, dph = t * a.rate + a.dph }) then a.handed_on = "yes" end
         end
         if a.x < -spr.w - 2 or a.x > W + 2 then return false end
         local side = 2 * math.abs((a.x + spr.w / 2) / W - 0.5)   -- 0 in the middle, 1 at the edges
@@ -959,6 +975,13 @@ function spawn.vampire(el, spr, h)
         stay = clamp(tonumber(h.stay) or 20, 12, 90)
         add { hide = true, dur = math.max(0.1, (half * 2 - (cx + half)) / slide_v), slide = slide_v }
     else
+    -- first a peek round the corner (once or twice): half his face in, a look, back out of sight
+    for _ = 1, math.random(1, 2) do
+        go(-0.2 * u, C.sneak and "sneak" or "walk")
+        stop("idle", rnd(0.8, 1.6))
+        go(-1.2 * u, "walk")
+        stop("idle", rnd(1.2, 3))           -- (out of sight)
+    end
     -- in and across, a look around, the coffin pulled in from the far side
     go(W - 0.7 * u, math.random() < 0.5 and C.sneak and "sneak" or "walk")
     stop("idle", rnd(1.5, 3))
@@ -1297,7 +1320,8 @@ function spawn.mummy(el, spr)
         local lb, db = part(Bt, helper, s.b, dt, 0)
         if s.b.home then
             local hx = d > 0 and Bt.x or W - Bt.x
-            walk_out(a, hx, d, 0.5 * u, { kind = "passer", sprite = helper.name, clip = "walk", rate = 2.4, unique = false })
+            walk_out(a, hx, d, 0.5 * u, { kind = "passer", sprite = helper.name, clip = "walk", rate = 2.4, unique = false,
+                hops = MAX_HOPS })      -- (home is just next door: not all round the room)
         end
         local layers = { place(box, cx, 0, false, dy), la, lb, place(lid, cx, lf, false, dy) }
         if la then a.sx, a.sy = la.x, la.y end
@@ -1987,6 +2011,16 @@ local function grave_check(a, x, y)
 end
 
 -- another element sharing a group with el waited for it longer (and still waits)
+-- someone here this element may meet (el.meets = [types]: they react to each other), or nil
+local function met_here(el)
+    if not el.meets then return end
+    for _, a in ipairs(actors) do
+        if not a.leaving and not a.handed_on and a.el and not a.guest_of then
+            for _, t in ipairs(el.meets) do if a.el.type == t then return a end end
+        end
+    end
+end
+
 local function queued_before(el, now)
     for _, a in ipairs(actors) do if a.invites and a.invites[el] then return false end end   -- a guest
     local mine = elements[el] and elements[el].wait_since or now
@@ -2030,7 +2064,8 @@ local function try_spawn(el, now)
     end
     -- a group takes turns: who waited for it first goes first (else the frequent skeletons and
     -- peekers would keep the rare acts out for good)
-    if not st.force and (group_busy(groups_of(el), el) or room_busy(groups_of(el)) or queued_before(el, now)) then
+    local met = met_here(el)
+    if not st.force and not met and (group_busy(groups_of(el), el) or room_busy(groups_of(el)) or queued_before(el, now)) then
         st.wait_since, st.wait_seen = st.wait_since or now, now
         st.next = now + rnd(2, 6)
         return
@@ -2052,6 +2087,13 @@ local function try_spawn(el, now)
         return
     end
     a.unique, a.born, a.forced = unique, now, st.force
+    for _, b in ipairs(actors) do      -- a zombie's guest: one, it came
+        if b.invites and b.invites[el] then a.guest_of, b.invites[el] = b, nil end
+    end
+    if met then                        -- come to meet someone: the two stay on this screen
+        a.guest_of = a.guest_of or met
+        msg.verbose(tostring(el.type) .. " comes to meet the " .. tostring(met.el.type))
+    end
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
@@ -2063,6 +2105,7 @@ local function try_spawn(el, now)
         table.sort(a.ids)
     end
     actors[#actors + 1] = a
+    if unique then msg.verbose("start " .. tostring(el.type) .. " " .. tostring(a.spr and a.spr.name)) end
     if a.on_spawn then a.on_spawn() end
     local lo, hi = range(el.every, 30)
     -- higher level → shorter pauses (down to a third at the element's full level)
@@ -2410,6 +2453,9 @@ local function tick()
         else
             if a.release then a.release() end
             for _, id in ipairs(a.ids or { a.id }) do give_id(id) end
+            if a.handed_on == "yes" then                -- (till the room tells where it is)
+                for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then room.wait[g] = now + 3 end end
+            end
             local st = elements[a.el]
             if st and not a.uncounted then st.active = st.active - 1 end
         end
@@ -2428,6 +2474,15 @@ local function tick()
                 for _, g in ipairs(a.groups or {}) do if ROOM_GROUPS[g] then set["grp:" .. g] = true end end
             end
             if #cats > 0 then set["spr:cat"] = true end
+            for g in pairs(ROOM_GROUPS) do
+                local on = set["grp:" .. g] or false
+                if on ~= (room.here[g] or false) then
+                    room.here[g] = on
+                    -- (gone over to a screen next door, maybe: the room tells us in a moment)
+                    if not on then room.wait[g] = mp.get_time() + 3 end
+                    msg.verbose("room: " .. g .. (on and " here" or " gone from here"))
+                end
+            end
             for k in pairs(set) do keys[#keys + 1] = k end
             table.sort(keys)
             local sig = table.concat(keys, ",")
@@ -2608,7 +2663,7 @@ mp.register_script_message("theme-room-claims", function(js)
     -- someone just started walking here while another screen had a walker going first: it goes again
     local now = mp.get_time()
     for _, a in ipairs(actors) do
-        if not a.leaving and not a.handed and not a.forced and a.born and now - a.born < 4 and room_busy(a.groups or {}) then
+        if not a.leaving and not a.handed and not a.forced and not a.guest_of and a.born and now - a.born < 4 and room_busy(a.groups or {}) then
             leave(a)
             msg.verbose("room: someone walks about on another screen, " .. tostring(a.spr and a.spr.name) .. " goes again")
         end

@@ -12,6 +12,9 @@
     "dropper (spider on a thread), crawler (baked walker), performer (baked character scene), peeker,",
     "weaver (a spider building a web in a top corner), prowler (a black cat strolling along the bottom).",
     "group = exclusive category (on an element or a cast entry): one spider, one bat, one flyer... at a time;",
+    "walker and flying are one at a time in the whole room, not just on a screen.",
+    "meets = [types]: may come while one of these is on the screen (the zombie and the others: they react to",
+    "each other); the two then stay on this screen (they don't walk on to the next).",
     "on decor: one element of the group per screen (one pumpkin set, left or right corner).",
     "crawler wander = [s, s]: an erratic path (a new direction every 'turn' s), then out at the top or bottom.",
     "walker/crawler/performer passing a tombstone: grave_chance (0.35) to drop into the grave; graves = false: never.",
@@ -290,16 +293,6 @@
           "near_logo": true
         },
         {
-          "sprite": "owl",
-          "anchor": "top-left",
-          "places": [
-            [
-              0.0,
-              0.32
-            ]
-          ]
-        },
-        {
           "sprite": "raven",
           "anchor": "bottom-left",
           "places": [
@@ -330,16 +323,16 @@
         2
       ],
       "delay": [
-        5,
-        20
+        20,
+        1500
       ],
       "every": [
-        120,
-        600
+        1800,
+        3600
       ],
       "stay": [
-        900,
-        2400
+        600,
+        1200
       ],
       "group": "spider"
     },
@@ -516,8 +509,6 @@
       ],
       "hold": 3,
       "sprites": [
-        "zombie",
-        "vampire",
         "mummy"
       ],
       "group": "monster"
@@ -724,6 +715,12 @@
         20,
         90
       ],
+      "meets": [
+        "vampire",
+        "frankenstein",
+        "mummy",
+        "performer"
+      ],
       "invite": [
         {"type": "vampire", "chance": 0.3, "after": [4, 10]},
         {"type": "prowler", "chance": 0.3, "after": [3, 12]},
@@ -773,8 +770,6 @@
       "say": true,
       "video_min": 8,
       "sprites": [
-        "zombie",
-        "vampire",
         "mummy"
       ],
       "group": "monster"
@@ -794,8 +789,6 @@
       "hold": 3,
       "video_min": 8,
       "sprites": [
-        "zombie",
-        "vampire",
         "mummy"
       ],
       "group": "monster"
@@ -878,16 +871,6 @@
           "from": "top",
           "group": "bat",
           "near_logo": true
-        },
-        {
-          "sprite": "owl",
-          "anchor": "top-left",
-          "places": [
-            [
-              0.0,
-              0.32
-            ]
-          ]
         },
         {
           "sprite": "raven",

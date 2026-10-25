@@ -5,6 +5,10 @@ engine, its own room-bus node (UDP over 127.0.0.1), and the same ThemeRoom bridg
 so animations move from one window to the next.
 
     multi.py [n=4] [level=8] [--gap 16] [--mode idle|video] [--cols 2] [--rows] [--no-wrap]
+             [--videos a.mp4 b.mp4 ...] [--play 3]
+
+--videos: window i gets the i-th (round and round; default run.sh's); --play N: windows 0..N-1
+play theirs on and on from the start (the others show the intro), SPACE in a window toggles.
 
 The windows are one row of screens all round the room (k0 → k1 → ... → the last → k0 again),
 whatever the window grid; --rows: each row of windows its own row of screens (nothing crosses
@@ -51,14 +55,14 @@ def geometry(i, n, cols):
 
 
 class Kiosk:
-    def __init__(self, i, n, gap_px, cols, rows=False, wrap=True):
+    def __init__(self, i, n, gap_px, cols, rows=False, wrap=True, video=None, loop=False):
         self.i, self.n = i, n
         self.dir = BASE_DIR / f"k{i}"
         self.dir.mkdir(parents=True, exist_ok=True)
         w, h, x, y = geometry(i, n, cols)
         env = dict(os.environ, KIOSKSIM_DIR=str(self.dir), KIOSKSIM_GEOMETRY=f"{w}x{h}+{x}+{y}",
-                   KIOSKSIM_TITLE=f"kiosk{i}")
-        self.proc = subprocess.Popen([str(HERE / "run.sh")], env=env, stdout=subprocess.DEVNULL,
+                   KIOSKSIM_TITLE=f"kiosk{i}", KIOSKSIM_LOOP="yes" if loop else "no")
+        self.proc = subprocess.Popen([str(HERE / "run.sh")] + ([video] if video else []), env=env, stdout=subprocess.DEVNULL,
                                      stderr=subprocess.DEVNULL, start_new_session=True)
         sock = self.dir / "mpv.sock"
         for _ in range(100):
@@ -118,6 +122,10 @@ class Kiosk:
         self.cmd("script-message", "theme-load", str(man))
         self.cmd("script-message", "theme-mode", mode)
 
+    def play(self):
+        self.mode = "video"             # (a reload after a resize keeps it)
+        self.cmd("script-message", "kiosk-play")
+
 
 def shot(path):
     """The whole row in one picture (each window's own screenshot, pasted side by side)."""
@@ -160,11 +168,16 @@ def main():
     ap.add_argument("--cols", type=int, default=2, help="windows per row (n for one row)")
     ap.add_argument("--rows", action="store_true", help="each row of windows its own row of screens")
     ap.add_argument("--no-wrap", action="store_true", help="the last screen's right edge leads nowhere")
+    ap.add_argument("--videos", nargs="+", default=[], help="a video per window (round and round)")
+    ap.add_argument("--play", type=int, default=0, help="windows 0..N-1 play their video on and on")
     a = ap.parse_args()
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))     # kill: close the windows too
-    kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n)), a.rows, not a.no_wrap) for i in range(a.n)]
+    kiosks = [Kiosk(i, a.n, a.gap, max(1, min(a.cols, a.n)), a.rows, not a.no_wrap,
+                    a.videos[i % len(a.videos)] if a.videos else None, i < a.play) for i in range(a.n)]
     for k in kiosks:
         k.load(a.level, a.mode)
+    for k in kiosks[:a.play]:
+        k.play()
     print(f"{a.n} kiosks, level {a.level}; 'multi.py key 0 b' sends a flyer. Ctrl+C to stop.")
     try:
         while all(k.proc.poll() is None for k in kiosks):
