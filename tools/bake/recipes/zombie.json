@@ -1,5 +1,5 @@
 {
- "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The Barbarian's body without hat, cape and weapons, with the Knight's (bald) head, repainted: green skin, ragged faded clothes; props: one eye popped out (hanging on its stalk from the empty socket), the brain showing, a gaping mouth, a blood stain. Shuffles slowly with its arms straight out in front (held hanging from Idle, then turned up) and its head drooping; sniffs the air nose up; reaches for passers-by.",
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The Barbarian's body without hat, cape and weapons, with the Knight's (bald) head, repainted: green skin, ragged faded clothes; props: one eye popped out (hanging on its stalk from the empty socket), the brain showing, a gaping mouth, a blood stain. Shuffles slowly with its arms straight out in front (held hanging from Idle, then turned up) and its head drooping; sniffs the air nose up; reaches for passers-by. pick: bending down for something on the ground (a piece of brain).",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
  "parts": [
   {
@@ -305,6 +305,11 @@
   "rise": {
    "action": "Spawn_Ground_Skeletons",
    "yaw": 15,
+   "step": 2
+  },
+  "pick": {
+   "action": "PickUp",
+   "yaw": 70,
    "step": 2
   }
  },

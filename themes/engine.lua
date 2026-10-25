@@ -1571,18 +1571,20 @@ local function new_brain(el, spr, x, y, vx, z, u)   -- falling from (x, y: its b
                 dropper = z, drop_t = mp.get_time() }
     local vy, ground, m = -1.2 * u, H - 0.04 * u, vx < 0
     local lift, frame = nil, C.lie.start
-    function a.eat(hx, hy)                   -- (taken up to (hx, hy), then eaten)
-        a.lifted = true
+    local up = 0.5
+    function a.eat(hx, hy, dur)              -- (taken up to (hx, hy: the mouth) in dur, then eaten there)
+        a.lifted, up = true, dur or 0.5
+        msg.verbose("brain: picked up, to the mouth")
         lift = { x0 = x, y0 = y, x1 = hx, y1 = hy, t = 0 }
     end
     function a.update(dt)
         if a.gone then return false end
         if lift then
             lift.t = lift.t + dt
-            local p = ease(clamp(lift.t / 0.5, 0, 1))
+            local p = ease(clamp(lift.t / up, 0, 1))
             x, y = lift.x0 + (lift.x1 - lift.x0) * p, lift.y0 + (lift.y1 - lift.y0) * p
-            if lift.t > 0.5 then
-                local k = math.floor((lift.t - 0.5) * C.eat.fps)
+            if lift.t > up then
+                local k = math.floor((lift.t - up) * C.eat.fps)
                 if k >= C.eat.count then return false end
                 frame = C.eat.start + k
             end
@@ -1785,7 +1787,7 @@ function spawn.zombie(el, spr, h)
                 k = k + 1
                 if meal_stop then              -- (at the piece: reaching for it, eating it up)
                     meal_stop, hurry = false, 1
-                    state, tc, stop_clip, stop_dur = "stop", 0, "eat", 3.6
+                    state, tc, stop_clip, stop_dur = "stop", 0, "eat", (C.pick and C.pick.count / C.pick.fps or 0) + 2.8
                 else
                     state, tc = C.turn_front and "turn_front" or "stop", 0
                     local r = math.random()
@@ -1801,10 +1803,11 @@ function spawn.zombie(el, spr, h)
             c, m = C.turn_front, dir < 0
             if tc >= c.count / c.fps then state, tc, face_front = "stop", 0, true end
         elseif state == "stop" then
-            if stop_clip == "eat" then
-                c, m = C.reach, dir < 0
-                if tc > 0.4 and meal and not meal.lifted and not meal.gone then
-                    meal.eat(x + dir * 0.5 * u, H - 1.55 * u)
+            if stop_clip == "eat" then         -- (bending down for it, up to the mouth, eaten bite by bite)
+                local pk = C.pick and C.pick.count / C.pick.fps or 0
+                c, m = (tc < pk and C.pick or C.reach), dir < 0
+                if tc > (pk > 0 and 0.45 * pk or 0.4) and meal and not meal.lifted and not meal.gone then
+                    meal.eat(x + dir * 0.38 * u, H - 1.5 * u, pk > 0 and 0.55 * pk or 0.5)
                 end
             else
                 c, m = C[stop_clip], false
@@ -3886,10 +3889,12 @@ function spawn.wanderer(el, spr, h)
         end
         if state == "walk" and a.meal and not a.eating and (meal_x - x) * dir <= 0.01 then
             x, hurry, a.eating = meal_x, 1, true
-            play({ C.reach and "reach" or "idle", dur = 3.6, m = dir < 0 }, { "idle", dur = rnd(0.5, 1) })
+            play(C.pick and { "pick", m = dir < 0 }, { C.reach and "reach" or "idle", dur = 2.8, m = dir < 0 },
+                 { "idle", dur = rnd(0.5, 1) })
         end
-        if a.eating and state == "act" and tc > 0.4 and not a.meal.lifted and not a.meal.gone then
-            a.meal.eat(x + dir * 0.5 * u, H - 1.55 * u)
+        if a.eating and state == "act" and not a.meal.lifted and not a.meal.gone then
+            local pk = C.pick and C.pick.count / C.pick.fps or 0
+            if tc > (pk > 0 and 0.45 * pk or 0.4) then a.meal.eat(x + dir * 0.38 * u, H - 1.5 * u, pk > 0 and 0.55 * pk or 0.5) end
         end
         if drop_at and now >= drop_at then
             drop_at = nil
@@ -3899,7 +3904,7 @@ function spawn.wanderer(el, spr, h)
                 msg.verbose("cast: a piece of the zombie's brain falls off")
             end
         end
-        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and (a.ttl > 20 or a.doomed) and not a.called then
+        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and (a.ttl > 20 or a.doomed) and not a.called and not a.meal then
             down_x = nil
             play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(0.5, 1.2) })
             a.digging = true
@@ -3937,7 +3942,7 @@ function spawn.wanderer(el, spr, h)
                 if st.next > now + 8 and not st.wait_since then st.next = now + rnd(3, 8) end
                 -- (the witch walks on, to the screen next door: her cooking may be there)
                 if fam ~= "witch" and ((dir > 0 and x > 0.8 * W) or (dir < 0 and x < 0.2 * W)) then turn_round() end
-            elseif not stopped and math.abs(x - stop_x) < v * dt * 2 then
+            elseif not stopped and not a.meal and math.abs(x - stop_x) < v * hurry * dt * 2 then
                 stopped = true
                 local show = (C.cheer and math.random() < 0.3 and "cheer") or (C.taunt and math.random() < 0.3 and "taunt") or nil
                 play(C.turn_front and { "turn_front", m = dir < 0 }, { zombie and C.sniff and "sniff" or "idle", dur = rnd(1.5, 3.5) },
