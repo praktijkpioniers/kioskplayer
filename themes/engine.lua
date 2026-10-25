@@ -2104,7 +2104,7 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
-local MORPH_CHANCE = { witch = 0.6, princess = 0.12 }
+local MORPH_CHANCE = { witch = 0.85, princess = 0.12 }
 local function witch_el()
     for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
 end
@@ -2118,8 +2118,9 @@ local function next_act(w)
     if not M then return false end
     local fam = w.family or (w.frog and "frog")
     local now = mp.get_time()
-    -- (the witch only once she's done something: cooked, or been the princess)
-    local may_go = fam ~= "witch" or w.cooked or w.was_pr
+    -- (the witch only once she's done something: cooked, or been the princess - or no cooking
+    -- came her way a while: she doesn't hang about, keeping the others away)
+    local may_go = fam ~= "witch" or w.cooked or w.was_pr or (w.age or 0) > 45
     if w.morph and (w.force_morph or (may_go and math.random() < (MORPH_CHANCE[fam] or 0))) then    -- a spell on herself
         local opts = {}
         local wel = witch_el()
@@ -3622,6 +3623,7 @@ function spawn.wanderer(el, spr, h)
     local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam, from = h.from }
     a.hops, a.ttl = 0, tonumber(h.ttl) or 60
     a.cooked, a.was_pr = h.cooked, h.was_pr      -- (a witch: cooked once, been the princess - she may go)
+    a.age = tonumber(h.age) or 0                 -- (about as one of the cast this long)
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
     -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
@@ -3691,7 +3693,19 @@ function spawn.wanderer(el, spr, h)
     function a.update(dt, t)
         tc = tc + dt
         a.ttl = a.ttl - dt
+        a.age = a.age + dt
         local now = mp.get_time()
+        -- the witch's time up: she doesn't walk off, she goes with a spell on herself
+        if fam == "witch" and a.ttl <= 0 and not a.ttl_spell and state == "walk" and not a.swap and not a.morphing
+                and not a.called and x > 0.15 * W and x < 0.85 * W then
+            a.ttl_spell = true
+            local opts = { "raven", "cat", "princess" }
+            a.force_morph = opts[math.random(#opts)]
+            if not next_act(a) then
+                a.force_morph = "raven"
+                next_act(a)
+            end
+        end
         local mo = a.morphing
         if mo and not mo.done and now >= mo.at then
             mo.done = true
@@ -3863,7 +3877,7 @@ function spawn.wanderer(el, spr, h)
                 -- (no screen that way, or full there: back the other way - to the other neighbour)
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = fam, sprite = spr.name, ttl = math.floor(a.ttl),
                                                     unique = false, hops = 0, from = h.from, cooked = a.cooked,
-                                                    was_pr = a.was_pr }) then turn_round() end
+                                                    was_pr = a.was_pr, age = math.floor(a.age) }) then turn_round() end
             end
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
