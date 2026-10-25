@@ -280,6 +280,7 @@ local function walk_out(a, x, dir, front, h)
     return a.handed_on == "yes"
 end
 local function walk_in_x(h, v, front)
+    if h.at then return tonumber(h.at) end      -- (one of the cast here, going on as itself: its middle)
     local late = clamp(tonumber(h.late) or 0, 0, 1)
     local f = (tonumber(h.lead) or 0) * H + v * late - room.gap    -- its front this far in
     return (h.dir or 1) > 0 and (f - front) or (W - f + front)
@@ -563,6 +564,23 @@ local function groups_of(x)
     local copy = {}
     for _, v in ipairs(g or {}) do copy[#copy + 1] = v end
     return copy
+end
+
+-- one not started by try_spawn (come over from next door, one of the cast going on as itself):
+-- in among the actors, holding ids
+local function adopt(a, el, h)
+    a.uncounted, a.handed = true, true
+    a.hops = tonumber(h.hops) or 1
+    a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
+    room.claim_t = 0
+    a.groups = a.groups or groups_of(el)
+    a.id = take_id()
+    if a.layers then
+        a.ids = { a.id }
+        for k = 2, a.layers do a.ids[k] = take_id() end
+        table.sort(a.ids)
+    end
+    actors[#actors + 1] = a
 end
 
 local function group_busy(groups, el, me)
@@ -1862,6 +1880,69 @@ local function wanted_here(fam, now)
         end
     end
 end
+-- The director: one of the cast, a while on a screen, goes on to its next act: a scene here that
+-- can use it is called (it takes it over: el.recruits), or it goes on as itself - its own act
+-- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
+-- w: the wanderer (or frog); true if something's on next
+local OWN_ACT = { zombie = true, frankenstein = true, werewolf = true, performer = true }
+local function next_act(w)
+    if floor_busy() or not M then return false end
+    local fam = w.family or (w.frog and "frog")
+    local now = mp.get_time()
+    local options = {}
+    for _, el in ipairs(M.elements) do
+        local st = elements[el]
+        if st and element_on(el) and (st.active or 0) < 1
+                and (el.type ~= w.from or (w.here_t or 0) > 30) then   -- (not straight back where it came from)
+            local calls = false
+            for _, f in ipairs(el.recruits or {}) do if f == fam then calls = true end end
+            if calls then
+                options[#options + 1] = { el = el, st = st }
+            elseif OWN_ACT[el.type] and family_of(el) == fam and el.sprite == w.spr.name then
+                options[#options + 1] = { el = el, st = st, own = true }
+            end
+        end
+    end
+    if #options == 0 then
+        msg.verbose("cast: nothing on for the " .. tostring(fam))
+        return false
+    end
+    local o = options[math.random(#options)]
+    if o.own then
+        if #free_ids < 2 then return false end
+        local b = spawn[o.el.type](o.el, w.spr, { dir = w.facing or 1, at = w.cx, hops = 0 })
+        if not b or #free_ids < (b.layers or 1) then
+            if b and b.release then b.release() end
+            msg.verbose("cast: the " .. fam .. " can't go on as itself (" .. o.el.type .. ")")
+            return false
+        end
+        adopt(b, o.el, { hops = 0 })
+        w.gone = true
+        msg.verbose("cast: the " .. fam .. " goes on as itself (" .. o.el.type .. ")")
+    else
+        o.st.next, o.st.force = now, true
+        w.called = { st = o.st, t = now }
+        msg.verbose("cast: the " .. fam .. " - on to the " .. o.el.type)
+    end
+    return true
+end
+-- (in a wanderer's or frog's update) time for its next act? call it
+local function cast_cue(w, dt, x)
+    local now = mp.get_time()
+    w.here_t = (w.here_t or 0) + dt
+    w.next_at = w.next_at or rnd(5, 18)
+    if w.called then
+        if now - w.called.t > 1 then                  -- (it didn't take: not forced later on)
+            w.called.st.force, w.called = nil, nil
+            w.next_at = w.here_t + rnd(15, 30)
+        end
+        return
+    end
+    if w.here_t > w.next_at and x > 0.12 * W and x < 0.88 * W and (w.ttl or 1) > 0 then
+        if not next_act(w) then w.next_at = w.here_t + rnd(8, 20) end
+    end
+end
+
 local function hop_at(p, x0, x1, y0, y1, high)   -- along a hop at p (0..1 of the clip): x, dy
     local q = clamp((p - 0.2) / 0.65, 0, 1)        -- (airborne between crouch and landing)
     return x0 + (x1 - x0) * ease(q), y0 + (y1 - y0) * q - high * math.sin(math.pi * q)
@@ -2054,7 +2135,7 @@ function spawn.witch(el, spr)
         elseif f.state == "off" then
             f.clip = "walk"
             f.x = f.x + K.walk.stride_px * K.walk.fps / K.walk.count * dt
-            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "wanderer", fam = "pumpkinhead", unique = false, hops = 0,
+            walk_out(pa, scr(f.x), d, 0.5 * u, { kind = "wanderer", fam = "pumpkinhead", unique = false, hops = 0, from = el.type,
                                                 ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
             if f.x > W + 1.5 * u then f.state = "gone" end
         end
@@ -2084,7 +2165,7 @@ function spawn.witch(el, spr)
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
             if s.out then
-                walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = s.out, sprite = sp.name, unique = false,
+                walk_out(a, scr(wx), dir * d, 0.5 * u, { kind = "wanderer", fam = s.out, sprite = sp.name, unique = false, from = el.type,
                                                         hops = 0, ttl = math.floor(rnd(range(el.cast_ttl, 180))) })
             end
         else
@@ -2565,7 +2646,7 @@ function spawn.princess(el, spr)
         if p.out == "frog" then
             walk_out(t.oa, scr(t.x), dir * d, 0.3 * u, { kind = "hopper", unique = false, ttl = ttl, hops = 0 })
         else
-            walk_out(t.oa, scr(t.x), dir * d, 0.5 * u, { kind = "wanderer", fam = p.out, ttl = ttl, unique = false, hops = 0 })
+            walk_out(t.oa, scr(t.x), dir * d, 0.5 * u, { kind = "wanderer", fam = p.out, ttl = ttl, unique = false, hops = 0, from = el.type })
         end
     end
     -- one part of the step: its layer (or nil) and whether that part is done
@@ -2762,7 +2843,7 @@ function spawn.frogs(el, spr)
     local function hand_on(t, sp, p, dir)               -- (as one of the cast, next door)
         t.oa = t.oa or { el = el, spr = sp, groups = {}, hops = 0 }
         t.oa.spr = sp
-        walk_out(t.oa, scr(t.x), dir * d, 0.5 * sp.unit * H, { kind = "wanderer", fam = p.out, ttl = t.ttl, unique = false, hops = 0 })
+        walk_out(t.oa, scr(t.x), dir * d, 0.5 * sp.unit * H, { kind = "wanderer", fam = p.out, ttl = t.ttl, unique = false, hops = 0, from = el.type })
     end
     A.ttl, B.ttl = ttl(), ttl()
     local function part(t, sp, p, dt)
@@ -3015,7 +3096,7 @@ function spawn.wanderer(el, spr, h)
     local dir = h.dir == 1 and 1 or -1
     local front = 0.5 * u
     local x = walk_in_x(h, v, front)
-    local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam }
+    local a = { el = el, spr = spr, layers = 1, groups = { "walker" }, family = h.fam, from = h.from }
     a.hops, a.ttl = 0, tonumber(h.ttl) or 60
     local state, tc = "walk", 0
     local queue = {}                 -- clips to play (a stop, a turn)
@@ -3059,6 +3140,7 @@ function spawn.wanderer(el, spr, h)
         end
         if state == "walk" then
             x = x + dir * v * dt
+            cast_cue(a, dt, x)
             -- wanted here: hang about (to and fro) a while
             local el2, st = nil, nil
             if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(h.fam, now) end
@@ -3076,7 +3158,7 @@ function spawn.wanderer(el, spr, h)
             if lead >= 0 and a.ttl > 0 then
                 -- (no screen that way, or full there: back the other way - to the other neighbour)
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = h.fam, ttl = math.floor(a.ttl),
-                                                    unique = false, hops = 0 }) then turn_round() end
+                                                    unique = false, hops = 0, from = h.from }) then turn_round() end
             end
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
@@ -3794,19 +3876,7 @@ local function tick()
             if el and spr and spawn[h.kind] and (el.type == h.kind or HANDED_ONLY[h.kind]) and #free_ids > 0 then
                 local a = spawn[h.kind](el, spr, h)
                 if a and #free_ids >= (a.layers or 1) then
-                    a.uncounted, a.handed = true, true
-                    a.hops = tonumber(h.hops) or 1
-                    a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
-                    room.claim_t = 0
-
-                    a.groups = a.groups or groups_of(el)
-                    a.id = take_id()
-                    if a.layers then
-                        a.ids = { a.id }
-                        for k = 2, a.layers do a.ids[k] = take_id() end
-                        table.sort(a.ids)
-                    end
-                    actors[#actors + 1] = a
+                    adopt(a, el, h)
                     msg.verbose("room: in from the " .. (h.dir == 1 and "left" or "right") .. ": " .. tostring(h.kind) .. " " .. tostring(h.sprite))
                 elseif a and a.release then a.release() end
             end
