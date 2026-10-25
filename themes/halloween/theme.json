@@ -829,6 +829,19 @@
       "group": ["scarecrow"]
     },
     {
+      "type": "frogs", "sprite": "frog", "recruits": ["frog"], "cast_ttl": [120, 300],
+      "ladies": [{"sprite": "princess3d", "family": "princess"}, {"sprite": "witch3d", "family": "witch"}],
+      "heroes": [
+        {"sprite": "werewolf_man3d", "family": "werewolf"},
+        {"sprite": "frankenstein3d", "family": "frankenstein"},
+        {"sprite": "skeleton3d", "family": "skeleton"},
+        {"sprite": "zombie3d", "family": "zombie"},
+        {"sprite": "pumpkinhead3d", "family": "pumpkinhead"}
+      ],
+      "min": 8, "video_min": 8, "every": [300, 600], "delay": [120, 300],
+      "group": ["monster", "walker"]
+    },
+    {
       "type": "princess",
       "sprite": "princess3d",
       "frog": "frog",
