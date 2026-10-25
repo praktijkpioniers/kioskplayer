@@ -368,10 +368,16 @@ local function decor_move(d, to)
     d.anim = { from = d.dy or 0, to = to, p = 0 }
 end
 
--- decor that stands (not on its way out)
+-- decor that stands (not on its way out; maybe away for a while, see tick_decor)
 local function standing_decor()
     local list = {}
     for _, d in ipairs(decor) do if not d.leaving then list[#list + 1] = d end end
+    return list
+end
+-- decor that is there right now (not away either)
+local function present_decor()
+    local list = {}
+    for _, d in ipairs(decor) do if not d.leaving and not d.away then list[#list + 1] = d end end
     return list
 end
 
@@ -458,8 +464,46 @@ local function build_decor(soft)
     room.claim_t = 0
 end
 
+-- what's going on on the floor, for decor that makes way (el.aside): "scenes" - a big act with
+-- its props (the witch's cauldron, the coffin, the sarcophagus, the frankenstein); "others" -
+-- that, or anyone about who doesn't come out of a grave (the tombstone stays for skeletons and
+-- zombies: theirs)
+local GRAVE_FAMILIES = { skeleton = true, zombie = true }
+local function floor_busy(aside)
+    for _, a in ipairs(actors) do
+        if a.scene then return true end
+        if aside == "others" and (a.floor or (is_character(a) and not GRAVE_FAMILIES[family_of(a.el)])) then
+            return true
+        end
+    end
+    return false
+end
+
+-- decor that comes and goes (el.duty = {on = [s, s], off = [s, s]}) or makes way (el.aside):
+-- it sinks away for a while, and rises again a few seconds after the floor is free
+local function decor_away(d, t)
+    local el = d.el
+    if d.leaving or not (el.duty or el.aside) then return end
+    if el.aside and floor_busy(el.aside) then d.busy_t = t end
+    if el.duty then
+        d.duty_t = d.duty_t or t + rnd(range(el.duty.on, 120))
+        if t >= d.duty_t then
+            d.off = not d.off
+            d.duty_t = t + rnd(range(d.off and el.duty.off or el.duty.on, 60))
+        end
+    end
+    local away = d.off or (d.busy_t ~= nil and t - d.busy_t < 4)
+    if away ~= (d.away or false) and not d.anim then
+        d.away = away
+        decor_move(d, away and off_screen_dy(d.y, d.spr.h) or 0)
+        msg.verbose(string.format("decor: %s %s%s", tostring(d.spr.name), away and "away" or "back",
+            away and not d.off and " (making way)" or ""))
+    end
+end
+
 local function tick_decor(t, dt)
     local keep = {}
+    for _, d in ipairs(decor) do decor_away(d, t) end
     for _, d in ipairs(decor) do
         local gone = false
         if d.anim then
@@ -467,7 +511,7 @@ local function tick_decor(t, dt)
             A.p = A.p + dt / DECOR_MOVE_S
             local p = clamp(A.p, 0, 1)
             -- sinking speeds up, rising slows down at the end
-            local e = d.leaving and p * p or (1 - (1 - p) * (1 - p))
+            local e = (d.leaving or d.away) and p * p or (1 - (1 - p) * (1 - p))
             d.dy = A.from + (A.to - A.from) * e
             if A.p >= 1 then
                 d.anim = nil
@@ -476,6 +520,9 @@ local function tick_decor(t, dt)
         end
         if gone then
             hide(d.id)
+        elseif d.away and not d.anim then
+            hide(d.id)
+            keep[#keep + 1] = d
         else
             local frame = 0
             if d.spr.fps > 0 then frame = math.floor((t + d.phase) * d.spr.fps) end
@@ -875,7 +922,7 @@ function spawn.performer(el, spr, h)
     local exit = pick(el.exit, { "sink", "walk" })
     if not enter or not exit then return nil end
 
-    local standing = standing_decor()
+    local standing = present_decor()
     local behind = (enter == "rise" and el.from_decor ~= false and #standing > 0 and math.random() < (el.from_decor or 0.5))
         and standing[math.random(#standing)] or nil
     local ground = H + spr.h * (el.sink or 0.0)  -- feet line (sprite bottom)
@@ -982,7 +1029,7 @@ function spawn.vampire(el, spr, h)
     local sink = (el.sink or 0.45) * u  -- in the coffin he stands/lies this much lower (hidden by the box)
     local hop = 1.3 * u                 -- jump height (clears the box)
     if W < 2 * box.w + 6 * u then return nil end
-    local a = { el = el, spr = spr, layers = 3, brainy = true }
+    local a = { el = el, spr = spr, layers = 3, brainy = true, scene = true }
     local d = math.random() < 0.5 and 1 or -1
     local open = lid.frames - 1
 
@@ -1268,7 +1315,7 @@ function spawn.mummy(el, spr)
         end
     end
     if not cx then return nil end
-    local a = { el = el, spr = spr, layers = 4 }
+    local a = { el = el, spr = spr, layers = 4, scene = true }
     local open = lid.frames - 1
 
     local steps = {}
@@ -1590,7 +1637,7 @@ function spawn.frankenstein(el, spr, h)
     if not (C and C.walk and C.idle and C.shock and spr.origin and spr.unit) then return nil end
     for _, p in ipairs(PIECES) do if not C[p[1]] then return nil end end
     local u = spr.unit * H
-    local a = { el = el, spr = spr, layers = 1 + #PIECES, brainy = true }
+    local a = { el = el, spr = spr, layers = 1 + #PIECES, brainy = true, scene = true }
     local dir = walk_dir(el)
     local x = dir > 0 and -1.2 * u or W + 1.2 * u
     local v = C.walk.stride_px * C.walk.fps / C.walk.count * (el.speed or 1.0)
@@ -1792,7 +1839,7 @@ function spawn.witch(el, spr)
     end
     local u = spr.unit * H
     if W < 12 * u then return nil end
-    local a = { el = el, spr = spr, layers = 4 }
+    local a = { el = el, spr = spr, layers = 4, scene = true }
     local d = math.random() < 0.5 and 1 or -1
     local cx = rnd(math.max(W * 0.3, 3.5 * u), math.min(W * 0.55, W - 5 * u))
     local swap = 0.4                                   -- (where the pot comes/goes in its puff)
@@ -1960,7 +2007,7 @@ function spawn.hopper(el, spr, h)
     local hop = F.hop.count / F.hop.fps / 1.3
     local step = 1.3 * u
     local x = walk_in_x(h, step / hop, 0.3 * u)
-    local a = { el = el, spr = spr, layers = 1, groups = {} }
+    local a = { el = el, spr = spr, layers = 1, groups = {}, floor = true }
     a.hops = tonumber(h.hops) or 1
     local x0, tc, rest = x, 0, math.random() < 0.6 and rnd(0.3, 0.7) * W or nil
     local resting
@@ -2161,7 +2208,7 @@ function spawn.peeker(el, spr)
     local edge = el.edge or "bottom"
     local reveal = rnd(range(el.reveal, 0.8))
     local behind = nil
-    local standing = standing_decor()
+    local standing = present_decor()
     if el.from == "decor" and #standing > 0 then behind = standing[math.random(#standing)] end
 
     if behind then
@@ -2275,7 +2322,7 @@ local function grave_check(a, x, y)
     local cx, bot = x + a.spr.w / 2, y + a.spr.h
     if bot < H * 0.97 then return end
     for _, d in ipairs(decor) do
-        if not d.leaving and not d.anim and (d.spr.name or ""):find("tombstone")
+        if not d.leaving and not d.away and not d.anim and (d.spr.name or ""):find("tombstone")
                 and cx > d.x + d.spr.w * 0.25 and cx < d.x + d.spr.w * 0.75 then
             a.graves = a.graves or {}
             if not a.graves[d] then
@@ -2468,7 +2515,7 @@ local function bottom_things()
                                 x = x, y = y, w = spr.w, h = spr.h, profile = spr.profile, mirror = mirror }
         end
     end
-    for _, d in ipairs(standing_decor()) do add(d.spr, d.x, d.y + (d.dy or 0), d.mirror) end
+    for _, d in ipairs(present_decor()) do add(d.spr, d.x, d.y + (d.dy or 0), d.mirror) end
     for _, a in ipairs(actors) do
         if a.el.type == "visitor" and a.sx then add(a.spr, a.sx, a.sy, a.mirror) end
         if a.solid then add(a.solid.spr, a.solid.x, a.solid.y, a.solid.variant == true) end

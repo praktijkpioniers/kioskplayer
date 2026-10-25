@@ -27,7 +27,8 @@
     "flyer: y = height in the middle of the screen, bend = how much lower towards the sides (an arc, the middle stays clear);",
     "a sprite with depth = {min, steps} drifts nearer and farther while it flies (smaller = farther = slower).",
     "cast near_logo: true = hang from the top edge somewhere around/over the watermark logo.",
-    "solid: true = the cat can climb onto it (pumpkins, tombstones, the coffin)."
+    "solid: true = the cat can climb onto it (pumpkins, tombstones, the coffin).",
+    "decor duty {on, off} (seconds): it sinks away and comes back now and then; aside: makes way (sinks away) while a big scene is on the floor (\"scenes\": the witch's cauldron, the coffin, the sarcophagus, the frankenstein) or also while anyone else not from a grave is about (\"others\": the tombstone stays for skeletons and zombies)."
   ],
   "sprites": {
     "pumpkin": {
@@ -257,6 +258,8 @@
       "sprite": "pumpkin",
       "group": "pumpkins",
       "anchor": "bottom-right",
+      "duty": {"on": [150, 400], "off": [30, 90]},
+      "aside": "scenes",
       "min": 3,
       "full": 6,
       "count": [
@@ -498,6 +501,8 @@
       "min": 7,
       "count": 1,
       "video_min": 8,
+      "duty": {"on": [150, 400], "off": [30, 90]},
+      "aside": "scenes",
       "places": [
         [
           0.01,
@@ -535,6 +540,8 @@
       "anchor": "bottom-left",
       "min": 8,
       "count": 1,
+      "duty": {"on": [60, 180], "off": [45, 150]},
+      "aside": "others",
       "places": [
         [
           0.3,
