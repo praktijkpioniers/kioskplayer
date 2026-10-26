@@ -2,7 +2,7 @@ character,idea,status,how,key
 Witch,Cooks at her cauldron; a cackle,done,scene spawn.witch,h
 Witch,Spell on the princess: they turn into each other,done,cast swap_into,x
 Witch,Spell on herself: a raven / a cat / the princess,done,cast morph; also her way out when her time is up,y
-Witch,Arrives as a raven flying over from another screen then turns into the witch,partly,a passing raven turns into the witch 15% of the time (bird witch_back); a fast fly-over on request is still to do,
+Witch,Arrives as a raven flying over from another screen then turns into the witch,done,witch scene with no one here to be her: now and then (el.raven_in 0.4) a raven flies in fast and comes down; a puff - the witch. Also: a passing raven sitting down may be her (witch_back 0.15),H
 Witch,Kisses the princess into a frog,done,hooks.MEETS witch -> princess (0.12; 0.9 when her time is up): the witch casts and she is a frog,W
 Werewolf,The man spins into the wolf; a howl,done,scene spawn.werewolf,l
 Werewolf,On all fours: walk / idle / run; drop and rise,done,baked clips walk4 idle4 run4 drop rise,

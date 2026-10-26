@@ -2690,6 +2690,16 @@ function spawn.witch(el, spr)
     if lp and (lp.ttl < 30 or math.random() >= (el.carriage_chance or 0.5) * (few and 0.4 or 1)) then lp = nil end
     local car = { state = "hidden" }                 -- roll | jump | in | stand | drive | away | gone
     if lp then lp.taken = true end
+    -- no one here to be her: now and then she comes as a raven, flying in fast - down, a puff, the witch
+    local rv = S[el.raven or ""]
+    if not who and rv and rv.clips and rv.clips.fly and rv.clips.sit and rv.origin
+            and (el.raven_force or math.random() < (el.raven_in or 0.4)) then
+        X, el.raven_force = cx - 2.4 * u, nil
+        add { sp = rv, clip = "fly", to = X, v = 0.45 * W, fly = -2.2 * u, m = false, log = "witch: a raven flies in, fast" }
+        add { sp = rv, clip = "sit", dur = rnd(0.5, 0.9), m = false }
+        add { clip = "idle", dur = 1.0, puff = true, log = "witch: ...in a puff, the raven is the witch" }
+        face = 0
+    end
     if was then                                       -- the princess: a look round, a puff, the witch
         add { sp = pr, clip = "turn_front", m = false, log = "witch: the princess..." }
         add { sp = pr, clip = "idle", dur = rnd(0.8, 1.5) }
@@ -2938,7 +2948,7 @@ function spawn.witch(el, spr)
             s = { clip = "idle", gone = true }
         end
         if si ~= a.logged then
-            a.logged = si
+            a.logged, s.x0 = si, wx
             if s.on then s.on() end
             if s.log then msg.verbose(s.log) end
             if s.puff then
@@ -2953,7 +2963,7 @@ function spawn.witch(el, spr)
         local c = sp.clips[s.clip] or sp.clips.walk
         local done
         if s.to then
-            local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
+            local v = s.v or c.stride_px * c.fps / c.count * (el.speed or 1.0)
             local dir = s.to > wx and 1 or -1
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
@@ -2988,7 +2998,9 @@ function spawn.witch(el, spr)
         end
         puffs = keep
         local layers = {}
-        local l = place(sp, wx, frame_of(c, tc), s.m, 0)
+        local fy = 0                         -- (flying in: high up at first, down to the ground)
+        if s.fly and s.x0 and s.to ~= s.x0 then fy = s.fly * (1 - ease(clamp((wx - s.x0) / (s.to - s.x0), 0, 1))) end
+        local l = place(sp, wx, frame_of(c, tc), s.m, fy)
         a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
         if not (s.puff and tc < 0.25) and not s.gone and not s.hide then layers[1] = l end     -- (the change, in the puff)
         if pot then
@@ -6725,7 +6737,8 @@ end)
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
 --   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
 --   W = the witch meets the princess (a spell: she's a frog), C = the window creep, V = the vampire meets the
---   princess vampire (a coffin for two), B = the vampire a bat (it hangs a while, comes down: him again), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   princess vampire (a coffin for two), B = the vampire a bat (it hangs a while, comes down: him again),
+--   H = the witch comes as a raven, Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -7006,6 +7019,11 @@ end)
 mp.add_forced_key_binding("B", "theme-preview-bat", function()          -- (the vampire: a bat, and back)
     local v = preview_cast(M and cast_sprite("vampire"), { fam = "vampire", dir = 1, at = 0.3 * W, ttl = 120, hops = 0 })
     if v then v.next_at, v.force_morph = 1.5, "bat" end
+end)
+mp.add_forced_key_binding("H", "theme-preview-witch-raven", function()  -- (the witch comes as a raven)
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "witch" and elements[el] then elements[el].next, elements[el].force, el.raven_force = 0, true, true end
+    end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}
