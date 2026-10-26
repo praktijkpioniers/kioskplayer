@@ -2,6 +2,27 @@
 
 The idea list with each idea's status is in [ideas.csv](ideas.csv): character, idea, status (done / partly / to do / dropped), how it's done (or the plan), and the preview key in the sim. This page explains how things work and has the interaction matrix.
 
+## Roadmap
+
+The order the open ideas are worked in. Feedback from watching the sim goes first, always.
+
+1. **Machinery: one meeting table.** (A meets B → reaction, chance), checked from one proximity loop. Move the existing pairs in: zombie/skeleton, wolf/skeleton, zombie/werewolf man. This makes every gag below cheaper to add.
+2. **Code-only gags, using existing art:**
+   - The princess no longer turns herself into a frog.
+   - A frog's kiss turns her into a frog sometimes.
+   - The witch kisses her into a frog.
+   - When the witch is wanted, a raven flies over fast and turns into her.
+   - Open pairs from the matrix as one-line entries.
+3. **Coffins:**
+   - The princess vampire finds a coffin and lies down; it sinks.
+   - Vampire and princess vampire share one coffin, which wiggles.
+   - Needs a lying princess-vampire bake (small).
+4. **New procedural art:** made in parallel by bake helpers while 1–3 are coded.
+   - Bat (fly, hang, transform both ways) → vampire ↔ bat.
+   - Window creep (octopus-like).
+   - Mirror → the princess looks in.
+5. **Model rework, needs your eye:** Frankenstein's look (hair, stitches, facing us) and the cat.
+
 ## How it works
 
 Every story is either a planned **scene** or a meeting between characters that are already **about**. Interactions should be opportunistic: anything nearby that could set off a reaction does so. Planned scenes are the backbone, but each step looks for a nearby trigger first.
