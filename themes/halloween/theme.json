@@ -123,6 +123,10 @@
       "anim": "anim/brain",
       "unit": 0.17
     },
+    "eye": {
+      "anim": "anim/eye",
+      "unit": 0.15
+    },
     "bone": {
       "anim": "anim/bone",
       "unit": 0.14

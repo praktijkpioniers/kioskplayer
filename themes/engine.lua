@@ -356,7 +356,7 @@ local function cast_here(fam, skip)
             for _, f in ipairs(a.list()) do if f ~= skip then return f end end
         end
         if a ~= skip and (a.family == fam or (fam == "frog" and a.frog)) and not a.scene and not a.gone and not a.leaving
-                and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then return a end
+                and not a.busy and a.cx and a.cx > 0.05 * W and a.cx < 0.95 * W then return a end
     end
 end
 -- the frogs about: here (hopping about, on the pile), each with a token the room hears of
@@ -1726,6 +1726,42 @@ local function puff(out, x, y, r, alpha, color)
         x - k, y + r, x - r, y + k, x - r, y, x - r, y - k, x - k, y - r, x, y - r)
 end
 
+-- a fight in a cloud of dust at x (the two in it gone meanwhile): swirling, stars popping out; dur
+-- seconds, then done() - who comes out of it
+function hooks.dust_fight(el, x, dur, done)
+    local u = 0.115 * H
+    local a = { el = el, layers = 1, groups = {}, t = 0 }
+    function a.update(dt)
+        a.t = a.t + dt
+        if a.t >= dur then
+            if done then done() end
+            return false
+        end
+        return true, {}
+    end
+    function a.ass(out)
+        local k, cy = a.t, H - 0.85 * u
+        local al = 1 - clamp(k / 0.3, 0, 1) * clamp((dur - k) / 0.4, 0, 1)
+        puff(out, x, cy, 0.95 * u, 0.15 + 0.6 * al, "&H9AA6B0&")
+        for i = 1, 11 do
+            local ang = k * 6.5 + i * 2 * math.pi / 11
+            local r = (0.6 + 0.15 * math.sin(k * 5 + i)) * u
+            puff(out, x + math.cos(ang) * r * 1.35, cy + math.sin(ang) * r * 0.55,
+                 (0.36 + 0.1 * math.sin(k * 9 + i * 1.7)) * u, 0.1 + 0.7 * al, i % 2 == 0 and "&HB4BEC6&" or "&H8C98A2&")
+        end
+        for i = 1, 4 do
+            local ph = (k * 1.6 + i / 4) % 1
+            local ang = i * 1.9 + math.floor(k * 1.6 + i / 4) * 2.3
+            local sx, sy = x + math.cos(ang) * (0.7 + 0.8 * ph) * u, cy + math.sin(ang) * (0.4 + 0.6 * ph) * u - 0.3 * u
+            local sa = math.floor(clamp(math.max(al, ph), 0, 1) * 255)
+            out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\b1\\bord2\\shad0\\frz%d\\1c&H30D8FF&\\3c&H202020&\\1a&H%02X&\\3a&H%02X&}*",
+                sx, sy, 0.5 * u, k * 400 + i * 90, sa, sa)
+        end
+    end
+    adopt(a, el, { hops = 0 })
+    return a
+end
+
 -- a piece of zombie brain (the zombie's el.brain, tools/bake/brain.py): now and then one falls off a
 -- zombie's head at a stop and lies there for good (BRAINS_MAX on a screen at most), till a zombie
 -- finds it - the one it fell off too, after a while - and eats it up: lifted to its mouth, bite by
@@ -2092,10 +2128,14 @@ local PIECES = { -- clip, flying off (x: outwards, y: up, in u/s), height of its
     { "piece_arm_l", -2.4, 5.5, 1.45, 0.15 }, { "piece_arm_r", 2.4, 5.5, 1.45, 0.15 },
     { "piece_leg_l", -1.6, 3.5, 0.45, 0.2 }, { "piece_leg_r", 1.6, 3.5, 0.45, 0.2 },
 }
+-- the same for another's pieces (by sprite name): the zombie torn apart in a fight
+PIECES.by = { zombie3d = {
+    { "piece_head", 0, 0, 1.7, 0.35 }, { "piece_body", 0, 0, 0.86, 0.38 }, { "piece_arm_l", 0, 0, 1.18, 0.15 },
+    { "piece_arm_r", 0, 0, 1.2, 0.13 }, { "piece_leg_l", 0, 0, 0.27, 0.15 }, { "piece_leg_r", 0, 0, 0.27, 0.13 } } }
 function PIECES.relic(spr, i, frame)        -- (piece i lying about, frame: as it came down; see new_relic)
-    local p, u = PIECES[i], spr.unit * H
+    local p, u = (PIECES.by[spr.name] or PIECES)[i], spr.unit * H
     return { spr = spr, frame = frame, mx = spr.origin[1], my = spr.origin[2] - p[4] * u, lie = p[5] * u,
-             kind = i == 1 and "head" or "limb", piece = i }
+             kind = i == 1 and "head" or i == 2 and "body" or "limb", piece = i }
 end
 function PIECES.from(h)                     -- (a relic handed over from next door: h.relic {sprite, piece, frame})
     local r = type(h) == "table" and h.relic
@@ -2366,7 +2406,7 @@ local function frog_sprite()
 end
 local OWN_ACT = { zombie = true, frankenstein = true, werewolf = true, performer = true }
 local function next_act(w)
-    if not M then return false end
+    if not M or w.busy then return false end
     local fam = w.family or (w.frog and "frog")
     local now = mp.get_time()
     -- (the witch only once she's done something: cooked, or been the princess - or no cooking
@@ -3105,7 +3145,7 @@ spawn_hopper = spawn.hopper
 -- one) and the bone's gone; the rest after a while sink away.
 local function free_bone(x, reach)          -- a bone or a limb lying here, within reach of x
     for _, b in ipairs(actors) do
-        if b.relic and b.relic.kind ~= "head" and not b.gone and not b.taken and not b.rising
+        if b.relic and b.relic.kind ~= "head" and b.relic.kind ~= "body" and not b.gone and not b.taken and not b.rising
                 and math.abs(b.cx - x) < reach then return b end
     end
 end
@@ -4257,6 +4297,12 @@ function spawn.wanderer(el, spr, h)
     a.cooked, a.was_pr = h.cooked, h.was_pr      -- (a witch: cooked once, been the princess - she may go)
     a.age = tonumber(h.age) or 0                 -- (about as one of the cast this long)
     if h.fam == "zombie" and not h.age then a.ttl = a.ttl * (el.zombie_ttl or 0.5) end   -- (new: zombies about shorter)
+    -- a skeleton with the zombie's brain and an eye (it won them in a fight, see hooks.zombie_fight):
+    -- on its skull, in its socket - a while, then they fall out (the brain for a zombie to find)
+    local BR, EY = brain_sprite(), M.sprites.eye
+    if h.brainy and BR and EY and EY.origin then
+        a.brainy, a.layers, down_x = tonumber(h.brainy) or rnd(20, 35), 3, nil
+    end
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
     -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
@@ -4605,6 +4651,19 @@ function spawn.wanderer(el, spr, h)
                     end
                 end
             end
+            -- a zombie meets a skeleton: no brains there - but they fight (see hooks.zombie_fight)
+            if zombie and not a.meal and not a.called and not a.swap and not a.out_since then
+                for _, b in ipairs(actors) do
+                    if b ~= a and not met[b] and actor_family(b) == "skeleton" and (b.family or b.el.type == "performer")
+                            and b.cx and not b.gone and not b.leaving and not b.swap and not b.called and not b.brainy
+                            and math.abs(b.cx - x) < 1.6 * u and b.cx > 0.08 * W and b.cx < 0.92 * W then
+                        met[b] = true
+                        if (a.fight_sure or math.random() < (el.zombie_fight or 0.6)) and hooks.zombie_fight(a, b, x) then
+                            return false
+                        end
+                    end
+                end
+            end
             -- the werewolf man meets a zombie: it gets him - he's a zombie too
             if fam == "werewolf" and not a.swap and not a.morphing and not a.called then
                 for _, b in ipairs(actors) do
@@ -4656,7 +4715,8 @@ function spawn.wanderer(el, spr, h)
                 -- (no screen that way, or full there: back the other way - to the other neighbour)
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = fam, sprite = spr.name, ttl = math.floor(a.ttl),
                                                     unique = false, hops = 0, from = h.from, cooked = a.cooked,
-                                                    was_pr = a.was_pr, age = math.floor(a.age) }) then turn_round() end
+                                                    was_pr = a.was_pr, age = math.floor(a.age),
+                                                    brainy = a.brainy and math.floor(a.brainy) or nil }) then turn_round() end
             end
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
@@ -4672,6 +4732,29 @@ function spawn.wanderer(el, spr, h)
         local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
         local layer = { spr = spr, frame = cc.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
         a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
+        if a.brainy then                                -- (the brain on its skull, the eye in its socket)
+            local tr = cc.track and cc.track.head and cc.track.head[k + 1]
+            local hx, hy = x + (tr and (mi and -tr[1] or tr[1]) or 0), tr and (H + tr[2]) or (H - 2.0 * u)
+            local f = mi and -1 or 1
+            local bx, by = hx - f * 0.02 * u, hy - (el.brain_up or 0.86) * u
+            local ex, ey = hx + f * (el.eye_x or 0.16) * u, hy - (el.eye_up or 0.34) * u
+            a.brainy = a.brainy - dt
+            if a.brainy <= 0 and state == "walk" then      -- out they fall
+                a.brainy, a.layers = nil, 1
+                local _, zel = brain_sprite()
+                if zel and #free_ids > 1 then
+                    new_brain(zel, BR, bx, by, f * rnd(0.3, 0.7) * u, a, u)
+                    hooks.new_relic(el, { spr = EY, frame = EY.clips.lie.start, mx = EY.origin[1], my = EY.origin[2] - EY.h / 2,
+                                          lie = EY.h / 2, kind = "eye" }, ex, ey, mi)
+                end
+                msg.verbose("cast: the skeleton's brain and eye fall out - a skeleton again")
+            else
+                return true, { layer, { spr = BR, frame = BR.clips.lie.start, variant = mi, x = bx - (mi and BR.w - BR.origin[1] or BR.origin[1]),
+                                        y = by - BR.origin[2] },
+                               { spr = EY, frame = EY.clips.lie.start, variant = mi, x = ex - (mi and EY.w - EY.origin[1] or EY.origin[1]),
+                                 y = ey - EY.origin[2] + EY.h / 2 } }
+            end
+        end
         if sw and sw.done and not sw.spin and now - sw.at < 0.25 then return true, {} end     -- (the change, in the puff)
         return true, { layer }
     end
@@ -4680,6 +4763,31 @@ function spawn.wanderer(el, spr, h)
         for _, q in ipairs(clods) do puff(out, q.x, q.y, q.r, 0.1, "&H1E3A5A&") end
     end
     return a
+end
+
+-- a zombie (z, at zx) meets a skeleton (sk): no brains there - but they fight, in a cloud of dust.
+-- Out of it the skeleton with the zombie's brain and an eye; the zombie lies about in pieces
+function hooks.zombie_fight(z, sk, zx)
+    local ce, ssp = cast_el(), cast_sprite("skeleton")
+    if not (ce and ssp and #free_ids > 3) then return false end
+    local mx, sd, zs = (zx + sk.cx) / 2, sk.facing or 1, z.spr
+    sk.gone = true
+    msg.verbose("cast: the zombie meets a skeleton - no brains there... a fight!")
+    hooks.dust_fight(ce, mx, 2.6, function()
+        local b = #free_ids > 2 and spawn.wanderer(ce, ssp, { fam = "skeleton", dir = sd, at = mx, hops = 0, brainy = true,
+                                                              ttl = math.floor(rnd(40, 80)) })
+        if b then adopt(b, ce, { hops = 0 }) end
+        local T = PIECES.by[zs.name]
+        for i, p in ipairs(T or {}) do
+            local c = zs.clips[p[1]]
+            if c and #free_ids > 0 then
+                local px = mx + rnd(-1.4, 1.4) * zs.unit * H
+                hooks.new_relic(ce, PIECES.relic(zs, i, c.start + math.random(0, c.count - 1)), px, H - 1.4 * zs.unit * H, false)
+            end
+        end
+        msg.verbose("cast: out of the dust, the skeleton - with the zombie's brain and eye")
+    end)
+    return true
 end
 
 -- the witch out of a puff at x (a raven sitting there, the cat): true if she's there now
@@ -6362,7 +6470,7 @@ end)
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
---   Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   S = a zombie and a skeleton meet (a fight: brain and eye), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6456,6 +6564,16 @@ end)
 mp.add_forced_key_binding("p", "theme-preview-princess", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "princess" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("S", "theme-preview-zombie-skeleton", function()   -- (they meet: a fight)
+    local ce, zs, ss = cast_el(), cast_sprite("zombie"), cast_sprite("skeleton")
+    if not (ce and zs and ss) then return end
+    local z = spawn.wanderer(ce, zs, { fam = "zombie", dir = 1, at = 0.25 * W, hops = 0, ttl = 60, age = 1, down_at = -1e9 })
+    local k = spawn.wanderer(ce, ss, { fam = "skeleton", dir = -1, at = 0.75 * W, hops = 0, ttl = 60 })
+    if z and k then
+        z.fight_sure, z.busy, k.busy = true, true, true      -- (no scene takes them over first)
+        adopt(z, ce, { hops = 0 }) adopt(k, ce, { hops = 0 })
     end
 end)
 mp.add_forced_key_binding("Z", "theme-preview-time-up", function()   -- (the cast here: time's up)

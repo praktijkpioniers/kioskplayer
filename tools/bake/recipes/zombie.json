@@ -1,5 +1,5 @@
 {
- "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The Barbarian's body without hat, cape and weapons, with the Knight's (bald) head, repainted: green skin, ragged faded clothes; props: one eye popped out (hanging on its stalk from the empty socket), the brain showing, a gaping mouth, a blood stain. Shuffles slowly with its arms straight out in front (held hanging from Idle, then turned up) and its head drooping; sniffs the air nose up; reaches for passers-by. pick: bending down for something on the ground (a piece of brain).",
+ "_doc": "KayKit Adventurers (CC0, Kay Lousberg), see vampire.json. The Barbarian's body without hat, cape and weapons, with the Knight's (bald) head, repainted: green skin, ragged faded clothes; props: one eye popped out (hanging on its stalk from the empty socket), the brain showing, a gaping mouth, a blood stain. Shuffles slowly with its arms straight out in front (held hanging from Idle, then turned up) and its head drooping; sniffs the air nose up; reaches for passers-by. pick: bending down for something on the ground (a piece of brain). piece_*: each part alone in the idle pose (arms out), spinning (torn apart in a fight).",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
  "parts": [
   {
@@ -311,6 +311,254 @@
    "action": "PickUp",
    "yaw": 70,
    "step": 2
+  },
+  "piece_head": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Knight_Head",
+    "prop0",
+    "prop1",
+    "prop2",
+    "prop3",
+    "prop4",
+    "prop5"
+   ],
+   "spin": true
+  },
+  "piece_body": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Barbarian_Body",
+    "prop6",
+    "prop7"
+   ],
+   "spin": true
+  },
+  "piece_arm_l": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Barbarian_ArmLeft"
+   ],
+   "spin": true
+  },
+  "piece_arm_r": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Barbarian_ArmRight"
+   ],
+   "spin": true
+  },
+  "piece_leg_l": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Barbarian_LegLeft"
+   ],
+   "spin": true
+  },
+  "piece_leg_r": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 8,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     80,
+     0,
+     -25
+    ],
+    "upperarm.r": [
+     80,
+     0,
+     25
+    ],
+    "head": [
+     -15,
+     0,
+     15
+    ]
+   },
+   "only": [
+    "Barbarian_LegRight"
+   ],
+   "spin": true
   }
  },
  "props": [

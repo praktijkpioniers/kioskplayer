@@ -64,6 +64,48 @@
    "fps": 12.0,
    "loop": false,
    "stride": 0.0
+  },
+  "piece_head": {
+   "files": "piece_head_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "piece_body": {
+   "files": "piece_body_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "piece_arm_l": {
+   "files": "piece_arm_l_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "piece_arm_r": {
+   "files": "piece_arm_r_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "piece_leg_l": {
+   "files": "piece_leg_l_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "piece_leg_r": {
+   "files": "piece_leg_r_*.png",
+   "count": 8,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
  "unit_px": 147.69230769230768,
