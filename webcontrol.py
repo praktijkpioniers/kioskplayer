@@ -276,6 +276,12 @@ def render_page(cfg: dict, msg: str = "") -> str:
         f'{"" if t in disabled_types else "checked"}> {esc(t)}</label>'
         for t in event_types
     )
+    closed_days = {str(d).lower()[:3] for d in (cfg.get("themes_closed_days") or [])}
+    closed_boxes_html = "\n".join(
+        f'<label class="check"><input type="checkbox" name="themes_closed_day" value="{d}" '
+        f'{"checked" if d in closed_days else ""}> {d}</label>'
+        for d in themes.WEEKDAYS
+    )
     theme_names = sorted(p.parent.name for p in themes.THEMES_DIR.glob("*/theme.json"))
     cur_force = str(cfg.get("themes_force") or "")
     force_opts_html = '<option value="">(follow calendar)</option>' + "".join(
@@ -499,6 +505,9 @@ a.buttonlink {{
 <select name="themes_max_level">
 {max_opts_html}
 </select>
+
+<label>Closed on (with Level on Auto: the coming season in full, to try it out)</label>
+<div>{closed_boxes_html}</div>
 
 <label>Pretend date (empty = today)</label>
 <input type="date" name="themes_date_override" value="{esc(cfg.get("themes_date_override") or "")}">
@@ -915,6 +924,7 @@ class Handler(BaseHTTPRequestHandler):
         cfg.pop("themes_force_intensity", None)
         cfg["themes_date_override"] = (data.get("themes_date_override", [""])[0] or "").strip()
         cfg["themes_text"] = (str(get("themes_text", str) or "0").strip() == "1")
+        cfg["themes_closed_days"] = [d for d in themes.WEEKDAYS if d in data.get("themes_closed_day", [])]
         cfg["themes_scope"] = "screen" if str(get("themes_scope", str) or "").strip() == "screen" else "room"
 
         # watermark

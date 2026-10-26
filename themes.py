@@ -163,8 +163,20 @@ def load_events() -> list[dict[str, Any]]:
         return []
 
 
+WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+CLOSED_AHEAD_DAYS = 90          # a closed day shows a season whose prime day is that close
+
+
+def closed_today(cfg: dict[str, Any], today: dt.date) -> bool:
+    """A day the museum is closed (themes_closed_days, e.g. ["mon"]): time to try out the season."""
+    days = {str(d).lower()[:3] for d in (cfg.get("themes_closed_days") or [])}
+    return WEEKDAYS[today.weekday()] in days
+
+
 def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, float]]:
-    """(theme_name, level) for today, honouring config switches, or None."""
+    """(theme_name, level) for today, honouring config switches, or None. On a closed day
+    (themes_closed_days) with the level on auto: the season on now or coming up next (prime day
+    within CLOSED_AHEAD_DAYS) in full (PRIME_LEVEL), whatever the maximum - nobody but us to see it."""
     force = str(cfg.get("themes_force") or "").strip()
     if force:
         lvl = configured_level(cfg, PRIME_LEVEL)
@@ -175,6 +187,8 @@ def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, float
     disabled = {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])}
 
     best: Optional[tuple[int, int, int, str]] = None
+    closed = closed_today(cfg, today) and cfg.get("themes_level", "auto") in (None, "", "auto")
+    soonest: Optional[tuple[int, str]] = None
     for ev in load_events():
         if str(ev.get("type", ev.get("id", ""))).lower() in disabled:
             continue
@@ -184,12 +198,20 @@ def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, float
             lvl = event_level(ev, today)
         except Exception:
             continue
+        if lvl is None and closed:
+            for year in (today.year, today.year + 1):
+                _, p1, p2, _ = event_window(ev, year)
+                if p2 >= today and (p1 - today).days <= CLOSED_AHEAD_DAYS:
+                    soonest = min(soonest or (999, ""), ((p1 - today).days, str(ev.get("theme", ev.get("id")))))
+                    break
         if lvl is None:
             continue
         # Overlaps: a prime day always wins, then higher priority, then higher level.
         key = (int(lvl >= PRIME_LEVEL), int(ev.get("priority", 0)), lvl, str(ev.get("theme", ev.get("id"))))
         if best is None or key > best:
             best = key
+    if closed and (best or soonest):
+        return (best[3] if best else soonest[1], PRIME_LEVEL)
     if best is None:
         return None
     lvl = configured_level(cfg, best[2])

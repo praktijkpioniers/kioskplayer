@@ -173,6 +173,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "themes_level": "auto",            # "auto" = follow the calendar, or a fixed level 0..9 (9 = demo grid)
     "themes_max_level": 8,             # cap for "auto" (8 = full blown on the day itself)
     "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
+    "themes_closed_days": ["mon"],     # closed: with the level on auto, the coming season in full (to try it out)
     "themes_text": False,              # characters may say shouts/jokes in speech balloons
     # "room": theme settings changed on one screen (webcontrol) go for every player in the room
     # (needs "room" enabled below); "screen": each screen on its own
@@ -237,7 +238,7 @@ def load_config() -> dict[str, Any]:
 
 # the theme settings a screen shares with the room (themes_scope "room")
 THEMES_SHARED = ("themes_enabled", "themes_disabled_types", "themes_force", "themes_level",
-                 "themes_max_level", "themes_date_override", "themes_text")
+                 "themes_max_level", "themes_date_override", "themes_text", "themes_closed_days")
 
 
 def themes_settings(cfg: dict[str, Any]) -> dict[str, Any]:
