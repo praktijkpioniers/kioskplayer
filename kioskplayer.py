@@ -124,6 +124,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "mpv_ipc_path": "/tmp/museum_player_mpv.sock",
     "mpv_binary": "mpv",
     "mpv_hwdec": "no",
+    "mpv_profile": "fast",             # mpv's scaling profile: "fast" keeps a Pi 4 at full frame rate ("" = mpv's default)
 
     "osd_idle_ms": 120000,
     "osd_menu_ms": 1500,
@@ -502,6 +503,7 @@ class MpvRenderer:
         self.ipc_path = str(cfg.get("mpv_ipc_path", "/tmp/museum_player_mpv.sock"))
         self.mpv_bin = str(cfg.get("mpv_binary", "mpv"))
         self.hwdec = str(cfg.get("mpv_hwdec", "no"))
+        self.profile = str(cfg.get("mpv_profile", "fast") or "")
 
         self.proc: Optional[subprocess.Popen] = None
         self.ipc = MpvIpc(self.ipc_path)
@@ -540,6 +542,7 @@ class MpvRenderer:
             "--vo=gpu",
             "--gpu-api=opengl",
             f"--hwdec={self.hwdec}",
+            *([f"--profile={self.profile}"] if self.profile else []),
             "--osd-align-x=center",
             "--osd-align-y=top",
             "--osd-level=1",
