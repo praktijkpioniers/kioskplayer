@@ -1438,7 +1438,7 @@ end
 -- (shut, the lid hides the mummy). Planned coming out to the right, mirrored half the time.
 -- Each step has a part for the mummy (a) and for the helper (b): a clip, walking to x (to),
 -- for dur, mirrored (m); or hide. A step ends when both parts did; a missing part rests.
-function spawn.mummy(el, spr)
+function spawn.mummy(el, spr, h)
     local S = M.sprites
     local helper, box, lid = S[el.helper or ""], S[el.box or ""], S[el.lid or ""]
     local C, B = spr.clips, helper and helper.clips
@@ -1450,6 +1450,13 @@ function spawn.mummy(el, spr)
     -- the sarcophagus, where the mummy unwraps and where the helper stands: not behind decoration
     -- on the ground (decor is drawn over actors); planned in scene space, see place()
     local d, cx, out
+    -- h.pickup: called up for one of the cast whose time is up (see hooks.pickup) - the sarcophagus
+    -- comes up in its way, opens, and in it goes; no mummy
+    local pickup = h and h.pickup
+    if pickup then
+        d, cx = 1, pickup.cx + (pickup.facing or 1) * 2.4 * u
+        if not pickup.cx or cx < 1.2 * u or cx > W - 1.2 * u then return nil end
+    end
     local function free(x, half)
         local sx = d > 0 and x or W - x
         for _, dc in ipairs(standing_decor()) do
@@ -1457,7 +1464,7 @@ function spawn.mummy(el, spr)
         end
         return true
     end
-    for _ = 1, 16 do
+    for _ = 1, pickup and 0 or 16 do
         d = walk_dir(el)                -- (the helper's side: started by a key, the side next door)
         local x = rnd(math.max(1.8 * u, W * 0.1), math.max(1.8 * u, W * 0.35))
         local o = x + rnd(2.2, 3.0) * u
@@ -1473,7 +1480,7 @@ function spawn.mummy(el, spr)
     -- by till it hurries over; after, the helper may go on as a skeleton of the cast (one that
     -- joined in does), now and then the mummy too (the sarcophagus shuts empty and sinks)
     local who
-    for _, b in ipairs(actors) do
+    for _, b in ipairs(pickup and {} or actors) do
         if actor_family(b) == "skeleton" and (b.family or b.el.type == "performer") and not b.gone and not b.leaving
                 and not b.swap and not b.called and b.cx and b.cx > 0.05 * W and b.cx < 0.95 * W then who = b break end
     end
@@ -1512,6 +1519,13 @@ function spawn.mummy(el, spr)
         t.x = to
     end
 
+  local side = d > 0 and "right" or "left"
+  if pickup then
+    A.rest = { hide = true, rest = true }
+    add { rise = { 1, 0 }, dur = DECOR_MOVE_S }
+    add { lid = { 0, open }, dur = 1.0 }
+    add { trap = true, dur = 14 }
+  else
     -- up out of the ground, the lid opens, out and to the middle, facing the viewer
     add { a = { hide = true }, rise = { 1, 0 }, dur = DECOR_MOVE_S }
     add { a = { hide = true }, dur = rnd(0.5, 1.5) }
@@ -1525,7 +1539,6 @@ function spawn.mummy(el, spr)
     A.rest = { clip = "shy", rest = true }
     add { a = { clip = "shy", dur = rnd(2, 3), act = true } }
     -- with a screen next door on the helper's side, it is seen there first, hurrying over
-    local side = d > 0 and "right" or "left"
     local hv = B.walk.stride_px * B.walk.fps / B.walk.count * 2.4 * (el.speed or 1.0)
     if room[side] and not who then
         add { a = { clip = "shy", dur = (W + 1.2 * u) / hv }, summon = true }
@@ -1562,6 +1575,7 @@ function spawn.mummy(el, spr)
         go(A, "a", cx)
         turn(A, 0, "a")
     end
+  end
     local slam = add { lid = { open, 0 }, dur = 1.0 }
     local rattle = add { a = { hide = true }, dur = 0, rattle = true }
     add { a = { hide = true }, dur = rnd(0.5, 1.2) }
@@ -1630,7 +1644,7 @@ function spawn.mummy(el, spr)
         if s.trap and not a.victim and tc > 1 then             -- (one of the cast in front of it: in it goes)
             local sx = d > 0 and cx or W - cx
             for _, b in ipairs(actors) do
-                if b ~= a and b.family and not b.scene and not b.gone and not b.leaving and not b.swap and not b.called
+                if b ~= a and b.family and not b.scene and not b.gone and (not pickup or b == pickup or b.out_since) and not b.leaving and not b.swap and not b.called
                         and not b.she and b.cx and math.abs(b.cx - sx) < 0.45 * u and b.spr and b.spr.clips
                         and b.spr.clips.idle and b.spr.origin then
                     b.gone, a.victim = true, b.spr
@@ -1665,6 +1679,26 @@ function spawn.mummy(el, spr)
         return true, layers
     end
     return a
+end
+
+-- one of the cast whose time is up (b): a sarcophagus comes up in its way for it (not too often)
+function hooks.pickup(b)
+    local now = mp.get_time()
+    if now < (hooks.pickup_next or 0) or #free_ids < 4 then return false end
+    for _, x in ipairs(actors) do if x.el and x.el.type == "mummy" and not x.gone then return false end end
+    for _, e in ipairs(M.elements) do
+        local sp = e.type == "mummy" and M.sprites[e.sprite or ""]
+        if sp then
+            local a = spawn.mummy(e, sp, { pickup = b })
+            if not a then return false end
+            adopt(a, e, { hops = 0 })
+            if b.pause then b.pause(DECOR_MOVE_S + 1.2) end      -- (it watches it come up and open)
+            hooks.pickup_next = now + (e.pickup_every or 30)
+            msg.verbose("mummy: a sarcophagus comes up for the " .. tostring(actor_family(b)) .. " (its time is up)")
+            return true
+        end
+    end
+    return false
 end
 
 -- ASS helpers for the frankenstein: a jagged spark from (x0, y0) to (x1, y1), a puff of smoke
@@ -3626,6 +3660,20 @@ function spawn.princess(el, spr)
         t.x = to
     end
     local hold = math.floor(C.pick.count * 0.45)       -- (bent down)
+    -- not about: she comes as a frog, hopping in - a puff, and there she is
+    if not her and el.frog_in ~= false then
+        A.sp, A.x, A.face = frog, -0.6 * u, 1
+        A0 = A.x
+        A.rest = { clip = "sit", rest = true }
+        local at = rnd(0.1, 0.16) * W
+        add { a = { clip = "hop", hop = at }, log = "princess: a frog hops in" }
+        A.x = at
+        add { a = { clip = "sit", dur = rnd(0.5, 1.0) } }
+        A.sp, A.face = spr, 0
+        A.rest = { clip = "idle", rest = true }
+        add { a = { clip = "idle", dur = 1.0 }, puff = "a", log = "princess: in a puff, the frog is the princess" }
+        if math.random() < 0.5 then add { a = { clip = "cheer" } } end
+    end
 
     if story ~= "vampire" then
         local fx = free_scene_x(0.5 * W, 0.7 * W, d)
@@ -4291,6 +4339,9 @@ function spawn.wanderer(el, spr, h)
     if h.puff then a.swap = { spr = spr, fam = fam, at = mp.get_time() } end     -- (out of a puff, here)
     -- walking the same way as another (other), close by and nothing to do with it: not that - its
     -- next act now (a spell...), or it turns round, or it stops a while and lets the other go on
+    function a.pause(dur)              -- (it stops, faces the viewer a while - a sarcophagus coming up)
+        play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = dur }, C.turn_side and { "turn_side", m = dir < 0 })
+    end
     function a.avoid(other)
         if state ~= "walk" or a.meal or a.called or a.doomed or a.swap or a.morphing or a.lured then return false end
         local r, what = math.random(), nil
@@ -4326,6 +4377,33 @@ function spawn.wanderer(el, spr, h)
             if not next_act(a) then
                 a.force_morph = "raven"
                 next_act(a)
+            end
+        end
+        -- its time up (ttl): it wants out (a.out_since) - a sarcophagus may come up in its way for it
+        -- (hooks.pickup); still here a while after (el.out_force): out by a cheat - in a puff a frog
+        -- hopping off (the vampire: a raven flying off), or down into the ground
+        if a.ttl <= 0 and fam ~= "witch" then
+            a.out_since = a.out_since or now
+            if state == "walk" and x > 0.15 * W and x < 0.85 * W
+                    and not (a.swap or a.morphing or a.called or a.doomed or a.meal or a.lured) then
+                if not a.pickup_tried and now - a.out_since > 2 then
+                    a.pickup_tried = true
+                    if a.pickup_sure or math.random() < (el.pickup_chance or 0.5) then hooks.pickup(a) end
+                elseif not a.forced and now - a.out_since > (el.out_force or 10) then
+                    a.forced = true
+                    if math.random() < (el.cheat_chance or 0.7) then
+                        local wel = witch_el()
+                        local rv = wel and M.sprites[wel.raven or ""]
+                        if TUNNEL[fam] then
+                            a.out, down_x = true, x + dir * 0.4 * u
+                        elseif fam == "vampire" and rv and rv.clips and rv.clips.fly then
+                            a.morph("raven", rv)
+                        elseif frog_sprite() then
+                            a.morph("frog", frog_sprite())
+                        end
+                        msg.verbose("cast: the " .. fam .. "'s time is up - out by a cheat")
+                    end
+                end
             end
         end
         local mo = a.morphing
@@ -4423,7 +4501,7 @@ function spawn.wanderer(el, spr, h)
             if math.random() < dt * 8 and p < 0.9 then dirt(1) end
             if tc >= len then
                 if state == "down" then
-                    if a.doomed then return false end          -- (the zombie princess: gone)
+                    if a.doomed or a.out then return false end -- (the zombie princess, one whose time is up: gone)
                     -- off under the ground: to a screen a few along (one side or the other)
                     local sides = {}
                     if room.left then sides[#sides + 1] = "left" end
@@ -4486,7 +4564,7 @@ function spawn.wanderer(el, spr, h)
                 msg.verbose("cast: a piece of the zombie's brain falls off")
             end
         end
-        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and (a.ttl > 20 or a.doomed) and not a.called and not a.meal then
+        if state == "walk" and down_x and math.abs(x - down_x) < v * hurry * dt * 2 and (a.ttl > 20 or a.doomed or a.out) and not a.called and not a.meal then
             down_x = nil
             play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(0.5, 1.2) })
             a.digging = true
@@ -6284,7 +6362,7 @@ end)
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
---   r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6378,6 +6456,11 @@ end)
 mp.add_forced_key_binding("p", "theme-preview-princess", function()
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "princess" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
+end)
+mp.add_forced_key_binding("Z", "theme-preview-time-up", function()   -- (the cast here: time's up)
+    for _, a in ipairs(actors) do
+        if a.family and a.ttl then a.ttl, a.pickup_sure = 0, true msg.verbose("preview: time's up for the " .. a.family) end
     end
 end)
 mp.add_forced_key_binding("r", "theme-preview-shewolf", function()
