@@ -157,22 +157,9 @@
       "anim": "anim/werewolf_man",
       "unit": 0.115
     },
-    "scarecrow3d": {
-      "anim": "anim/scarecrow",
-      "unit": 0.07,
-      "opacity": 0.55
-    },
-    "crow3d": {
-      "anim": "anim/crow",
-      "unit": 0.07
-    },
     "raven3d": {
       "anim": "anim/crow",
       "unit": 0.095
-    },
-    "vulture3d": {
-      "anim": "anim/vulture",
-      "unit": 0.07
     },
     "princess3d": {
       "anim": "anim/princess",
@@ -576,21 +563,10 @@
     {
       "type": "decor",
       "sprite": "tombstone",
-      "anchor": "bottom-left",
+      "on_cue": "grave",
       "min": 8,
-      "count": 1,
-      "duty": {"on": [60, 180], "off": [45, 150]},
-      "aside": "others",
-      "places": [
-        [
-          0.3,
-          0.0
-        ],
-        [
-          0.62,
-          0.0
-        ]
-      ]
+      "chance": 0.4,
+      "stay": [6, 12]
     },
     {
       "type": "particles",
@@ -768,6 +744,7 @@
       "sprite": "zombie3d",
       "thought": "thought",
       "brain": "brain",
+      "max_hops": 1,
       "min": 8,
       "video_min": 8,
       "every": [
@@ -820,24 +797,6 @@
         "monster",
         "walker"
       ]
-    },
-    {
-      "type": "scarecrow",
-      "sprite": "scarecrow3d",
-      "birds": [
-        {"sprite": "crow3d", "perch": ["arm", "arm", "hat"]},
-        {"sprite": "raven3d", "perch": ["arm", "hat"]},
-        {"sprite": "vulture3d", "perch": ["hat", "arm"]}
-      ],
-      "stay": [120, 300],
-      "tics": [12, 30],
-      "bird_after": [10, 40],
-      "bird_every": [30, 70],
-      "min": 6,
-      "video_min": 8,
-      "every": [240, 480],
-      "delay": [20, 120],
-      "group": ["scarecrow"]
     },
     {
       "type": "frogs", "sprite": "frog", "recruits": ["frog"], "pile": ["pumpkin_group", "pumpkin_group2", "pumpkin_group3"], "cast_ttl": [120, 300],
@@ -897,6 +856,7 @@
       "type": "mummy",
       "sprite": "mummy3d",
       "helper": "mummy_helper3d",
+      "recruits": ["skeleton"],
       "box": "sarcophagus_box",
       "lid": "sarcophagus_lid",
       "min": 8,

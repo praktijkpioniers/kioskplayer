@@ -264,7 +264,7 @@ local function walk_out(a, x, dir, front, h)
     local lead = dir > 0 and (x + front - W) or (front - x)
     if lead < 0 then return false end
     a.handed_on = "no"
-    if (a.hops or 0) >= MAX_HOPS or with_guest(a) or full_next_door(a, dir > 0 and "right" or "left") then return false end
+    if (a.hops or 0) >= (a.el.max_hops or MAX_HOPS) or with_guest(a) or full_next_door(a, dir > 0 and "right" or "left") then return false end
     h = h or {}
     h.kind, h.el, h.dir, h.hops, h.lead = h.kind or a.el.type, a.el.index, dir, h.hops or (a.hops or 0) + 1, lead / H
     h.sprite = h.sprite or a.spr.name
@@ -305,6 +305,15 @@ local function is_character(a)            -- (a hidden vampire has no groups: as
     return false
 end
 local function actor_family(a) return a.family or family_of(a.el) end
+local function cast_el()                   -- (the element the cast walks about for)
+    for _, e in ipairs(M.elements) do if e.type == "frogs" then return e end end
+end
+local function cast_sprite(fam)            -- (the sprite of the element of fam, fit to wander)
+    for _, e in ipairs(M.elements) do
+        local sp = family_of(e) == fam and M.sprites[e.sprite or ""]
+        if sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit then return sp end
+    end
+end
 -- screen real estate: where the others are (characters, scenes, a pile, a pot...) or will be
 -- (a.spot: a scene's place, kept for it) - free_x: of a few places between lo and hi (screen x)
 -- at random, the one furthest from them (so two don't do their thing on the same spot)
@@ -418,7 +427,7 @@ local function walk_dir(el)
 end
 local function can_walk_on(a, dir)
     local side = dir > 0 and "right" or "left"
-    return room[side] and (a.hops or 0) < MAX_HOPS and not with_guest(a) and not full_next_door(a, side)
+    return room[side] and (a.hops or 0) < (a.el.max_hops or MAX_HOPS) and not with_guest(a) and not full_next_door(a, side)
 end
 
 -- ── decor (static, optionally bobbing / animated) ───────────────────────────
@@ -497,9 +506,9 @@ local function build_decor(soft)
         end
     end
     local used, make = {}, {}
-    for _, d in ipairs(decor) do if d.leaving then used[d.id] = true end end
+    for _, d in ipairs(decor) do if d.leaving or d.el.on_cue then used[d.id] = true end end
     for _, el in ipairs(M.elements) do
-        if el.type == "decor" then
+        if el.type == "decor" and not el.on_cue then
             local wanted = element_on(el) and (not el.group or pick[el.group] == el)
             if wanted and keeps(el) then
                 for _, d in ipairs(items[el]) do used[d.id] = true end
@@ -561,6 +570,11 @@ end
 -- it sinks away for a while, and rises again a few seconds after the floor is free
 local function decor_away(d, t)
     local el = d.el
+    if el.on_cue and not d.leaving and t > d.till then       -- (popped up a while: down again)
+        d.leaving = true
+        decor_move(d, off_screen_dy(d.y, d.spr.h))
+        return
+    end
     if d.leaving or not (el.duty or el.aside) then return end
     if el.aside and floor_busy(el.aside) then d.busy_t = t end
     if el.duty then
@@ -675,6 +689,35 @@ end
 
 -- the zombie and its neighbours: a zombie's x (screen) within dist of x, or nil
 local hooks = { cats = function() return {} end }   -- (filled in where the cats live)
+
+-- decor on a cue (el.on_cue = "grave": the tombstone): not standing about, it pops up now and then
+-- (el.chance) where a zombie or a skeleton comes up out of the ground or goes into it - beside it
+-- (x: its middle, side: -1 to the left), drawn over it; it stays a while (el.stay) and sinks again
+hooks.grave_at = function(x, side)
+    if not M or mode == "hidden" then return end
+    for _, el in ipairs(M.elements) do
+        local spr = el.on_cue == "grave" and element_on(el) and M.sprites[el.sprite or ""]
+        if spr then
+            if math.random() >= (el.chance or 0.4) then return end
+            local used = {}
+            for _, d in ipairs(decor) do
+                if d.el == el and not d.leaving then return end            -- (one at a time)
+                used[d.id] = true
+            end
+            local id
+            for i = DECOR_IDS.last, DECOR_IDS.first, -1 do if not used[i] then id = i break end end
+            if not id then return end
+            local cx = clamp(x + (side or 1) * 0.55 * spr.w, spr.w / 2, W - spr.w / 2)
+            local d = { id = id, spr = spr, el = el, x = cx - spr.w / 2, y = H - spr.h, mirror = math.random() < 0.5,
+                        phase = 0, till = mp.get_time() + rnd(range(el.stay, 8)) }
+            d.dy = off_screen_dy(d.y, spr.h)
+            decor_move(d, 0)
+            decor[#decor + 1] = d
+            msg.verbose("decor: a tombstone pops up")
+            return
+        end
+    end
+end
 local function zombie_near(x, dist)
     for _, a in ipairs(actors) do
         if a.zx and not a.leaving and math.abs(a.zx - x) < dist then return a.zx end
@@ -1079,6 +1122,10 @@ function spawn.performer(el, spr, h)
     function a.update(dt, t)
         local s = steps[si]
         if not s then return false end
+        if s.clip == "rise" and not behind and a.graved ~= si then
+            a.graved = si
+            hooks.grave_at(a.x + spr.w / 2, -dir)
+        end
         tc = tc + dt
         local c = C[s.clip]
         local done
@@ -1422,10 +1469,28 @@ function spawn.mummy(el, spr)
     if not cx then return nil end
     local a = { el = el, spr = spr, layers = 4, scene = true }
     local open = lid.frames - 1
+    -- a skeleton about here (one of the cast, a skeleton's act) joins in: it's the helper, standing
+    -- by till it hurries over; after, the helper may go on as a skeleton of the cast (one that
+    -- joined in does), now and then the mummy too (the sarcophagus shuts empty and sinks)
+    local who
+    for _, b in ipairs(actors) do
+        if actor_family(b) == "skeleton" and (b.family or b.el.type == "performer") and not b.gone and not b.leaving
+                and not b.swap and not b.called and b.cx and b.cx > 0.05 * W and b.cx < 0.95 * W then who = b break end
+    end
+    local skel_sp, mummy_sp = cast_sprite("skeleton"), cast_sprite("mummy")
+    local helper_on = skel_sp and cast_el() and (who or (math.random() < (el.helper_on or 0.5)
+                      and not select(2, chars_here("skeleton")) and not room.taken["chr:skeleton"]))
+    local mummy_on = mummy_sp and cast_el() and math.random() < (el.mummy_on or 0.3)
+    if who then a.recruited = { who } end
 
     local steps = {}
     local A = { x = cx, face = 0, rest = { clip = "idle", rest = true }, clips = C }
     local Bt = { x = W + 1.2 * u, face = -1, rest = { hide = true, rest = true }, clips = B }
+    if who then
+        Bt.x = d > 0 and who.cx or W - who.cx
+        Bt.face, Bt.rest = 0, { clip = "idle", rest = true }
+    end
+    local hx0 = Bt.x
     local function add(s)   -- (a missing part rests as planned at this point)
         s.a, s.b = s.a or A.rest, s.b or Bt.rest
         steps[#steps + 1] = s
@@ -1460,7 +1525,7 @@ function spawn.mummy(el, spr)
     -- with a screen next door on the helper's side, it is seen there first, hurrying over
     local side = d > 0 and "right" or "left"
     local hv = B.walk.stride_px * B.walk.fps / B.walk.count * 2.4 * (el.speed or 1.0)
-    if room[side] then
+    if room[side] and not who then
         add { a = { clip = "shy", dur = (W + 1.2 * u) / hv }, summon = true }
     end
     Bt.rest = { clip = "idle", m = true, rest = true }
@@ -1471,12 +1536,27 @@ function spawn.mummy(el, spr)
     add { a = { clip = "spin" }, b = { clip = "wind", m = true } }
     add { a = { clip = C.cheer and "cheer" or "idle", dur = (not C.cheer) and 1.5 or nil },
           b = { clip = B.cheer and "cheer" or "idle", m = true, dur = (not B.cheer) and 1.5 or nil } }
-    -- the helper goes off (back over next door), the mummy back in, the lid shuts, down it goes
-    go(Bt, "b", W + 1.5 * u, 2.4)
-    steps[#steps].b.home = true
-    Bt.rest = { hide = true, rest = true }
-    go(A, "a", cx)
-    turn(A, 0, "a")
+    -- the helper goes off (back over next door; or on as one of the cast), the mummy back in (or
+    -- off too), the lid shuts, down it goes
+    if helper_on then
+        turn(Bt, 1, "b")
+        Bt.rest = { hide = true, rest = true }
+        add { b = { hide = true }, free_b = true }
+    else
+        go(Bt, "b", W + 1.5 * u, 2.4)
+        steps[#steps].b.home = true
+        Bt.rest = { hide = true, rest = true }
+    end
+    if mummy_on then
+        add { dur = rnd(0.4, 0.8) }
+        turn(A, 1, "a")
+        A.rest = { hide = true, rest = true }
+        add { a = { hide = true }, free_a = true }
+        add { dur = rnd(1.0, 2.0) }
+    else
+        go(A, "a", cx)
+        turn(A, 0, "a")
+    end
     add { lid = { open, 0 }, dur = 1.0 }
     add { a = { hide = true }, dur = rnd(0.5, 1.2) }
     add { a = { hide = true }, rise = { 0, 1 }, dur = DECOR_MOVE_S }
@@ -1484,7 +1564,15 @@ function spawn.mummy(el, spr)
     -- play
     local si, tc = 1, 0
     local lf, rise = 0, 1
-    A.x, Bt.x = cx, W + 1.2 * u
+    A.x, Bt.x = cx, hx0
+    local function go_on(sp, fam, x)                -- (one of the scene on as one of the cast: walking off)
+        local ce = cast_el()
+        local b = ce and #free_ids > 0 and spawn.wanderer(ce, sp, { fam = fam, dir = d, at = d > 0 and x or W - x, hops = 0,
+                                                                  ttl = math.floor(rnd(range(ce.cast_ttl, 120))) })
+        if not b then return end
+        adopt(b, ce, { hops = 0 })
+        msg.verbose("mummy: the " .. fam .. " goes on as one of the cast")
+    end
     a.line = pick_line(el)
     local function place(sp, x, frame, mirror, dy)
         local m = (mirror and true or false) ~= (d < 0)
@@ -1514,7 +1602,12 @@ function spawn.mummy(el, spr)
     function a.update(dt, t)
         local s = steps[si]
         if not s then return false end
-        if si ~= a.logged then a.logged = si msg.verbose("mummy step " .. si) end
+        if si ~= a.logged then
+            a.logged = si
+            msg.verbose("mummy step " .. si)
+            if s.free_b then go_on(skel_sp, "skeleton", Bt.x) end
+            if s.free_a then go_on(mummy_sp, "mummy", A.x) end
+        end
         tc = tc + dt
         if s.summon and not s.summoned then
             s.summoned = true
@@ -1734,6 +1827,7 @@ function spawn.zombie(el, spr, h)
             if under_t > 0 then return true, {} end
             state, tc = "up", 0
             dirt(10)
+            hooks.grave_at(x, -dir)
             msg.verbose("zombie: up out of the ground")
         end
         if state == "up" or state == "down" then      -- (climbing out, or back in, in a spray of dirt)
@@ -1857,10 +1951,11 @@ function spawn.zombie(el, spr, h)
                 if ate then meal, face_front = nil, false end
                 if not crossed then think = false end
                 -- nothing (more) to do here: under the ground, on to another screen
-                if short and not turn_back and not free_brain(a, x) and (a.hops or 0) < MAX_HOPS
+                if short and not turn_back and not free_brain(a, x) and (a.hops or 0) < (el.max_hops or MAX_HOPS)
                         and not with_guest(a) and math.random() < (el.tunnel_chance or 0.7) then
                     state, tc, think = "down", 0, false
                     dirt(6)
+                    hooks.grave_at(x, -dir)
                     msg.verbose("zombie: digs itself into the ground")
                 end
                 if turn_back then
@@ -2912,15 +3007,6 @@ spawn_hopper = spawn.hopper
 -- the mummy with it in his mouth and put it down here. It lies there; a wolf going by on all fours
 -- takes it up again; left long enough (el.bone_rise), a skeleton climbs up out of the ground there
 -- (none about, room for one) and the bone's gone - not yet: it waits, after a while sinks away.
-local function cast_el()                   -- (the element the cast walks about for)
-    for _, e in ipairs(M.elements) do if e.type == "frogs" then return e end end
-end
-local function cast_sprite(fam)            -- (the sprite of the element of fam, fit to wander)
-    for _, e in ipairs(M.elements) do
-        local sp = family_of(e) == fam and M.sprites[e.sprite or ""]
-        if sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit then return sp end
-    end
-end
 local function free_bone(x, reach)          -- a bone lying here, within reach of x
     for _, b in ipairs(actors) do
         if b.bone_piece and not b.gone and not b.rising and math.abs(b.cx - x) < reach then return b end
@@ -4017,6 +4103,7 @@ function spawn.wanderer(el, spr, h)
     a.hops, a.ttl = 0, tonumber(h.ttl) or 60
     a.cooked, a.was_pr = h.cooked, h.was_pr      -- (a witch: cooked once, been the princess - she may go)
     a.age = tonumber(h.age) or 0                 -- (about as one of the cast this long)
+    if h.fam == "zombie" and not h.age then a.ttl = a.ttl * (el.zombie_ttl or 0.5) end   -- (new: zombies about shorter)
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
     -- screen, a few along (relayed under the screens between, see theme-room-in): rise | under
@@ -4207,6 +4294,7 @@ function spawn.wanderer(el, spr, h)
             if a.under_t > 0 then return true, {} end
             state, tc = "up", 0
             dirt(10)
+            hooks.grave_at(x, -dir)
             msg.verbose("cast: up out of the ground, the " .. fam)
         end
         if state == "up" or state == "down" then
@@ -4226,7 +4314,7 @@ function spawn.wanderer(el, spr, h)
                     local n = math.random(1, math.max(1, (room.screens or 2) - 1))
                     hand_over(side, { kind = "wanderer", el = el.index, sprite = spr.name, fam = fam, from = h.from,
                                       dir = side == "right" and 1 or -1, hops = 0, lead = 0, unique = false,
-                                      ttl = math.floor(math.max(a.ttl, 40)), tunnel = n, went = 1 })
+                                      ttl = math.floor(math.max(a.ttl, 15)), tunnel = n, went = 1, age = math.floor(a.age) })
                     msg.verbose("cast: the " .. fam .. " goes under the ground (" .. n .. " screens along)")
                     return false
                 end
@@ -4288,6 +4376,7 @@ function spawn.wanderer(el, spr, h)
         if state == "walk" and a.digging then
             state, tc, a.digging = "down", 0, nil
             dirt(6)
+            hooks.grave_at(x, -dir)
             msg.verbose("cast: the " .. fam .. " digs itself into the ground")
             return true, {}
         end
