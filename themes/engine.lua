@@ -305,6 +305,35 @@ local function is_character(a)            -- (a hidden vampire has no groups: as
     return false
 end
 local function actor_family(a) return a.family or family_of(a.el) end
+-- screen real estate: where the others are (characters, scenes, a pile, a pot...) or will be
+-- (a.spot: a scene's place, kept for it) - free_x: of a few places between lo and hi (screen x)
+-- at random, the one furthest from them (so two don't do their thing on the same spot)
+local function others_xs(me)
+    local xs = {}
+    for _, b in ipairs(actors) do
+        if b ~= me and not b.gone and not b.leaving then
+            if b.spot then xs[#xs + 1] = b.spot end
+            if b.cx and (b.scene or b.pile or b.lying or b.pot or is_character(b)) then xs[#xs + 1] = b.cx end
+        end
+    end
+    return xs
+end
+local function free_x(lo, hi, me)
+    if hi < lo then lo, hi = hi, lo end
+    local xs, best, bs = others_xs(me), nil, -1
+    for _ = 1, 7 do
+        local x = lo + math.random() * (hi - lo)
+        local dmin = W
+        for _, o in ipairs(xs) do dmin = math.min(dmin, math.abs(o - x)) end
+        local sc = dmin * (0.8 + 0.4 * math.random())
+        if sc > bs then best, bs = x, sc end
+    end
+    return best
+end
+local function free_scene_x(lo, hi, d, me)     -- the same for a scene planned mirrored (d < 0)
+    if d > 0 then return free_x(lo, hi, me) end
+    return W - free_x(W - hi, W - lo, me)
+end
 local function room_max()
     local n = room.screens or 1
     if not room.active or n <= 1 then return math.huge end
@@ -1139,7 +1168,8 @@ function spawn.vampire(el, spr, h)
         add { clip = clip, dur = dur, act = true }
     end
 
-    local cx = rnd(math.max(W * 0.3, half + 2 * u), math.min(W * 0.7, W - half - 2 * u))
+    local cx = free_scene_x(math.max(W * 0.3, half + 2 * u), math.min(W * 0.7, W - half - 2 * u), d)
+    a.spot = d > 0 and cx or W - cx               -- (its place: kept for it)
     local crack = math.min(3, open)
     local stay = rnd(range(el.stay, 40))
     local slide_v
@@ -1627,7 +1657,7 @@ function spawn.zombie(el, spr, h)
     local short = room.left or room.right
     local state, dy, clods, under_t = "walk", 0, {}, 0
     if h and h.tunnel then
-        x, state = rnd(0.25, 0.75) * W, "under"
+        x, state = free_x(0.25 * W, 0.75 * W), "under"
         under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
     end
     local B = M.sprites[el.brain or ""]
@@ -1635,7 +1665,7 @@ function spawn.zombie(el, spr, h)
     local hurry, meal, meal_stop, drop_at = 1, nil, false, nil
     local stops = {}
     local n_stops = short and 1 or math.random(h and 1 or 2, h and 2 or 3)
-    for _ = 1, n_stops do stops[#stops + 1] = rnd(0.12, 0.88) * W end
+    for _ = 1, n_stops do stops[#stops + 1] = free_x(0.12 * W, 0.88 * W) end
     table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
     stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
 
@@ -1916,7 +1946,7 @@ function spawn.frankenstein(el, spr, h)
     -- with a screen next door he may first walk over there (and blow up there)
     if explode and can_walk_on(a, dir) and math.random() < 0.5 then explode = false end
     local stops = {}
-    for _ = 1, explode and 2 or math.random(1, 2) do stops[#stops + 1] = rnd(0.15, 0.85) * W end
+    for _ = 1, explode and 2 or math.random(1, 2) do stops[#stops + 1] = free_x(0.15 * W, 0.85 * W) end
     table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
     if math.abs(stops[#stops] - (stops[#stops - 1] or -1e9)) < 3 * u then table.remove(stops, 1) end
     stops[#stops + 1] = dir > 0 and W + 1.5 * u or -1.5 * u
@@ -2289,7 +2319,8 @@ function spawn.witch(el, spr)
     end
     if to_pr then a.also = { "princess" } end
     a.recruited = { who }
-    local cx = rnd(math.max(W * 0.3, 3.5 * u), math.min(W * 0.55, W - 5 * u))
+    local cx = free_scene_x(math.max(W * 0.3, 3.5 * u), math.min(W * 0.55, W - 5 * u), d)
+    a.spot = d > 0 and cx or W - cx               -- (its place: kept for it)
     local swap = 0.4                                   -- (where the pot comes/goes in its puff)
     local rim_y = -0.58 * u                            -- the frog's feet in the pot (below the rim)
 
@@ -2935,7 +2966,8 @@ function spawn.werewolf(el, spr, h)
     end
     local sleeps = Wc.lie and Wc.lie_down and Wc.stand_up and (el.sleep_force or math.random() < (el.sleep_chance or 0.4))
     el.sleep_force = nil
-    local at = rnd(math.max(2 * u, W * 0.3), math.min(W - 2 * u, W * 0.65))
+    local at = free_scene_x(math.max(2 * u, W * 0.25), math.min(W - 2 * u, W * 0.7), d)
+    a.spot = d > 0 and at or W - at               -- (its place: kept for it)
     if at < X + 2 * u then at = math.min(W - 2 * u, X + 3 * u) end
     go(at)
     stop("idle", rnd(0.3, 0.7))
@@ -3189,7 +3221,8 @@ function spawn.princess(el, spr)
     local hold = math.floor(C.pick.count * 0.45)       -- (bent down)
 
     if story ~= "vampire" then
-        local fx = rnd(0.55, 0.65) * W
+        local fx = free_scene_x(0.5 * W, 0.7 * W, d)
+        a.spot = d > 0 and fx or W - fx               -- (its place: kept for it)
         B.sp, B.x, B.face = frog, W + 0.6 * u, -1
         if toad then                                -- (sitting there already)
             B.x = sx(toad.cx)
@@ -3256,7 +3289,8 @@ function spawn.princess(el, spr)
         end
       end
     else
-        local px = rnd(0.55, 0.65) * W
+        local px = free_scene_x(0.45 * W, 0.7 * W, d)
+        a.spot = d > 0 and px or W - px               -- (its place: kept for it)
         local V = vamp.clips
         local up = math.floor(V.raise.count * 0.6)
         B.sp, B.x, B.face = vamp, -1.2 * u, 1
@@ -3428,7 +3462,8 @@ function spawn.frogs(el, spr)
     local function sx(x) return (d > 0) and x or (W - x) end
     local toad2 = toad and cast_here("frog", toad) or nil
     a.recruited = { toad, toad2 }
-    local mx = rnd(0.42, 0.58) * W
+    local mx = free_scene_x(0.38 * W, 0.62 * W, d)
+    a.spot = d > 0 and mx or W - mx               -- (its place: kept for it)
 
     local steps = {}
     local A = { x = toad and sx(toad.cx) or -0.6 * u, face = 1, sp = spr, rest = { clip = "sit", rest = true } }
@@ -3777,7 +3812,7 @@ function spawn.wanderer(el, spr, h)
     local hurry, meal_x, drop_at = 1, nil, nil
     if h.down_at then down_x = tonumber(h.down_at) end
     if h.tunnel then
-        x, state, down_x = rnd(0.25, 0.75) * W, "under", nil
+        x, state, down_x = free_x(0.25 * W, 0.75 * W), "under", nil
         a.under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
     end
     local function dirt(n)
@@ -3789,7 +3824,7 @@ function spawn.wanderer(el, spr, h)
     local queue = {}                 -- clips to play (a stop, a turn)
     local met = {}                   -- (the princess: those she met)
     local stopped = math.random() < 0.4         -- (one stop per screen at most, and not always)
-    local stop_x = rnd(0.3, 0.7) * W
+    local stop_x = free_x(0.25 * W, 0.75 * W)
     local linger = 0
     local puffs = {}
     local function play(...)          -- (the clips given; a missing one is left out)
@@ -3833,6 +3868,29 @@ function spawn.wanderer(el, spr, h)
         play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 30 })
     end
     if h.puff then a.swap = { spr = spr, fam = fam, at = mp.get_time() } end     -- (out of a puff, here)
+    -- walking the same way as another (other), close by and nothing to do with it: not that - its
+    -- next act now (a spell...), or it turns round, or it stops a while and lets the other go on
+    function a.avoid(other)
+        if state ~= "walk" or a.meal or a.called or a.doomed or a.swap or a.morphing or a.lured then return false end
+        local r, what = math.random(), nil
+        a.avoided = (a.avoided or 0) + 1
+        if (r < 0.3 or a.avoided > 2) and (a.ttl or 0) > 0 and next_act(a) then
+            what = "its next act"
+        elseif a.avoided > 1 then                   -- (again: it no longer hangs about here)
+            linger = math.huge
+            if (dir > 0 and x < 0.3 * W) or (dir < 0 and x > 0.7 * W) then turn_round() end
+            what = "walks on, off the screen"
+        elseif r < 0.65 and not a.staged then
+            turn_round()
+            what = "turns round"
+        else
+            play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = rnd(2.5, 5) },
+                 C.turn_side and { "turn_side", m = dir < 0 })
+            what = "stops a while"
+        end
+        msg.verbose("cast: the " .. fam .. " going the same way as the " .. tostring(actor_family(other)) .. " - " .. what)
+        return true
+    end
     function a.update(dt, t)
         tc = tc + dt
         a.ttl = a.ttl - dt
@@ -4810,6 +4868,41 @@ local function queued_before(el, now)
     return false
 end
 
+-- two characters walking the same way close together, nothing to do with each other (a whole screen
+-- of two walking along): after a few seconds one of the cast (a.avoid) does something else
+local paths_t = 0
+local function tick_paths(now)
+    if now < paths_t then return end
+    local step = 0.5
+    paths_t = now + step
+    local walkers = {}
+    for _, a in ipairs(actors) do
+        if a.cx and not a.gone and not a.leaving and not a.scene and is_character(a) then
+            local v = a.last_cx and (a.cx - a.last_cx) / step or 0
+            a.last_cx = a.cx
+            local m = math.abs(v) > 0.01 * W and (v > 0 and 1 or -1) or nil
+            if m then walkers[#walkers + 1] = a end
+            a.mdir = m
+        end
+    end
+    for _, p in ipairs(walkers) do
+        local near = nil
+        for _, q in ipairs(walkers) do
+            if q ~= p and q.mdir == p.mdir and math.abs(q.cx - p.cx) < 0.4 * W
+                    and p.guest_of ~= q and q.guest_of ~= p then near = q end
+        end
+        p.same_t, p.same_with = near and (p.same_t or 0) + step or math.min(p.same_t or 0, 0), near
+    end
+    local k = #walkers > 0 and math.random(#walkers) or 0          -- (which of two goes: by chance)
+    for i = 1, #walkers do
+        local p = walkers[(k + i - 2) % #walkers + 1]
+        local q = p.same_with
+        if q and (p.same_t or 0) > 3 and p.avoid and p.avoid(q) then
+            p.same_t, q.same_t = -6, -6                             -- (a while before it counts again)
+        end
+    end
+end
+
 -- ── the gag planner (theme.json "planner": {group, queue, gap}) ──
 -- One gag at a time on a screen - a character of the planner's group (the witch, the princess, the
 -- zombie...) - and a few lined up next, chosen by what's about (frogs few: the witch; a piece of
@@ -5324,6 +5417,7 @@ local function tick()
     tick_cats(dt, now)
 
     plan_tick(now)
+    tick_paths(now)
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
     end
