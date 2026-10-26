@@ -3344,6 +3344,11 @@ local function new_bone(el, r, x, y, m)     -- (x, y: its middle, put down from 
         if a.gone then return false end
         a.t, a.ttl = a.t + dt, a.ttl - dt
         if y < ground then y = math.min(ground, y + 3 * spr.h * dt) end     -- (dropped: down on the ground)
+        if a.roll then                                                      -- (batted along: the cat)
+            x = clamp(x + a.roll.v * dt * a.roll.t, 0.02 * W, 0.98 * W)
+            a.cx, a.roll.t = x, a.roll.t - dt
+            if a.roll.t <= 0 then a.roll = nil end
+        end
         if bone and not a.rising and a.t > rise_at then
             local sk, ce = cast_sprite("skeleton"), cast_el()
             if sk and ce and (a.force or may_be("skeleton")) and #free_ids > 0 then
@@ -4476,7 +4481,8 @@ function spawn.wanderer(el, spr, h)
     -- on its skull, in its socket - a while, then they fall out (the brain for a zombie to find)
     local BR, EY = brain_sprite(), M.sprites.eye
     if h.brainy and BR and EY and EY.origin then
-        a.brainy, a.layers = tonumber(h.brainy) or rnd(20, 35), 3
+        a.brainy, a.layers = tonumber(h.brainy) or rnd(20, 35), 4
+        a.idea_at = a.brainy - rnd(4, 8)            -- (then: a bright idea - a thought, a cheer)
     end
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
@@ -4564,6 +4570,9 @@ function spawn.wanderer(el, spr, h)
         play(C.turn_front and { "turn_front", m = dir < 0 }, { c, dur = dur }, { "idle", dur = 0.4 },
              C.turn_side and { "turn_side", m = dir < 0 })
         return (C.turn_front and 1 or 0) + (dur or C[c].count / C[c].fps) + 0.4
+    end
+    function a.dig(ahead)                       -- (a tunneller: into the ground a little way ahead)
+        a.out, down_x = true, x + dir * (ahead or 0.4) * u
     end
     function a.spell()                          -- (it casts a spell on another: faces the viewer, casts, on)
         play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 0.6 },
@@ -4892,6 +4901,13 @@ function spawn.wanderer(el, spr, h)
             local bx, by = hx - f * 0.02 * u, hy - (el.brain_up or 0.86) * u
             local ex, ey = hx + f * (el.eye_x or 0.16) * u, hy - (el.eye_up or 0.34) * u
             a.brainy = a.brainy - dt
+            local TH = M.sprites.thought
+            if a.idea_at and a.brainy < a.idea_at and state == "walk" and TH and a.show then
+                a.idea_at, a.idea = nil, 0
+                a.show(C.cheer and "cheer" or "idle", 2.2)
+                msg.verbose("cast: the skeleton with brains - a bright idea!")
+            end
+            if a.idea then a.idea = a.idea + dt if a.idea > 3.4 then a.idea = nil end end
             if a.brainy <= 0 and state == "walk" then      -- out they fall
                 a.brainy, a.layers = nil, 1
                 local _, zel = brain_sprite()
@@ -4902,10 +4918,16 @@ function spawn.wanderer(el, spr, h)
                 end
                 msg.verbose("cast: the skeleton's brain and eye fall out - a skeleton again")
             else
+                local tl                                -- (the bright idea: a thought beside the head)
+                if a.idea and TH then
+                    local tf = a.idea < 0.45 and math.floor(a.idea / 0.15) or (3 + ({ 0, 1, 2, 1 })[math.floor(a.idea * 4) % 4 + 1])
+                    tl = { spr = TH, frame = tf, variant = f < 0, x = f > 0 and (hx + 0.25 * u - TH.w * 0.08) or (hx - 0.25 * u - TH.w * 0.92),
+                           y = hy - 0.9 * u - TH.h * 0.95 }
+                end
                 return true, { layer, { spr = BR, frame = BR.clips.lie.start, variant = mi, x = bx - (mi and BR.w - BR.origin[1] or BR.origin[1]),
                                         y = by - BR.origin[2] },
                                { spr = EY, frame = EY.clips.lie.start, variant = mi, x = ex - (mi and EY.w - EY.origin[1] or EY.origin[1]),
-                                 y = ey - EY.origin[2] + EY.h / 2 } }
+                                 y = ey - EY.origin[2] + EY.h / 2 }, tl }
             end
         end
         if sw and sw.done and not sw.spin and now - sw.at < 0.25 then return true, {} end     -- (the change, in the puff)
@@ -4955,8 +4977,12 @@ hooks.MEETS = {
           return true
       end },
     -- the witch meets the princess: a spell - the princess is a frog (likelier when her time's up)
-    { who = "witch", whom = "princess", near = 2.2,
-      chance = function(a, b, el) return b.out_since and 0.9 or (el.witch_frog or 0.12) end,
+    -- (and a zombie: a spell, it's a frog)
+    { who = "witch", whom = { "princess", "zombie" }, near = 2.2,
+      chance = function(a, b, el)
+          if actor_family(b) == "zombie" then return el.witch_zombie or 0.3 end
+          return b.out_since and 0.9 or (el.witch_frog or 0.12)
+      end,
       ok = function(a, b)
           return b.morph and b.pause and not b.swap and not b.morphing and not b.called
               and #free_ids > 0 and frog_sprite()
@@ -4965,13 +4991,54 @@ hooks.MEETS = {
           local dur = a.spell()
           b.pause(dur + 1)
           b.morphing = { kind = "frog", at = now + dur, sp = frog_sprite() }
-          msg.verbose("witch: a spell on the princess - she's a frog")
+          msg.verbose("witch: a spell on the " .. actor_family(b) .. " - a frog")
           return true
       end },
     -- the vampire meets the princess vampire: a coffin for two - in they jump, it wiggles, it sinks
     { who = "vampire", whom = "princess_vampire", near = 3, chance = { "coffin_two", 0.5 },
       ok = function(a, b) return b.pause and not b.swap and not b.morphing and not b.called and not b.boxed and not b.doomed end,
       go = function(a, b) if hooks.coffin_in({ a, b }) then return true end end },
+    -- the vampire meets the werewolf man: a stand-off - a hiss, a growl - and both go on
+    { who = "vampire", whom = "werewolf", near = 2.2, chance = { "standoff", 0.6 },
+      ok = function(a, b) return a.show and b.show and not b.swap and not b.morphing and not b.called and not b.boxed end,
+      go = function(a, b)
+          a.show("raise")
+          b.show("idle", 1.6)
+          msg.verbose("cast: the vampire and the werewolf - a stand-off: a hiss, a growl, and on they go")
+          return true
+      end },
+    -- a zombie comes by Frankenstein: it sniffs at him - brains? no - and off it goes
+    { who = "zombie", whom = "frankenstein", near = 1.8, chance = { "zombie_frank", 0.7 },
+      ok = function(a) return a.show and not a.meal end,
+      go = function(a) a.show("sniff") msg.verbose("cast: the zombie sniffs at Frankenstein - no brains there") return true end },
+    -- a zombie finds a zombie's head lying about: it puts the pieces back together - and while its
+    -- mate comes up out of the ground there, it goes under itself
+    { who = "zombie", whom = "relic", near = 1.0, chance = { "zombie_mend", 0.7 },
+      ok = function(a, b)
+          local r = b.relic
+          return r.kind == "head" and r.spr and r.spr.name and r.spr.name:find("zombie") and a.show and a.dig
+              and not a.meal and not b.taken and not b.rising and cast_el() and #free_ids > 0
+      end,
+      go = function(a, b, x)
+          local zs = b.relic.spr
+          for _, r in ipairs(actors) do if r.relic and r.relic.spr == zs then r.gone = true end end
+          local z = spawn.wanderer(cast_el(), zs, { fam = "zombie", dir = -(a.facing or 1), tunnel = 1, went = 0, at_x = b.cx,
+                                                    ttl = math.floor(rnd(30, 60)), hops = 0, age = 1 })
+          if z then adopt(z, cast_el(), { hops = 0 }) end
+          a.show("pick")
+          a.dig(1.5)
+          msg.verbose("cast: the zombie puts the pieces back together - up comes its mate, down it goes")
+          return true
+      end },
+    -- a zombie finds an eye lying about: it pops it in
+    { who = "zombie", whom = "relic", near = 0.8, chance = { "zombie_eye", 0.8 },
+      ok = function(a, b) return b.relic.kind == "eye" and a.show and not a.meal and not b.taken end,
+      go = function(a, b)
+          b.gone = true
+          a.show("pick")
+          msg.verbose("cast: the zombie finds an eye - and pops it in")
+          return true
+      end },
     -- the werewolf man meets a zombie: it gets him - he's a zombie too
     { who = "werewolf", whom = "zombie", chance = { "zombie_chance", 0.7 },
       go = function(a, b, x, now)
@@ -4991,7 +5058,7 @@ function hooks.meet(a, fam, x, u, now, met)
     for _, m in ipairs(hooks.MEETS) do
         if m.who == fam then
             for _, b in ipairs(actors) do
-                local bf = b ~= a and not met[b] and not b.gone and not b.leaving and (b.cx or b.zx) and (b.frog and "frog" or actor_family(b))
+                local bf = b ~= a and not met[b] and not b.gone and not b.leaving and (b.cx or b.zx) and (b.relic and "relic" or b.frog and "frog" or actor_family(b))
                 local whom = bf and (type(m.whom) == "table" and m.whom or { m.whom })
                 local hit = false
                 if whom then for _, w in ipairs(whom) do if w == bf then hit = true end end end
@@ -6249,6 +6316,17 @@ local function tick_cats(dt, now)
             end
         end
         local el = on[c.name]
+        -- an eye or a bone lying just ahead of its nose: batted along a bit (a few times at most)
+        if c.u and not c.air then
+            local nose = c.p.x + c.dir * prowler.NOSE * c.u
+            for _, b in ipairs(actors) do
+                if b.relic and (b.relic.kind == "eye" or b.relic.kind == "bone") and b.cx and not b.taken and not b.roll
+                        and not b.rising and (b.batted or 0) < 3 and math.abs(b.cx - nose) < 0.25 * c.u then
+                    b.batted, b.roll = (b.batted or 0) + 1, { v = c.dir * rnd(1.5, 2.5) * c.u, t = 0.8 }
+                    msg.verbose("cat: bats the " .. b.relic.kind .. " along")
+                end
+            end
+        end
         if el and c.W == W and c.H == H and not c.gone and c:update(dt) then
             keep[#keep + 1] = c
             count[c.name] = (count[c.name] or 0) + 1
@@ -7104,6 +7182,42 @@ mp.add_forced_key_binding("M", "theme-preview-mirror", function()       -- (the 
     local p = preview_cast(M and (vamp and turned_sprite("vampire") or M.sprites.princess3d),
                            { fam = vamp and "princess_vampire" or "princess", dir = 1, at = 0.3 * W, ttl = 120, hops = 0 })
     if p then p.next_at, p.force_mirror, p.staged = 2, true, true end
+end)
+mp.add_forced_key_binding("O", "theme-preview-open-pairs", function()  -- (the newer meetings, one by one)
+    preview.pair_k = (preview.pair_k or 4) % 5 + 1
+    local k, ce = preview.pair_k, M and cast_el()
+    if not ce then return end
+    local zs, sure = cast_sprite("zombie"), function(a) if a then a.meet_sure, a.busy, a.staged = true, true, true end return a end
+    if k == 1 then                                  -- the vampire and the werewolf man: a stand-off
+        sure(preview_cast(cast_sprite("vampire"), { fam = "vampire", dir = 1, at = 0.2 * W, ttl = 120, hops = 0 }))
+        local b = preview_cast(cast_sprite("werewolf"), { fam = "werewolf", dir = -1, at = 0.7 * W, ttl = 120, hops = 0 })
+        if b then b.busy, b.staged = true, true end
+    elseif k == 2 then                              -- a zombie comes by Frankenstein
+        for _, el in ipairs(M.elements) do
+            if el.type == "frankenstein" and elements[el] then elements[el].next, elements[el].force = 0, true end
+        end
+        sure(preview_cast(zs, { fam = "zombie", dir = 1, at = 0.05 * W, ttl = 120, hops = 0, age = 1, down_at = -1e9 }))
+    elseif k == 3 then                              -- the witch meets a zombie: a frog
+        local wel = witch_el()
+        sure(wel and preview_cast(M.sprites[wel.sprite or ""], { fam = "witch", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 }))
+        local z = preview_cast(zs, { fam = "zombie", dir = -1, at = 0.75 * W, ttl = 120, hops = 0, age = 1, down_at = -1e9 })
+        if z then z.busy, z.staged = true, true end
+    elseif k == 4 then                              -- a zombie's pieces and an eye lying about: a zombie mends them
+        local EY = M.sprites.eye
+        if zs then
+            for i, p in ipairs(PIECES.by[zs.name] or {}) do
+                local c = zs.clips[p[1]]
+                if c then hooks.new_relic(ce, PIECES.relic(zs, i, c.start + c.count - 1), (0.55 + 0.05 * i) * W, H - 1.4 * zs.unit * H, false) end
+            end
+        end
+        if EY then hooks.new_relic(ce, { spr = EY, frame = EY.clips.lie.start, mx = EY.origin[1], my = EY.origin[2] - EY.h / 2,
+                                         lie = EY.h / 2, kind = "eye" }, 0.35 * W, H - EY.h / 2, false) end
+        sure(preview_cast(zs, { fam = "zombie", dir = 1, at = 0.05 * W, ttl = 120, hops = 0, age = 1, down_at = -1e9 }))
+    else                                            -- the skeleton with brains: a bright idea - and a cat about
+        local b = preview_cast(cast_sprite("skeleton"), { fam = "skeleton", dir = 1, at = 0.2 * W, ttl = 120, hops = 0, brainy = 12 })
+        if b then b.busy, b.staged, b.idea_at = true, true, 10 end
+    end
+    msg.info("preview: open pair " .. k)
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

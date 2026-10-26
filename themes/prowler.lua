@@ -20,30 +20,32 @@ local function ease(p) return p * p * (3 - 2 * p) end
 local function clamp(v, a, b) return math.max(a, math.min(b, v)) end
 
 -- colours (&HBBGGRR&)
-local FUR, FUR_FAR, RIM = "&H241C18&", "&H3E3631&", "&H8C847E&"
-local EYE, PUPIL, PINK, WHISKER = "&H30C4E4&", "&H080808&", "&H9C8CE6&", "&HC8C8C8&"
+local FUR, FUR_FAR = "&H261C17&", "&H3A322D&"           -- blue-black, the far legs a shade lighter
+local RIM, SHEEN = "&H6E6058&", "&HC8B4A4&"             -- thin cool outline; moonlight along the top
+local EYE, PUPIL, PINK, WHISKER = "&H3CE8BE&", "&H0A0A0A&", "&H9C8CE6&", "&HC8C8C8&"
+local EAR_IN, GLINT, FANG = "&H5C4A66&", "&HFFFFFF&", "&HF0F0F0&"
 local RED_EYE = "&H1010F0&"
 
 -- body measures (u)
-local FL1, FL2 = 2.9, 2.9            -- front leg: upper arm, forearm (to the wrist)
+local FL1, FL2 = 2.9, 3.2            -- front leg: upper arm, forearm (to the wrist)
 local HL1, HL2, HL3 = 2.8, 2.8, 1.9  -- hind leg: thigh, shin, foot (hock to toes)
-local TAIL_N, TAIL_SEG = 12, 0.85
+local TAIL_N, TAIL_SEG = 15, 0.8
 local STRIDE, DUTY = 4.4, 0.62
 local CLIMB, MAX_UP = 3, 22          -- steps up to this it walks; jumps no higher than that
 
 -- poses: only the keys a pose sets are tweened
-local STAND = { hh = 6.4, ba = 0.02, bl = 8.6, nx = 2.2, ny = -2.9, hp = 0, fold = 0 }
-local SIT   = { hh = 2.7, ba = 0.79, bl = 6.4, nx = 0.9, ny = -3.0, hp = 0, fold = 1,
-                ta = 1.9, tk = -0.32, tc = 0, tw = 0.04 }
+local STAND = { hh = 6.8, ba = 0.03, bl = 8.0, nx = 2.5, ny = -2.5, hp = 0, fold = 0 }
+local SIT   = { hh = 2.6, ba = 1.0, bl = 6.0, nx = 0.9, ny = -2.6, hp = 0, fold = 1,
+                ta = 1.75, tk = -0.1, tc = -0.02, tw = 0.04 }
 -- a fright (the werewolf): up on its toes, the back arched high, the tail up and bristling, red
 -- eyes, hissing
-local ARCH = { hh = 7.6, ba = 0.0, bl = 8.0, nx = 2.0, ny = -2.0, hp = 0.15, fold = 0, arch = 1, red = 1, hiss = 1,
-               ta = -1.45, tk = -0.02, tc = 0, tw = 0.03, bristle = 1 }
-local SCRATCH = { hh = 6.9, ba = 0.95, bl = 8.0, nx = 1.5, ny = -2.6, hp = -0.1, fold = 0,
-                  ta = -1.65, tk = 0.04, tc = 0.05, tw = 0.25 }
+local ARCH = { hh = 8.0, ba = -0.08, bl = 7.4, nx = 2.5, ny = -1.0, hp = 0.15, fold = 0, arch = 1, red = 1, hiss = 1,
+               ta = -1.75, tk = 0.012, tc = 0.002, tw = 0.03, bristle = 1 }
+local SCRATCH = { hh = 6.9, ba = 0.95, bl = 7.8, nx = 1.5, ny = -2.4, hp = -0.1, fold = 0,
+                  ta = -1.75, tk = -0.06, tc = 0.03, tw = 0.25 }
 local TAILS = {
-    { ta = -2.05, tk = 0.08, tc = 0.07, tw = 0.12 },   -- up, tip curled like a question mark
-    { ta = 2.55, tk = 0.11, tc = 0.03, tw = 0.10 },    -- low swoop, rising at the end
+    { ta = -2.5, tk = 0.11, tc = 0.03, tw = 0.14 },     -- up, an S, the tip curled like a question mark
+    { ta = 2.65, tk = 0.06, tc = 0.012, tw = 0.12 },    -- low swoop, rising at the end
 }
 
 local function shoulder(p)
@@ -90,8 +92,8 @@ local function capsule(ax, ay, ra, bx, by, rb)
     return pts
 end
 
--- tapered strip through a chain of points, round at the tip
-local function strip(chain, r0, r1)
+-- tapered strip through a chain of points, round at the tip; jag > 0: ragged edges (fur on end)
+local function strip(chain, r0, r1, jag, bulge)
     local left, right, n = {}, {}, #chain / 2
     for i = 1, n do
         local j0, j1 = math.max(1, i - 1), math.min(n, i + 1)
@@ -99,6 +101,8 @@ local function strip(chain, r0, r1)
         local dy = chain[2 * j1] - chain[2 * j0]
         local l = sqrt(dx * dx + dy * dy) + 1e-9
         local r = r0 + (r1 - r0) * (i - 1) / (n - 1)
+        if bulge then r = r * (1 + bulge * sin(pi * (i - 1) / (n - 1))) end
+        if jag and jag > 0 and i > 1 and i < n then r = r * (1 + jag * ((i % 2 == 0) and 0.5 or -0.12)) end
         local x, y = chain[2 * i - 1], chain[2 * i]
         left[#left + 1] = { x - dy / l * r, y + dx / l * r }
         right[#right + 1] = { x + dy / l * r, y - dx / l * r }
@@ -315,11 +319,13 @@ function C:gait()
     p.nfx, p.nfy = foot(0.25, sx + 0.4, 1.0)
     p.fhx, p.fhy = foot(0.5, -0.6, 1.1)
     p.ffx, p.ffy = foot(0.75, sx - 0.2, 1.0)
-    self.bob = 0.18 * cos(4 * pi * self.phase)
+    self.bob = 0.16 * cos(4 * pi * self.phase)
+    self.hbob = 0.22 * cos(4 * pi * self.phase + 1.3)    -- the head nods a beat behind the body
+    self.walk_seen = self.T                               -- (tail sway, head bob: while walking)
 end
 
 function C:settle(dur)
-    self.bob = 0
+    self.bob, self.hbob = 0, 0
     self:tween(self:neutral_feet({}), dur or 0.3)
 end
 
@@ -624,17 +630,18 @@ end
 
 -- ── drawing ────────────────────────────────────────────────────────────────
 
-function C:path(shapes)
+-- shapes (local units) → one ASS drawing; (ox, oy): shifted that many u on screen
+function C:path(shapes, ox, oy)
     local p, u = self.p, self.u
     local m = self.dir * p.sx * u
-    local x0, y0 = p.x, self.ground - (self.bob + self.elev) * u
+    local x0, y0 = p.x + (ox or 0) * u, self.ground - (self.bob + self.elev - (oy or 0)) * u
     local out = {}
     for _, s in ipairs(shapes) do
         local n = #s / 2
         local xs, ys, area = {}, {}, 0
         for i = 1, n do
-            xs[i] = (x0 + s[2 * i - 1] * m) * 4
-            ys[i] = (y0 + s[2 * i] * u) * 4
+            xs[i] = floor((x0 + s[2 * i - 1] * m) * 4 + 0.5)
+            ys[i] = floor((y0 + s[2 * i] * u) * 4 + 0.5)
         end
         for i = 1, n do
             local j = i % n + 1
@@ -649,10 +656,10 @@ function C:path(shapes)
     return table.concat(out, " ")
 end
 
-function C:event(shapes, fill, rim, extra)
-    local bord = rim and math.max(0.8, self.u * 0.11) or 0
-    return string.format("{\\an7\\pos(0,0)\\bord%.2f\\shad0\\1c%s\\3c%s\\3a&H50&%s\\p3}%s{\\p0}",
-        bord, fill, rim or fill, extra or "", self:path(shapes))
+function C:event(shapes, fill, rim, extra, ox, oy)
+    local bord = rim and math.max(0.7, self.u * 0.075) or 0
+    return string.format("{\\an7\\pos(0,0)\\bord%.2f\\shad0\\1c%s\\3c%s\\3a&H60&%s\\p3}%s{\\p0}",
+        bord, fill, rim or fill, extra or "", self:path(shapes, ox, oy))
 end
 
 -- head point: offset (ox, oy) from the head centre, turned by face/squash and tilted by pitch
@@ -664,29 +671,36 @@ function C:head_pt(hx, hy, ox, oy, view)
     return hx + x * fx * p.hs, hy + y
 end
 
+-- a paw: small and round, the toes curling down as the foot comes off the ground
+local function paw(x, y, lift)
+    local curl = clamp(lift, 0, 1.2) * 0.55
+    return ellipse(x + 0.22, y - 0.36, 0.6, 0.37, curl, 12)
+end
+
 function C:legs(far)
     local p = self.p
     local shx, shy = shoulder(p)
     local fx, fy = p[far and "ffx" or "nfx"], p[far and "ffy" or "nfy"]
     local hx, hy = p[far and "fhx" or "nhx"], p[far and "fhy" or "nhy"]
     local out = {}
-    -- front: shoulder → elbow (bends back) → wrist, paw
-    local rx, ry = shx + 0.2, shy + 0.9
-    local wx, wy = fx, fy - 0.6
+    -- front: shoulder → elbow (bends back) → wrist, a slim forearm and a small paw
+    local rx, ry = shx + 0.2, shy + 1.1
+    local wx, wy = fx - 0.02, fy - 0.5
     local ex, ey = ik(rx, ry, wx, wy, FL1, FL2, -1)
-    out[#out + 1] = capsule(rx, ry, 1.1, ex, ey, 0.75)
-    out[#out + 1] = capsule(ex, ey, 0.72, wx, wy, 0.55)
-    out[#out + 1] = ellipse(fx + 0.3, fy - 0.48, 0.72, 0.5)
-    -- hind: hip → knee (bends forward) → hock → toes
-    local stx, sty = hx - 0.45, hy - 1.85
-    local sitx, sity = hx - HL3, -0.45
+    out[#out + 1] = capsule(rx, ry, 1.2, ex, ey, 0.62)
+    out[#out + 1] = capsule(ex, ey, 0.58, wx, wy, 0.4)
+    out[#out + 1] = paw(fx, fy, -fy)
+    -- hind: a round thigh (the haunch) → knee (bends forward) → hock → a long slim foot
+    local stx, sty = hx - 0.5, hy - 1.9
+    local sitx, sity = hx - HL3, -0.42
     local kx, ky = stx + (sitx - stx) * p.fold, sty + (sity - sty) * p.fold
-    local hrx, hry = 0.4, -p.hh + 0.9
+    local hrx, hry = 0.3, -p.hh + 0.8
     local nx, ny = ik(hrx, hry, kx, ky, HL1, HL2, 1)
-    out[#out + 1] = capsule(hrx, hry, 1.6 + 0.6 * p.fold, nx, ny, 1.0 + 0.3 * p.fold)
-    out[#out + 1] = capsule(nx, ny, 0.75, kx, ky, 0.5)
-    out[#out + 1] = capsule(kx, ky, 0.5, hx, hy - 0.45, 0.45)
-    out[#out + 1] = ellipse(hx + 0.25, hy - 0.45, 0.75, 0.5)
+    ny = math.min(ny, math.max(ky, hy) - 0.75)        -- (sitting: the knee stays above the ground)
+    out[#out + 1] = capsule(hrx, hry, 1.75 + 0.5 * p.fold, nx, ny, 0.85 + 0.3 * p.fold)
+    out[#out + 1] = capsule(nx, ny, 0.6, kx, ky, 0.38)
+    out[#out + 1] = capsule(kx, ky, 0.38, hx + 0.05, hy - 0.4, 0.34)
+    out[#out + 1] = paw(hx, hy, -hy)
     return out
 end
 
@@ -694,50 +708,71 @@ function C:frame()
     local p, ev, t = self.p, {}, self.T
     local shx, shy = shoulder(p)
     local hpx, hpy = 0, -p.hh
-    local hx, hy = shx + p.nx - 1.4 * self.back, shy + p.ny - 0.3 * self.back
+    local wa = clamp(1 - (t - (self.walk_seen or -9)) * 4, 0, 1)      -- 1 while walking
+    local hx = shx + p.nx - 1.4 * self.back
+    local hy = shy + p.ny - 0.3 * self.back + (self.hbob or 0) * wa
     local view = p.face
+    local cb, sb = cos(p.ba), sin(p.ba)
+    local function B(x0, y0, ox, oy) return x0 + ox * cb + oy * sb, y0 - ox * sb + oy * cb end
 
     -- shadow on the ground (not in the air)
     local fxs = (p.nfx + p.ffx + p.nhx + p.fhx) / 4
     if not self.air then
         ev[#ev + 1] = string.format("{\\an7\\pos(0,0)\\bord0\\shad0\\blur%.1f\\1c&H000000&\\1a&HA0&\\p3}%s{\\p0}",
-            self.u * 0.4, self:path({ ellipse(fxs, 0.1, math.abs(shx) * 0.5 + 3, 0.6) }))
+            self.u * 0.4, self:path({ ellipse(fxs, 0.1, math.abs(shx) * 0.5 + 3, 0.55) }))
     end
 
     -- far legs, a shade lighter so they read behind the body
     ev[#ev + 1] = self:event(self:legs(true), FUR_FAR, RIM)
 
     local body = {}
-    -- tail: a chain from the base, curling, waving; never below the ground
-    local cb, sb = cos(p.ba), sin(p.ba)
-    local bx, by = -2.2 * cb - 1.5 * sb, 2.2 * sb - 1.5 * cb
-    local chain, x, y = {}, hpx + bx, hpy + by
-    chain[1], chain[2] = x, y
-    for i = 1, TAIL_N do
-        local a = p.ta + p.tk * i + p.tc * math.max(0, i - 7) ^ 2
-            + p.tw * sin(t * 1.6 - i * 0.45) * i / TAIL_N
-        x, y = x + TAIL_SEG * cos(a), math.min(-0.5, y + TAIL_SEG * sin(a))
-        chain[#chain + 1] = x; chain[#chain + 1] = y
+    -- tail: a long chain from the rump, an S that sways as it walks; never below the ground;
+    -- bristling: thick, the fur on end
+    local tx, ty = B(hpx, hpy, -1.9, -1.15)
+    local chain = { tx, ty }
+    local sway = wa * 0.2 * sin(2 * pi * (self.phase or 0))
+    local sub = (p.bristle > 0.3) and 2 or 1              -- (bristling: finer, for the spikes)
+    for j = 1, TAIL_N * sub do
+        local i = j / sub
+        local q = i / TAIL_N
+        local a = p.ta + p.tk * i + p.tc * math.max(0, i - 8) ^ 2
+            + p.tw * sin(t * 1.6 - i * 0.45) * q + sway * sin(pi * q) * (1 - p.bristle)
+        tx, ty = tx + TAIL_SEG / sub * cos(a), math.min(-0.75, ty + TAIL_SEG / sub * sin(a))
+        chain[#chain + 1] = tx; chain[#chain + 1] = ty
     end
-    body[#body + 1] = strip(chain, 0.95 + 0.9 * p.bristle, 0.5 + 0.8 * p.bristle)   -- (bristling: thick)
-    -- torso: a flat back, a full belly, deep chest, round haunch (offsets turn with the body)
-    local function B(x0, y0, ox, oy) return x0 + ox * cb + oy * sb, y0 - ox * sb + oy * cb end
-    local ax, ay = B(hpx, hpy, 0, -0.3)
-    local bx2, by2 = B(shx, shy, 0, -0.25)
-    body[#body + 1] = capsule(ax, ay, 1.95, bx2, by2, 1.9)
-    local mx, my = B(hpx, hpy, p.bl * 0.5, 0.75 - 2.6 * p.arch)     -- (arched: the middle up high)
-    body[#body + 1] = ellipse(mx, my, p.bl * 0.4, 2.45 + 0.4 * p.arch, -p.ba)
-    if p.arch > 0 then             -- the hump, joining haunch and shoulders over the top
-        local ux, uy = B(hpx, hpy, p.bl * 0.5, -1.3 - 2.4 * p.arch)
-        body[#body + 1] = ellipse(ux, uy, p.bl * 0.38, 1.6 * p.arch + 0.01, -p.ba)
+    body[#body + 1] = strip(chain, 0.78 + 0.4 * p.bristle, 0.46 + 0.45 * p.bristle, 0.7 * p.bristle, 0.5 * p.bristle)
+
+    -- torso: lofted along the spine - full chest, slim tucked-up waist, a level back with the
+    -- withers just showing; arched: the spine bows up high, the belly drawn up under it, the fur
+    -- on the back standing up in spikes
+    local N, top, bot = 16, {}, {}
+    for i = 0, N do
+        local q = i / N
+        local s = sin(pi * q)
+        local sy = -p.arch * 4.2 * s ^ 0.65 - (0.1 + 1.2 * p.fold) * s     -- (sitting: a rounded back)
+        local up = (1.75 - 0.25 * s + 0.35 * q * q) * (1 - 0.15 * p.arch)
+        if i % 2 == 1 and p.bristle > 0 then up = up + 0.75 * p.bristle * sqrt(s) end
+        local dn = (1.5 + 1.15 * q * q - 0.55 * s) * (1 - 0.3 * p.arch)
+        local ax, ay = B(hpx, hpy, q * p.bl, sy - up)
+        local bx, by = B(hpx, hpy, q * p.bl, sy + dn)
+        top[#top + 1] = { ax, ay }; bot[#bot + 1] = { bx, by }
     end
-    local cx, cy = B(hpx, hpy, -0.2, 0.15)
-    body[#body + 1] = ellipse(cx, cy, 2.6 + 0.3 * p.fold, 2.7, -p.ba)
-    cx, cy = B(shx, shy, 0.2, 0.75)
-    body[#body + 1] = ellipse(cx, cy, 2.35, 2.75, -p.ba)
-    body[#body + 1] = capsule(shx + 0.3, shy - 0.4, 1.75, hx, hy, 1.4)
-    -- head
-    local function H(ox, oy) return self:head_pt(hx, hy, ox, oy, view) end
+    local torso = {}
+    for i = 1, #top do torso[#torso + 1] = top[i][1]; torso[#torso + 1] = top[i][2] end
+    for i = #bot, 1, -1 do torso[#torso + 1] = bot[i][1]; torso[#torso + 1] = bot[i][2] end
+    body[#body + 1] = torso
+    local cx, cy = B(hpx, hpy, -0.3, 0.05)                 -- the haunch, round
+    body[#body + 1] = ellipse(cx, cy, 2.4 + 0.25 * p.fold, 2.5 - 0.35 * p.arch, -p.ba, 18)
+    cx, cy = B(shx, shy, 0.4 - 0.3 * p.fold, 0.75)         -- the chest, deep
+    body[#body + 1] = ellipse(cx, cy, 2.05 - 0.35 * p.fold, 2.5 - 0.3 * p.arch - 0.5 * p.fold, -p.ba, 18)
+    cx, cy = B(shx, shy, -0.6, -0.9)                       -- the shoulder blade, at the withers
+    if p.arch < 0.9 then body[#body + 1] = ellipse(cx, cy, 1.5 * (1 - p.arch), 0.9 * (1 - p.arch), -p.ba, 12) end
+    -- the neck: up and forward out of the chest, narrower than both
+    local nax, nay = B(shx, shy, 0.5, -0.1)
+    body[#body + 1] = capsule(nax, nay, 1.75, hx - 0.35, hy + 0.45, 1.3)
+
+    -- head: a round skull, full cheeks, a short muzzle and big ears
+    local function H(ox, oy) return self:head_pt(hx, hy, ox * 1.1, oy * 1.1, view) end      -- (a big head)
     local function poly(list)
         local pts = {}
         for i = 1, #list, 2 do
@@ -746,53 +781,77 @@ function C:frame()
         end
         return pts
     end
-    local function oval(ox, oy, rx, ry)
-        local pts = ellipse(ox, oy, rx, ry, 0, 14)
-        return poly(pts)
+    local function oval(ox, oy, rx, ry, rot, n)
+        return poly(ellipse(ox, oy, rx, ry, rot or 0, n or 14))
     end
+    local inner = {}
     if view == 0 then
-        body[#body + 1] = oval(0, 0, 2.45, 2.15)
-        body[#body + 1] = poly({ -2.1, -0.8, -0.5, -1.9, -1.8, -3.6 })
-        body[#body + 1] = poly({ 0.5, -1.9, 2.1, -0.8, 1.8, -3.6 })
+        body[#body + 1] = oval(0, -0.1, 2.35, 2.1, 0, 18)
+        body[#body + 1] = oval(0, 0.6, 2.6, 1.5, 0, 18)
+        for _, k in ipairs({ -1, 1 }) do
+            body[#body + 1] = poly({ k * 2.3, -0.3, k * 2.45, -2.1, k * 2.2, -4.25, k * 1.4, -3.05, k * 0.4, -1.95 })
+            inner[#inner + 1] = poly({ k * 2.0, -1.0, k * 2.05, -3.65, k * 1.0, -2.1 })
+        end
     else
-        body[#body + 1] = oval(0, 0, 2.15, 2.15)
-        body[#body + 1] = oval(1.5, 0.6, 1.1, 0.85)
-        body[#body + 1] = poly({ -1.4, -1.3, 0.1, -2.1, -0.9, -3.9 })
-        body[#body + 1] = poly({ 0.3, -2.0, 1.5, -1.2, 1.0, -3.6 })
+        body[#body + 1] = oval(0, 0, 2.15, 2.05, 0, 18)           -- skull
+        body[#body + 1] = oval(0.25, 0.6, 2.05, 1.55, 0, 16)      -- cheeks
+        body[#body + 1] = oval(1.6, 0.65, 1.05, 0.78, 0.1)        -- muzzle
+        body[#body + 1] = oval(1.35, 1.2, 0.7, 0.45)              -- chin
+        body[#body + 1] = poly({ 0.1, -1.95, 0.75, -3.0, 1.15, -3.95, 1.55, -2.5, 1.7, -1.1 })        -- far ear
+        body[#body + 1] = poly({ -1.85, -0.6, -1.85, -2.5, -1.15, -4.45, -0.4, -3.1, 0.4, -1.85 })    -- near ear
+        inner[#inner + 1] = poly({ -1.45, -1.15, -1.3, -3.7, -0.35, -2.05 })
     end
     for _, s in ipairs(self:legs(false)) do body[#body + 1] = s end
+    -- moonlight along the top edges (the body shifted up, mostly covered by the body itself)
+    ev[#ev + 1] = self:event(body, SHEEN, nil, string.format("\\1a&H38&\\blur%.1f", self.u * 0.1), 0, -0.24)
     ev[#ev + 1] = self:event(body, FUR, RIM)
+    ev[#ev + 1] = self:event(inner, EAR_IN)
 
-    -- face: eyes (slit pupils), nose, tongue, whiskers
+    -- face: eyes (slit pupils, a glint), nose, tongue, whiskers
     local open = math.max(0.1, p.eye * self.blink)
-    local eyes, pupils, pink = {}, {}, {}
+    local eyes, pupils, pink, glints, fangs = {}, {}, {}, {}, {}
     local whisk = {}
     local function line(ax, ay, bx2, by2)
         local x1, y1 = H(ax, ay)
         local x2, y2 = H(bx2, by2)
         whisk[#whisk + 1] = { x1, y1, x2, y2, x1, y1 }
     end
+    local wide = 1 - 0.35 * p.red              -- (in a fright: narrowed, glaring)
     if view == 0 then
-        for _, sx in ipairs({ -0.9, 0.9 }) do
-            eyes[#eyes + 1] = oval(sx, -0.25, 0.62, 0.5 * open)
-            if open > 0.3 then pupils[#pupils + 1] = oval(sx + p.gx * 0.25, -0.25, 0.14, 0.44 * open) end
-            for k = -1, 1 do line(sx * 1.05, 0.75, sx * 3.4, 0.6 + k * 0.55) end
+        for _, sx in ipairs({ -0.95, 0.95 }) do
+            eyes[#eyes + 1] = oval(sx, -0.2, 0.66, 0.56 * open * wide, sx * 0.12)
+            if open > 0.3 then
+                pupils[#pupils + 1] = oval(sx + p.gx * 0.25, -0.2, 0.14, 0.5 * open * wide)
+                glints[#glints + 1] = oval(sx + p.gx * 0.25 - 0.22, -0.4, 0.1, 0.1, 0, 8)
+            end
+            for k = -1, 1 do line(sx * 1.1, 0.85, sx * 3.5, 0.65 + k * 0.5) end
         end
-        pink[#pink + 1] = poly({ -0.32, 0.45, 0.32, 0.45, 0, 0.8 })
+        pink[#pink + 1] = poly({ -0.32, 0.5, 0.32, 0.5, 0, 0.82 })
+        line(0, 0.82, 0, 1.05); line(0, 1.05, -0.4, 1.25); line(0, 1.05, 0.4, 1.25)
     else
-        eyes[#eyes + 1] = oval(0.95, -0.35, 0.5, 0.38 * open)
-        if open > 0.3 then pupils[#pupils + 1] = oval(1.1, -0.35, 0.13, 0.33 * open) end
-        pink[#pink + 1] = oval(2.55, 0.2, 0.2, 0.16)
-        if p.tongue > 0.5 then pink[#pink + 1] = oval(2.3, 1.15, 0.4, 0.26) end
-        if p.hiss > 0.5 then pink[#pink + 1] = poly({ 1.4, 0.9, 2.6, 0.7, 2.4, 1.6 }) end   -- hissing
-        for k = -1, 1 do line(2.0, 0.75, 4.3, 0.55 + k * 0.6) end
+        eyes[#eyes + 1] = oval(1.15, -0.3, 0.52, 0.43 * open * wide, 0.15)
+        if open > 0.3 then
+            pupils[#pupils + 1] = oval(1.3, -0.28, 0.12, 0.37 * open * wide)
+            glints[#glints + 1] = oval(1.08, -0.47, 0.09, 0.09, 0, 8)
+        end
+        pink[#pink + 1] = oval(2.6, 0.22, 0.2, 0.15)
+        if p.tongue > 0.5 then pink[#pink + 1] = oval(2.3, 1.2, 0.4, 0.26) end
+        if p.hiss > 0.5 then       -- hissing: the mouth wide open, fangs
+            pink[#pink + 1] = poly({ 1.3, 0.95, 2.65, 0.72, 2.45, 1.75 })
+            fangs[#fangs + 1] = poly({ 2.2, 0.82, 2.42, 0.78, 2.33, 1.15 })
+            fangs[#fangs + 1] = poly({ 2.05, 1.62, 2.28, 1.66, 2.2, 1.32 })
+        end
+        for k = -1, 1 do line(2.0, 0.8, 4.4, 0.55 + k * 0.55) end
     end
-    ev[#ev + 1] = self:event(eyes, p.red > 0.5 and RED_EYE or EYE)
+    ev[#ev + 1] = self:event(eyes, p.red > 0.5 and RED_EYE or EYE, nil, string.format("\\bord%.2f\\3c%s\\3a&HB0&\\blur%.1f",
+        self.u * 0.12, p.red > 0.5 and RED_EYE or EYE, self.u * 0.1))
     if #pupils > 0 then ev[#ev + 1] = self:event(pupils, PUPIL) end
+    if #glints > 0 then ev[#ev + 1] = self:event(glints, GLINT, nil, "\\1a&H40&") end
     ev[#ev + 1] = self:event(pink, PINK)
+    if #fangs > 0 then ev[#ev + 1] = self:event(fangs, FANG) end
     -- whiskers: hairlines (degenerate paths drawn by their outline)
     ev[#ev + 1] = string.format("{\\an7\\pos(0,0)\\bord%.2f\\shad0\\1a&HFF&\\3c%s\\3a&H90&\\p3}%s{\\p0}",
-        math.max(0.4, self.u * 0.05), WHISKER, self:path(whisk))
+        math.max(0.4, self.u * 0.045), WHISKER, self:path(whisk))
     return ev
 end
 

@@ -38,13 +38,13 @@ Zombie,Drops and eats brains; goes underground; shorter stay,done,cast zombie,z 
 Zombie,Left in pieces after losing to a skeleton,done,zombie piece clips as relics,S
 Everyone,Time's up: leave gracefully (walk off / underground / sarcophagus) or by a cheat after 10 s (frog / raven / dig in),done,despawn lifecycle in spawn.wanderer (ttl / out_since / out_force),Z
 Window creep,Something crawls past outside the window (octopus-like),done,crawler element with sprite creep (tools/bake/creep.py): crawls past high up; peeks in and taps the glass,C
-Cat,Better animation (baked 3D or the drawing reworked),to do,art,c
+Cat,Better animation (baked 3D or the drawing reworked),done,prowler.lua redrawn: one torso shape; tapered legs; bigger ears; slit-pupil eyes; S tail; bottle-brush arch with a hiss; upright sit,c
 Machinery,One table of meetings (A meets B -> reaction + chance) checked from a single proximity loop,done,hooks.MEETS + hooks.meet (cast walkers); the werewolf act still has its own checks,
 Scarecrow,Scarecrow with crows,dropped,removed,
-Skeleton,The brainy skeleton gets something to do with its brain (a bright idea),to do,a thought bubble (thought.py) with an idea; it cheers,
-Zombie,A zombie finds zombie pieces lying about and puts them back together: another zombie stands up,to do,relics of a zombie gathered -> a zombie rises,
-Zombie,A zombie finds an eye lying about and pops it in,to do,eye relic taken up,
-Witch,The witch meets a zombie: a spell - it's a frog,to do,hooks.MEETS witch -> zombie,
-Vampire,The vampire meets the werewolf: a stand-off - hiss and growl and both turn away,to do,hooks.MEETS vampire -> werewolf,
-Frankenstein,Frankenstein meets a zombie: it sniffs at him for brains and goes off disgusted,to do,hooks.MEETS zombie -> frankenstein,
-Cat,The cat meets a skeleton: it takes a bone? / plays with the eye,to do,prowler -> relics,
+Skeleton,The brainy skeleton gets something to do with its brain (a bright idea),done,a while into brainy: a thought cloud (thought sprite) beside the head and it cheers,O (5)
+Zombie,A zombie finds zombie pieces lying about and puts them back together: another zombie stands up,done,hooks.MEETS zombie -> relic head: all its pieces gathered; a zombie rises there; the finder digs in,O (4)
+Zombie,A zombie finds an eye lying about and pops it in,done,hooks.MEETS zombie -> relic eye,O (4)
+Witch,The witch meets a zombie: a spell - it's a frog,done,hooks.MEETS witch -> princess/zombie (el.witch_zombie 0.3),O (3)
+Vampire,The vampire meets the werewolf: a stand-off - hiss and growl and both turn away,done,hooks.MEETS vampire -> werewolf (el.standoff 0.6),O (1)
+Frankenstein,Frankenstein meets a zombie: it sniffs at him for brains and goes off disgusted,done,hooks.MEETS zombie -> frankenstein (sniff),O (2)
+Cat,The cat meets a skeleton: it takes a bone? / plays with the eye,done,tick_cats: an eye or bone just ahead of its nose is batted along (up to 3 times),

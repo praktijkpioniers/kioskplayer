@@ -39,13 +39,13 @@ What happens when the row character meets the column one. ✓ = done, ○ = idea
 
 | Meets → | Witch | Werewolf | Princess | Vampire | Zombie | Skeleton | Mummy / sarcophagus | Frankenstein | Pumpkin-head | Cat |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Witch** | | | ✓ swap spell; ✓ a spell: she's a frog | | | | ✓ trap | | ✓ her pumpkin-head | |
+| **Witch** | | | ✓ swap spell; ✓ a spell: she's a frog | | ✓ a spell: a frog | | ✓ trap | | ✓ her pumpkin-head | |
 | **Werewolf** | | | ✓ turns her (she-wolf) | | ✓ the man is zombified | ✓ fight, bone | ✓ fight, bone; ✓ trap | ✓ takes limbs | | ✓ cat scares him |
 | **She-wolf** | | | | | | ✓ takes bones | | ✓ takes limbs | | ✓ cat scares her |
 | **Princess** | ✓ swap | ✓ turned; ✓ wakes him | | ✓ turned; ✓ kiss: frog | ✓ turned | ✓ prince | ✓ trap / pickup | ✓ prince | ✓ prince | |
-| **Princess vampire** | | | ○ mirror shows nothing | ○ share a coffin | | | ✓ trap | | | |
-| **Vampire** | | | ✓ bites / is kissed | | | | | | | ✓ cat on his coffin |
-| **Zombie** | | ✓ gets the man | ✓ turns her | | ✓ eats a dropped brain | ✓ fight: left in pieces | ✓ trap | | | |
+| **Princess vampire** | | | ✓ mirror shows nothing | ✓ share a coffin | | | ✓ trap | | | |
+| **Vampire** | | ✓ stand-off | ✓ bites / is kissed | ✓ a coffin for two | | | | | | ✓ cat on his coffin |
+| **Zombie** | | ✓ gets the man | ✓ turns her | | ✓ eats a dropped brain; ✓ mends a zombie | ✓ fight: left in pieces | ✓ trap | ✓ sniffs him | | |
 | **Skeleton** | | ✓ fight | ✓ prince | | ✓ fight: takes brain and eye | | ✓ helper; ✓ trap | | | |
 | **Frankenstein** | | | ✓ prince | ✓ pushes his coffin | | | | | ✓ head worn by it | |
 | **Pumpkin-head** | | | ✓ prince | | | | ✓ trap | ✓ wears his head | ✓ takes a lying pumpkin | |
@@ -56,15 +56,12 @@ What happens when the row character meets the column one. ✓ = done, ○ = idea
 - His head: a headless pumpkin-head wears it.
 - A pumpkin: a headless pumpkin-head wears it.
 - A piece of brain: a zombie eats it.
-- A zombie's pieces: nobody uses them yet; they just sink.
-- An eye: nobody uses it yet.
+- A zombie's pieces: a zombie finding the head puts them back together; another zombie rises.
+- An eye: a zombie pops it in; the cat bats it along (a bone too).
 
 **Open pairs worth a trigger**:
-- The cat with anyone but the wolves.
-- Frankenstein with the zombie or a skeleton.
-- The vampire with the werewolf.
-- The witch with the zombie.
-- Someone using the zombie pieces and the eye.
+- The cat with anyone but the wolves (it bats eyes and bones now).
+- Frankenstein with a skeleton.
 
 ## Machinery
 
@@ -77,9 +74,9 @@ The engine's main chunk is at Lua's 200-locals limit, so new helpers go on `hook
 These need new or changed artwork (Blender bakes in `tools/bake`) before the engine work can follow.
 
 - [ ] **Frankenstein's look**: less hair so the stitches show, fewer clothes or clothes stitched together, and facing the viewer more so he reads as Frankenstein.
-- [ ] **Cat**: better animation. Either a baked 3D cat like the others, or the drawn cat with its shapes and proportions reworked.
-- [ ] **Bat for the vampire**: flying, hanging upside down, and a transform clip that also plays backwards.
-- [ ] **Mirror**: a standing mirror as decor. The reflection can be her own sprite, mirrored and dimmed.
-- [ ] **Window creep**: an octopus-like creature crawling past outside the window.
-- [ ] **Princess vampire lying down**: for her own coffin, and a coffin big enough for two.
+- [x] **Cat**: better animation. Either a baked 3D cat like the others, or the drawn cat with its shapes and proportions reworked.
+- [x] **Bat for the vampire**: flying, hanging upside down, and a transform clip that also plays backwards.
+- [x] **Mirror**: a standing mirror as decor. The reflection can be her own sprite, mirrored and dimmed.
+- [x] **Window creep**: an octopus-like creature crawling past outside the window.
+- [x] **Princess vampire lying down**: for her own coffin, and a coffin big enough for two.
 - [x] Zombie pieces, eye, skeleton head tracking (done for zombie vs skeleton).
