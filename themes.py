@@ -520,6 +520,7 @@ def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: b
         "elements": tdef.get("elements") or [],
         "text": bool(text),
         "jokes": tdef.get("jokes") or [],
+        "planner": tdef.get("planner"),
         "shouts": tdef.get("shouts") or [],
     }
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -712,10 +713,11 @@ class ThemeRoom:
 
     def characters(self) -> dict:
         """The characters ("chr:" keys) about on the other screens: how many, and which are on the
-        screen to our left and right (a story may go over to meet them)."""
+        screen to our left and right (a story may go over to meet them), and the cast those two want
+        for the gag they have lined up next ("want:" keys: one about here may walk over)."""
         now = time.monotonic()
         alive_s = self.ANNOUNCE_S * 3.5
-        n, near = 0, {"left": [], "right": []}
+        n, near, wants = 0, {"left": [], "right": []}, {"left": [], "right": []}
         with self._lock:
             for node, (heard, claims) in self.others.items():
                 if now - heard > alive_s:
@@ -725,7 +727,8 @@ class ThemeRoom:
                 for side, nb in (("left", self.left), ("right", self.right)):
                     if node == nb:
                         near[side] = keys
-        return {"chars": n, "near": near}
+                        wants[side] = sorted(k[5:] for k in claims if k.startswith("want:"))
+        return {"chars": n, "near": near, "wants": wants}
 
     def _publish_claims(self) -> None:
         with self._lock:

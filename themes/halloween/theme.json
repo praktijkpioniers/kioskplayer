@@ -255,6 +255,7 @@
       "height": 0.12
     }
   },
+  "planner": {"_doc": "one gag (an element of this group) at a time on a screen, a few lined up next (see engine.lua: the gag planner); gap: the pause (s) between gags", "group": "monster", "queue": 3, "gap": [6, 20]},
   "elements": [
     {
       "type": "visitor",

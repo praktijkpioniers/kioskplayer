@@ -31,6 +31,7 @@ local actors = {}        -- transient actors (walkers, flyers, peekers, particle
 local cats = {}          -- the cats (prowler.lua), see tick_cats
 local webs = {}          -- orb weavers (weaver.lua): not cleared by refresh, a video starting must not wipe a half-built web
 local elements = {}      -- element state (next spawn time, active count)
+local plan = { queue = {}, recent = {}, noise = {}, fail = {} }   -- the gag planner (see plan_tick)
 local shown = {}         -- id -> last draw key (skip redundant overlay-add)
 local free_ids = {}
 local wm = nil
@@ -2093,6 +2094,18 @@ end
 -- wanted_here: a scene here that could use one of fam, due before long (or waiting its turn):
 -- its start is pulled forward, and the one wanted hangs about.
 local function wanted_here(fam, now)
+    if M and M.planner then                  -- (the planner: the first two in line; the first comes sooner)
+        for i = 1, math.min(2, #plan.queue) do
+            local el, st = plan.queue[i].el, elements[plan.queue[i].el]
+            for _, f in ipairs(el.recruits or {}) do
+                if f == fam and st then
+                    if i == 1 then plan.pull = true end
+                    return el, st
+                end
+            end
+        end
+        return
+    end
     for _, el in ipairs(M and M.elements or {}) do
         local st = elements[el]
         if el.recruits and st and element_on(el) and (st.active or 0) < 1 then
@@ -4021,6 +4034,18 @@ function spawn.wanderer(el, spr, h)
             -- wanted here: hang about (to and fro) a while
             local el2, st = nil, nil
             if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(fam, now) end
+            -- not wanted here, but next door (its gag lined up next): over there
+            if not el2 and not a.staged and a.ttl > 0 and not a.meal and not a.doomed then
+                local want = nil
+                for _, side in ipairs({ "left", "right" }) do
+                    for _, f in ipairs((room.wants or {})[side] or {}) do if f == fam then want = side end end
+                end
+                if want then
+                    a.staged = true
+                    msg.verbose("cast: the " .. fam .. " is wanted next door (" .. want .. ")")
+                    if (want == "right") ~= (dir > 0) then turn_round() end
+                end
+            end
             if el2 then
                 linger = linger + dt
                 if st.next > now + 8 and not st.wait_since then st.next = now + rnd(3, 8) end
@@ -4785,6 +4810,121 @@ local function queued_before(el, now)
     return false
 end
 
+-- ── the gag planner (theme.json "planner": {group, queue, gap}) ──
+-- One gag at a time on a screen - a character of the planner's group (the witch, the princess, the
+-- zombie...) - and a few lined up next, chosen by what's about (frogs few: the witch; a piece of
+-- brain lying here: a zombie; a werewolf about: the princess; frogs enough: no witch), how long
+-- since each had its turn (el.every: before that it's unlikely), what was on just now (not the
+-- same again), what a screen next door has lined up (pln: claims) and a bit of chance. Thought
+-- over every few seconds: the line changes as the screen does. Once the screen is free (the last
+-- gag gone, a short pause: planner.gap), the first in line is called; the cast it can use
+-- (el.recruits) is wanted here - it hangs about, and on the screens next door walks over (want:
+-- claims). Gag elements start only when called this way, by the cast (a recruit) or forced
+-- (preview keys). The cast passing through doesn't count as a gag.
+local function is_gag(el)
+    return M and M.planner and has_group(groups_of(el), M.planner.group or "monster") or false
+end
+local function gag_on()                         -- the gag on here: its actor, or nil
+    local g = M.planner.group or "monster"
+    for _, a in ipairs(actors) do
+        if a.scene or (a.el and not HANDED_ONLY[a.el.type] and not a.gone and has_group(a.groups or {}, g)) then return a end
+    end
+end
+local function about(fam)                       -- one of fam about, here or on another screen
+    local _, same = chars_here(fam)
+    return same or room.taken["chr:" .. fam]
+end
+local function gag_use(el)                      -- how much sense it makes now (×), and why
+    local t = el.type
+    if t == "witch" then
+        local n = room_frogs()
+        if n < FEW_FROGS then return 2.5, "frogs wanted" end
+        if n >= 2 * FEW_FROGS then return 0.25, "frogs enough" end
+    elseif t == "frogs" then
+        if about("princess") then return 1.6, "the princess about" end
+        if room_frogs() >= 2 * FEW_FROGS then return 0.3, "frogs enough" end
+    elseif t == "princess" then
+        for _, a in ipairs(actors) do if a.asleep_x then return 3, "a wolf asleep" end end
+        if cast_here("frog") then return 2, "a frog here" end
+        if about("werewolf") or about("vampire") or about("zombie") then return 1.5, "one to meet" end
+    elseif t == "zombie" then
+        if brains_here() > 0 then return 2.5, "brains lying here" end
+    elseif t == "werewolf" then
+        if about("princess") then return 1.8, "the princess about" end
+    end
+    return 1
+end
+local function gag_score(el, now, queued)
+    local st = elements[el]
+    if not (st and element_on(el)) or (st.active or 0) > 0 or now < (plan.fail[el] or 0) then return 0 end
+    local use, why = gag_use(el)
+    local w = (el.gag_weight or 1) * use
+    if now < st.next then w = w * 0.15 end                     -- (its turn not come round yet)
+    if has_group(groups_of(el), "walker") and no_room_for(el) then w = w * 0.1 end
+    if room.taken["pln:" .. el.type] then w = w * 0.3 end      -- (next door has it lined up)
+    for i, t in ipairs(plan.recent) do if t == el.type then w = w * (i == 1 and 0.15 or 0.5) end end
+    if queued then w = w * 1.4 end                             -- (the line holds, mostly)
+    plan.noise[el] = plan.noise[el] or rnd(0.6, 1.4)
+    return w * plan.noise[el], why
+end
+local function replan(now)
+    local q, was = {}, {}
+    for _, g in ipairs(plan.queue) do was[g.el] = true end
+    for _, el in ipairs(M.elements) do
+        if is_gag(el) then
+            local sc, why = gag_score(el, now, was[el])
+            if sc > 0.02 then q[#q + 1] = { el = el, s = sc, why = why } end
+        end
+    end
+    table.sort(q, function(a, b) return a.s > b.s end)
+    for i = #q, (M.planner.queue or 3) + 1, -1 do q[i] = nil end
+    local sig = {}
+    for _, g in ipairs(q) do sig[#sig + 1] = g.el.type .. (g.why and (" (" .. g.why .. ")") or "") end
+    sig = table.concat(sig, ", ")
+    if sig ~= plan.sig then
+        plan.sig = sig
+        msg.verbose("plan: next " .. (sig ~= "" and sig or "nothing"))
+    end
+    plan.queue = q
+end
+local function gag_started(el, how)
+    table.insert(plan.recent, 1, el.type)
+    plan.recent[4] = nil
+    plan.noise[el], plan.replan_t = nil, 0
+    if plan.go == el then plan.go = nil end
+    msg.verbose("plan: on now: the " .. el.type .. (how and (" (" .. how .. ")") or ""))
+end
+local function plan_tick(now)
+    if not (M and M.planner) or holding() then return end
+    if now >= (plan.replan_t or 0) then
+        plan.replan_t = now + 3
+        replan(now)
+    end
+    if plan.go then                              -- called, and it didn't come: not now
+        if now - plan.go_t > 1.5 then
+            msg.verbose("plan: the " .. plan.go.type .. " can't come now")
+            plan.fail[plan.go], plan.go, plan.free_t, plan.replan_t = now + 30, nil, now + 1, 0
+        end
+        return
+    end
+    if gag_on() then plan.free_t, plan.pull = nil, nil return end
+    if not plan.free_t then
+        local lo, hi = range(M.planner.gap, 12)
+        plan.free_t = now + rnd(lo, hi)
+    end
+    if plan.pull then plan.free_t, plan.pull = math.min(plan.free_t, now + 2), nil end
+    local g = plan.queue[1]
+    if now < plan.free_t or not g then return end
+    if has_group(groups_of(g.el), "walker") and no_room_for(g.el) then     -- (the room full: wait)
+        if not plan.full then msg.verbose("plan: the " .. g.el.type .. " waits, no room for it now") end
+        plan.full = true
+        return
+    end
+    plan.full = nil
+    plan.go, plan.go_t = g.el, now
+    if elements[g.el] then elements[g.el].next = math.min(elements[g.el].next, now) end
+end
+
 local function try_spawn(el, now)
     if holding() then return end        -- (the first-spawn timers start once the room is heard)
     local st = elements[el]
@@ -4805,6 +4945,12 @@ local function try_spawn(el, now)
         end
         return
     end
+    local planned = plan.go == el
+    if is_gag(el) and not planned and not st.force and not met_here(el) then  -- (only when the planner calls it -
+        local guest = false                                                 -- or a zombie's guest, come to meet)
+        for _, a in ipairs(actors) do if a.invites and a.invites[el] then guest = true end end
+        if not guest then return end
+    end
     if now < st.next then return end
     local max_active = math.floor(scaled(el, el.max_active, 1) + 0.5)
     if st.active >= max_active or #free_ids == 0 then
@@ -4816,7 +4962,7 @@ local function try_spawn(el, now)
     local met = met_here(el)
     local character = not HANDED_ONLY[el.type] and has_group(groups_of(el), "walker")
     if not st.force and ((character and no_room_for(el))
-            or (not met and (group_busy(groups_of(el), el) or room_busy(groups_of(el)) or queued_before(el, now)))) then
+            or (not met and not planned and (group_busy(groups_of(el), el) or room_busy(groups_of(el)) or queued_before(el, now)))) then
         st.wait_since, st.wait_seen = st.wait_since or now, now
         st.next = now + rnd(2, 6)
         return
@@ -4849,6 +4995,7 @@ local function try_spawn(el, now)
         b.gone = true
         msg.verbose("cast: the " .. tostring(b.family or "frog") .. " joins the " .. tostring(el.type))
     end
+    if is_gag(el) then gag_started(el, not planned and (st.force and "called" or nil)) end
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
@@ -5176,6 +5323,7 @@ local function tick()
     tick_webs(dt, now)
     tick_cats(dt, now)
 
+    plan_tick(now)
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
     end
@@ -5284,6 +5432,11 @@ local function tick()
                 end
             end
             if #cats > 0 then set["spr:cat"] = true end
+            local next_up = plan.queue[1]              -- (lined up here: next door picks another; its cast walks over)
+            if next_up then
+                set["pln:" .. next_up.el.type] = true
+                for _, f in ipairs(next_up.el.recruits or {}) do set["want:" .. f] = true end
+            end
             frogs_here(function(f)
                 f.token = f.token or tostring(math.random(1, 1e9))
                 set["frog:" .. f.token] = true
@@ -5496,6 +5649,7 @@ mp.register_script_message("theme-room-claims", function(js)
     for _, k in ipairs(v.taken or {}) do room.taken[k] = true end
     room.chars = tonumber(v.chars) or 0
     room.near = type(v.near) == "table" and v.near or {}
+    room.wants = type(v.wants) == "table" and v.wants or {}
     room.ready = v.ready ~= false
     local lost = false
     for _, d in ipairs(standing_decor()) do if room.taken[claim_key(d.spr)] then lost = true end end
