@@ -1,0 +1,25 @@
+{
+ "view": "front",
+ "model": "mirror.py",
+ "clips": {
+  "stand": {
+   "files": "stand_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  125.5,
+  384
+ ],
+ "glass_px": {
+  "cx": 125.5,
+  "cy": 200.8615384615385,
+  "rx": 50.86478164784152,
+  "ry": 88.6153846153846,
+  "turn": 25
+ }
+}

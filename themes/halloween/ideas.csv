@@ -37,7 +37,7 @@ Skeleton,The brainy skeleton's brain and eye fall out after a while: a skeleton 
 Zombie,Drops and eats brains; goes underground; shorter stay,done,cast zombie,z e u
 Zombie,Left in pieces after losing to a skeleton,done,zombie piece clips as relics,S
 Everyone,Time's up: leave gracefully (walk off / underground / sarcophagus) or by a cheat after 10 s (frog / raven / dig in),done,despawn lifecycle in spawn.wanderer (ttl / out_since / out_force),Z
-Window creep,Something crawls past outside the window (octopus-like),to do,new crawler; needs a new bake,
+Window creep,Something crawls past outside the window (octopus-like),done,crawler element with sprite creep (tools/bake/creep.py): crawls past high up; peeks in and taps the glass,C
 Cat,Better animation (baked 3D or the drawing reworked),to do,art,c
 Machinery,One table of meetings (A meets B -> reaction + chance) checked from a single proximity loop,done,hooks.MEETS + hooks.meet (cast walkers); the werewolf act still has its own checks,
 Scarecrow,Scarecrow with crows,dropped,removed,

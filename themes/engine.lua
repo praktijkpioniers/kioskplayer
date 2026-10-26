@@ -943,7 +943,10 @@ local DIR_VEC = { right = { 1, 0 }, left = { -1, 0 }, up = { 0, -1 }, down = { 0
 local OPPOSITE = { right = "left", left = "right", up = "down", down = "up" }
 
 function spawn.crawler(el, spr)
-    local walk = spr.clips and spr.clips.walk
+    -- (el.clips: its own names for walk / idle / wave, e.g. the creep's {"walk": "crawl", "wave": "peek"})
+    local CL, clips = el.clips or {}, {}
+    for _, k in ipairs({ "walk", "idle", "wave" }) do clips[k] = spr.clips and spr.clips[CL[k] or k] end
+    local walk = clips.walk
     if not walk then return nil end
     local a = { el = el, spr = spr }
     local dirs = el.directions or { "right", "left" }
@@ -1020,16 +1023,16 @@ function spawn.crawler(el, spr)
 
     function a.update(dt, t)
         a.tc = a.tc + dt
-        local c = spr.clips[a.clip]
+        local c = clips[a.clip]
         if a.clip == "walk" then
             if wander then steer(dt) end
             a.x = a.x + a.dx * a.v * dt
             a.y = a.y + a.dy * a.v * dt
             a.walk_left = a.walk_left - dt
             if a.walk_left <= 0 and onscreen() then
-                if spr.clips.wave and math.random() < (el.wave_chance or 0.4) then
-                    start("wave", spr.clips.wave.count / spr.clips.wave.fps)
-                elseif spr.clips.idle then
+                if clips.wave and math.random() < (el.wave_chance or 0.4) then
+                    start("wave", clips.wave.count / clips.wave.fps)
+                elseif clips.idle then
                     start("idle", rnd(range(el.pause, 1.5)))
                 end
                 a.walk_left = rnd(range(el.walk, 3))
@@ -1037,7 +1040,7 @@ function spawn.crawler(el, spr)
             if a.x < -spr.w - 2 or a.x > W + 2 or a.y < -spr.h - 2 or a.y > H + 2 then return false end
         elseif a.tc >= a.dur then
             start("walk")
-            c = spr.clips.walk
+            c = clips.walk
         end
         local k = math.floor(a.tc * c.fps)
         if c.loop then k = k % c.count else k = math.min(k, c.count - 1) end
@@ -6520,7 +6523,7 @@ end)
 --   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
 --   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
---   W = the witch meets the princess (a spell: she's a frog), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   W = the witch meets the princess (a spell: she's a frog), C = the window creep, Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6786,6 +6789,11 @@ mp.add_forced_key_binding("W", "theme-preview-witch-frog", function()    -- (the
     local w = wel and preview_cast(M.sprites[wel.sprite or ""], { fam = "witch", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
     if p then p.busy, p.staged = true, true end
     if w then w.meet_sure, w.busy, w.staged = true, true, true end
+end)
+mp.add_forced_key_binding("C", "theme-preview-creep", function()        -- (the window creep, now)
+    for _, el in ipairs(M and M.elements or {}) do
+        if el.type == "crawler" and el.sprite == "creep" and elements[el] then elements[el].next, elements[el].force = 0, true end
+    end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

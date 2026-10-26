@@ -129,7 +129,24 @@
     },
     "creep": {
       "anim": "anim/creep",
-      "unit": 0.085
+      "unit": 0.15
+    },
+    "princess_vampire_lie3d": {
+      "anim": "anim/princess_vampire_lie",
+      "unit": 0.115
+    },
+    "mirror_back": {
+      "anim": "anim/mirror_back",
+      "unit": 0.115,
+      "solid": true
+    },
+    "mirror_front": {
+      "anim": "anim/mirror_front",
+      "unit": 0.115
+    },
+    "mirror_glass": {
+      "anim": "anim/mirror_glass",
+      "unit": 0.115
     },
     "eye": {
       "anim": "anim/eye",
@@ -919,6 +936,22 @@
       "wave_chance": 0.5,
       "video_min": 8,
       "group": "spider"
+    },
+    {
+      "_doc": "the window creep: an octopus-like thing crawling past high up, as if outside a window; now and then it stops, looks in and taps the glass (tools/bake/creep.py)",
+      "type": "crawler",
+      "sprite": "creep",
+      "clips": {"walk": "crawl", "wave": "peek"},
+      "speed": 1.6,
+      "min": 6,
+      "every": [150, 300],
+      "max_active": 1,
+      "directions": ["right", "left"],
+      "y": [0.12, 0.3],
+      "walk": [3, 6],
+      "wave_chance": 0.7,
+      "video_min": 8,
+      "group": "creep"
     },
     {
       "type": "flyer",
