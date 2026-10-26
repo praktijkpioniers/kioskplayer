@@ -1,0 +1,18 @@
+{
+ "view": "front",
+ "model": "bone.py",
+ "clips": {
+  "lie": {
+   "files": "lie_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": false,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  44.3076923076923,
+  30
+ ]
+}

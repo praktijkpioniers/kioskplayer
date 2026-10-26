@@ -26,6 +26,10 @@
 #              a list of such holds combines several
 #   per clip "turn": {"upperarm.l": [x, y, z]}  turn bones further (degrees, the bone's own axes) on
 #              top of the animation (and holds): arms straight out, a tilted head
+#   per clip "ramp": [0, 1]  the "turn"s faded in (or out) over the clip, eased: a pose taken up
+#              gradually (down on all fours over a second)
+#   per clip "lift": -0.15  or [from, to]: the figure lower (higher) by that many units, e.g. its
+#              knees bent: the feet back on the ground
 #   per clip "speed": 0.6  play slower (or faster): fps, and so the walking speed, scaled
 #   "shell":   {"meshes": [...], "thickness": 0.05, "color": "#e6dfc8", "stripe": "#a99d82"}  a
 #              bandage wrapping over those meshes (a mummy); per clip "wrap": 1 wrapped (default),
@@ -292,13 +296,15 @@ def turned(a, c):
     from mathutils import Euler, Quaternion
     b = a.copy()
     f0, f1 = (int(round(x)) for x in a.frame_range)
+    r0, r1 = c.get("ramp", [1, 1])
     for bone, deg in turns.items():
         path = f'pose.bones["{bone}"].rotation_quaternion'
         old = {fc.array_index: fc for fc in b.fcurves if fc.data_path == path}
         qs = []
         for f in range(f0, f1 + 1):
             q = Quaternion([old[i].evaluate(f) if i in old else (1, 0, 0, 0)[i] for i in range(4)])
-            qs.append(q @ Euler([math.radians(v) for v in deg]).to_quaternion())
+            k = r0 + (r1 - r0) * (0.5 - 0.5 * math.cos(math.pi * (f - f0) / max(1, f1 - f0)))
+            qs.append(q @ Euler([math.radians(v * k) for v in deg]).to_quaternion())
         for fc in old.values():
             b.fcurves.remove(fc)
         for i in range(4):
@@ -475,6 +481,8 @@ for name, (a, fr) in clips.items():
     track = {b: [] for b in c.get("track", {})}
     for i, (f, yaw) in enumerate(fr):
         pose(a, f, yaw)
+        lz = along(c.get("lift", 0), i, len(fr))
+        pivot.location.z += lz
         wrap_state(c, i, len(fr))
         if track:
             bpy.context.view_layer.update()
@@ -495,6 +503,7 @@ for name, (a, fr) in clips.items():
         scene.render.filepath = os.path.join(OUT, f"{name}_{i:04d}.png")
         bpy.ops.render.render(write_still=True)
         pivot.location, pivot.rotation_euler = loc, rot
+        pivot.location.z -= lz
     for o in meshes:
         o.hide_render = shown[o]
     meta[name] = {"files": f"{name}_*.png", "count": len(fr), "fps": FPS / c.get("step", 1) * c.get("speed", 1),

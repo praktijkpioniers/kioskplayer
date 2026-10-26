@@ -1,5 +1,5 @@
 {
- "_doc": "The werewolf as a wolf: the same Barbarian (werewolf_man.json), fur where the skin was, the beard a ruff, the shirt torn; ears, snout, nose and yellow eyes are props; hunched (spine turned). spin: the same double turn as the man's. howl: Cheer, the head up. flinch: Hit_A (the cat!), back: walking backwards, run: off. Fur all over now (the shirt fur too), a tail and tufts. lie_down / lie / stand_up: asleep at a spot (waiting for the princess, or a quiet way out), the head to the right.",
+ "_doc": "The werewolf as a wolf: the same Barbarian (werewolf_man.json), fur where the skin was, the beard a ruff, the shirt torn; ears, snout, nose and yellow eyes are props; hunched (spine turned). spin: the same double turn as the man's. howl: Cheer, the head up. flinch: Hit_A (the cat!), back: walking backwards, run: off. Fur all over now (the shirt fur too), a tail and tufts. lie_down / lie / stand_up: asleep at a spot (waiting for the princess, or a quiet way out), the head to the right. On all fours: walk4 / idle4 / run4 (Walking_A, Idle, Running_A bent forward - spine, chest, the arms down as front legs, the knees bent, lower: lift), drop / rise: down on all fours and up again (ramp); walk4 and idle4 track his mouth (a bone carried). The head smaller (0.74).",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Barbarian.glb",
  "hide": [
   "Icosphere",
@@ -26,7 +26,7 @@
  },
  "outline": 0.008,
  "bone_scale": {
-  "head": 0.85
+  "head": 0.74
  },
  "props": [
   {
@@ -344,6 +344,302 @@
    "action": "Lie_StandUp",
    "yaw": -90,
    "step": 2
+  },
+  "walk4": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "turn": {
+    "spine": [
+     70,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     55,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     55,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.26,
+   "track": {
+    "head": [
+     0.34,
+     0,
+     -0.02
+    ]
+   }
+  },
+  "idle4": {
+   "action": "Idle",
+   "yaw": 90,
+   "loop": true,
+   "step": 2,
+   "turn": {
+    "spine": [
+     70,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     55,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     55,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.26,
+   "track": {
+    "head": [
+     0.34,
+     0,
+     -0.02
+    ]
+   }
+  },
+  "run4": {
+   "action": "Running_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "turn": {
+    "spine": [
+     70,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     55,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     55,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.26
+  },
+  "drop": {
+   "action": "Idle",
+   "yaw": 90,
+   "step": 3,
+   "turn": {
+    "spine": [
+     70,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     55,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     55,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "ramp": [
+    0,
+    1
+   ],
+   "lift": [
+    0,
+    -0.26
+   ]
+  },
+  "rise": {
+   "action": "Idle",
+   "yaw": 90,
+   "step": 3,
+   "turn": {
+    "spine": [
+     70,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     55,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     55,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "ramp": [
+    1,
+    0
+   ],
+   "lift": [
+    -0.26,
+    0
+   ]
   }
  }
 }

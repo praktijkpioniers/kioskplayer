@@ -2908,6 +2908,62 @@ spawn_hopper = spawn.hopper
 -- coming at him (it arches its back, red eyes, hisses: prowler.lua) frightens the wolf: he
 -- flinches, backs off and runs back the way he came. Sprites: el.sprite the man, el.wolf the
 -- wolf (same rig and frame). Planned coming in from the left, mirrored half the time.
+-- a bone (the werewolf's el.bone, tools/bake/bone.py): the wolf came off a fight with a skeleton or
+-- the mummy with it in his mouth and put it down here. It lies there; a wolf going by on all fours
+-- takes it up again; left long enough (el.bone_rise), a skeleton climbs up out of the ground there
+-- (none about, room for one) and the bone's gone - not yet: it waits, after a while sinks away.
+local function cast_el()                   -- (the element the cast walks about for)
+    for _, e in ipairs(M.elements) do if e.type == "frogs" then return e end end
+end
+local function cast_sprite(fam)            -- (the sprite of the element of fam, fit to wander)
+    for _, e in ipairs(M.elements) do
+        local sp = family_of(e) == fam and M.sprites[e.sprite or ""]
+        if sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit then return sp end
+    end
+end
+local function free_bone(x, reach)          -- a bone lying here, within reach of x
+    for _, b in ipairs(actors) do
+        if b.bone_piece and not b.gone and not b.rising and math.abs(b.cx - x) < reach then return b end
+    end
+end
+local function new_bone(el, spr, x, y, m)   -- (x, y: its middle, put down from there)
+    local a = { el = el, spr = spr, layers = 1, groups = {}, bone_piece = true, lying = true, cx = x, t = 0 }
+    local lo, hi = range(el.bone_rise, 30)
+    local rise_at, ttl, sink = rnd(lo, hi or lo), 240, 0
+    local ground = H - 0.45 * spr.origin[2]
+    local frame = spr.clips.lie.start
+    function a.update(dt)
+        if a.gone then return false end
+        a.t = a.t + dt
+        if y < ground then y = math.min(ground, y + 3 * spr.h * dt) end     -- (dropped: down on the ground)
+        if not a.rising and a.t > rise_at then
+            local sk, ce = cast_sprite("skeleton"), cast_el()
+            if sk and ce and (a.force or may_be("skeleton")) and #free_ids > 0 then
+                local b = spawn.wanderer(ce, sk, { fam = "skeleton", dir = math.random() < 0.5 and 1 or -1, tunnel = 1,
+                                                    went = 0, at_x = x, ttl = math.floor(rnd(40, 90)), hops = 0 })
+                if b then
+                    adopt(b, ce, { hops = 0 })
+                    a.rising = a.t
+                    msg.verbose("bone: a skeleton comes up out of the ground there")
+                end
+            end
+            if not a.rising then rise_at = a.t + 15 end
+        end
+        if a.rising and a.t - a.rising > 1.2 then return false end     -- (gone into it, under the ground)
+        if a.t > ttl then
+            sink = sink + dt
+            if sink > 1.5 then return false end
+        end
+        local jx = a.rising and rnd(-0.04, 0.04) * spr.w or 0          -- (something stirs under it)
+        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
+        return true, { { spr = spr, frame = frame, variant = m, x = x - ox + jx,
+                         y = y - spr.origin[2] * 0.5 + sink / 1.5 * spr.h } }
+    end
+    adopt(a, el, { hops = 0 })
+    msg.verbose("bone: put down")
+    return a
+end
+
 function spawn.werewolf(el, spr, h)
     local wolf = M.sprites[el.wolf or ""]
     local C, Wc = spr.clips, wolf and wolf.clips
@@ -2916,13 +2972,19 @@ function spawn.werewolf(el, spr, h)
         return nil
     end
     local u = spr.unit * H
-    local a = { el = el, spr = spr, layers = 1 }
+    local a = { el = el, spr = spr, layers = 2 }
     local d
     local form = (h and h.form == "wolf") and "wolf" or "man"
+    -- the wolf on all fours (walk4, idle4; drop: down onto them, rise: up again - a second or so);
+    -- upright for the rest (a howl, the change, lying down)
+    local quad = Wc.walk4 and Wc.idle4 and Wc.drop and Wc.rise and true or false
+    local B = M.sprites[el.bone or ""]
+    if not (B and B.clips and B.clips.lie and B.origin) then B = nil end
+    a.bone = B and quad and form == "wolf" and h and h.bone and true or nil     -- (come over with one)
     local wx
     if h then
         d = h.dir == 1 and 1 or -1
-        local c = (form == "wolf" and Wc or C).walk
+        local c = (form == "wolf" and Wc or C)[(form == "wolf" and quad) and "walk4" or "walk"]
         local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
         local sx = walk_in_x(h, v, 0.5 * u)
         wx = d > 0 and sx or W - sx
@@ -2936,20 +2998,49 @@ function spawn.werewolf(el, spr, h)
     -- the plan: steps (f: man or wolf; walk to, a clip once or for dur, facing m; spin: turns,
     -- rate from..to; puff: the change)
     local steps, X, face, F = {}, wx, 1, form
+    local P4, side = form == "wolf" and quad, 1    -- (on all fours; the way he last faced)
     local function add(s) s.f = s.f or F; steps[#steps + 1] = s; return s end
     local function turn(f)
         if f == face then return end
+        if f ~= 0 then side = f end
+        if P4 then face = f return end             -- (on all fours: just round)
         if face ~= 0 and clips(F).turn_front then add { clip = "turn_front", m = face < 0 } end
         if f ~= 0 and clips(F).turn_side then add { clip = "turn_side", m = f < 0 } end
         face = f
     end
+    local function down()                          -- (the wolf, upright: down on all fours)
+        if P4 or not quad or F ~= "wolf" then return end
+        turn(face ~= 0 and face or side)
+        add { clip = "drop", m = side < 0 }
+        P4 = true
+    end
+    local function up()                            -- (up again; a bone in his mouth: put down first)
+        if not P4 then return end
+        add { clip = "rise", m = side < 0, put = true }
+        P4, face = false, side
+    end
     local function go(to, clip)
-        turn(to > X and 1 or -1)
-        add { clip = clip or "walk", to = to, m = face < 0 }
+        local f = to > X and 1 or -1
+        if F == "wolf" and quad and not clip then
+            turn(f)
+            down()
+            turn(f)
+            add { clip = "walk4", to = to, m = f < 0 }
+        else
+            up()
+            turn(f)
+            add { clip = clip or "walk", to = to, m = face < 0 }
+        end
         X = to
     end
-    local function stop(clip, dur) turn(0) return add { clip = clip, dur = dur, act = true } end
+    local function stop(clip, dur)
+        if P4 and clip == "idle" then return add { clip = "idle4", dur = dur, act = true, m = side < 0 } end
+        up()
+        turn(0)
+        return add { clip = clip, dur = dur, act = true }
+    end
     local function change()                        -- spin up as one, spin down as the other
+        up()
         turn(0)
         add { clip = "spin", spin = { 1, 0.9, 3.2 } }
         F = F == "man" and "wolf" or "man"
@@ -2960,46 +3051,98 @@ function spawn.werewolf(el, spr, h)
     local function sleep()
         local mx = (d > 0 and X or W - X) > W / 2          -- (the head to the middle of the screen)
         local m = mx ~= (d < 0)
+        up()
         add { clip = "lie_down", m = m, log = "werewolf: lies down to sleep" }
         add { clip = "lie", m = m, sleep = true, dur = rnd((el.sleep_for or {})[1] or 45, (el.sleep_for or {})[2] or 90) }
         add { clip = "lie", m = m, fade = true, dur = 2.5, log = "werewolf: sleeps away" }
     end
     local sleeps = Wc.lie and Wc.lie_down and Wc.stand_up and (el.sleep_force or math.random() < (el.sleep_chance or 0.4))
     el.sleep_force = nil
-    local at = free_scene_x(math.max(2 * u, W * 0.25), math.min(W - 2 * u, W * 0.7), d)
-    a.spot = d > 0 and at or W - at               -- (its place: kept for it)
-    if at < X + 2 * u then at = math.min(W - 2 * u, X + 3 * u) end
-    go(at)
-    stop("idle", rnd(0.3, 0.7))
-    if F == "man" or (math.random() < 0.5 and not sleeps) then
-        change()
-        if F == "wolf" and clips(F).howl then stop("howl") end
-        if not (F == "wolf" and sleeps) then stop("idle", rnd(0.5, 1.0)) end
-    elseif clips(F).howl then
-        stop("howl")
+    if h and h.cross then                         -- (just across: preview key a)
+        go(W + 1.5 * u)
+    else
+        local at = free_scene_x(math.max(2 * u, W * 0.25), math.min(W - 2 * u, W * 0.7), d)
+        a.spot = d > 0 and at or W - at               -- (its place: kept for it)
+        if at < X + 2 * u then at = math.min(W - 2 * u, X + 3 * u) end
+        go(at)
+        stop("idle", rnd(0.3, 0.7))
+        if F == "man" or (math.random() < 0.5 and not sleeps) then
+            change()
+            if F == "wolf" and clips(F).howl then stop("howl") end
+            if not (F == "wolf" and sleeps) then stop("idle", rnd(0.5, 1.0)) end
+        elseif clips(F).howl then
+            stop("howl")
+        end
+        if F == "wolf" and sleeps then sleep() else go(W + 1.5 * u) end
     end
-    if F == "wolf" and sleeps then sleep() else go(W + 1.5 * u) end
 
     local si, tc, ph = 1, 0, 0
     local puffs = {}
     a.line = pick_line(el)
     a.hops = h and tonumber(h.hops) or 0
     local function scr(x) return (d > 0) and x or (W - x) end
+    local fight_t, fight_x
+    local function put_bone()                       -- (out of his mouth, down on the ground)
+        if not (a.bone and a.mouth_x) then return end
+        a.bone, a.picked = nil, true                -- (not taken up again by him)
+        new_bone(el, B, a.mouth_x, a.mouth_y, a.mouth_m)
+    end
     local function flee(cx)                         -- the cat at cx (screen): back off, run back
         local side = ((d > 0 and cx or W - cx) > wx) and 1 or -1    -- (scene space)
         local new = {}
-        steps, X, face, F = new, wx, side, "wolf"
-        add { clip = "flinch", m = side < 0, log = "werewolf: frightened by the cat" }
-        add { clip = "back", to = wx - side * 1.6 * u, m = side < 0, back = true }
-        turn(-side)
         local off = side > 0 and -1.5 * u or W + 1.5 * u
-        add { clip = Wc.run and "run" or "walk", to = off, m = side > 0 }
-        si, tc, a.fled = 1, 0, true
+        put_bone()                                  -- (dropped in the fright)
+        if P4 then                                  -- (on all fours: round and off at once)
+            steps, X, face, F = new, wx, -side, "wolf"
+            add { clip = Wc.run4 and "run4" or "walk4", to = off, m = side > 0, log = "werewolf: frightened by the cat" }
+        else
+            steps, X, face, F = new, wx, side, "wolf"
+            add { clip = "flinch", m = side < 0, log = "werewolf: frightened by the cat" }
+            add { clip = "back", to = wx - side * 1.6 * u, m = side < 0, back = true }
+            turn(-side)
+            add { clip = Wc.run and "run" or "walk", to = off, m = side > 0 }
+        end
+        si, tc, a.fled, a.logged, fight_t = 1, 0, true, nil, nil
+    end
+    -- the wolf on all fours meets a skeleton or the mummy (b): a fight in a cloud of dust, it's gone -
+    -- he comes out with a bone in his mouth; he puts it down somewhere (see new_bone) or takes it off
+    local function fight(b)
+        local fam = actor_family(b)
+        fight_x = (scr(wx) + b.cx) / 2
+        b.gone = true
+        wx = d > 0 and fight_x or W - fight_x
+        local new = {}
+        steps, X, F = new, wx, "wolf"
+        add { clip = "idle4", dur = 2.6, fight = true, m = side < 0, log = "werewolf: a fight with the " .. fam .. "!" }
+        add { clip = "idle4", dur = rnd(0.6, 1.0), got = true, m = side < 0, log = "werewolf: off with a bone" }
+        if math.random() < (el.bone_put or 0.6) then
+            local to = free_scene_x(math.max(1.5 * u, 0.15 * W), math.min(W - 1.5 * u, 0.85 * W), d, a)
+            if math.abs(to - X) > 0.8 * u then go(to) end
+            add { clip = "idle4", dur = 0.9, m = side < 0, drop_it = true }
+            stop("idle", rnd(0.5, 1.0))
+        end
+        go(side > 0 and W + 1.5 * u or -1.5 * u)
+        si, tc, a.logged, fight_t = 1, 0, nil, nil
+    end
+    -- the man meets a zombie: it gets him - in a puff, he's one too (one of the cast; he goes under
+    -- the ground in a while)
+    local function zombied()
+        local zs_, ce = cast_sprite("zombie"), cast_el()
+        if not (zs_ and ce and #free_ids > 0) then return false end
+        local b = spawn.wanderer(ce, zs_, { fam = "zombie", dir = (side > 0) == (d > 0) and 1 or -1, at = scr(wx),
+                                            hops = 0, puff = true, ttl = 30 })
+        if not b then return false end
+        adopt(b, ce, { hops = 0 })
+        b.kin = true
+        msg.verbose("werewolf: the zombie gets the werewolf man - he's a zombie too")
+        return true
     end
     local zs, slept = {}, 0
     local function wake(s)                          -- the princess near: up, a howl, off
         local new = {}
+        a.logged, P4 = nil, false
         steps, X, face, F = new, wx, s.m and 1 or -1, "wolf"
+        side = face
         add { clip = "stand_up", m = s.m, log = "werewolf: wakes up - the princess!" }
         if Wc.howl then stop("howl") end
         stop("idle", rnd(0.6, 1.2))
@@ -3037,7 +3180,16 @@ function spawn.werewolf(el, spr, h)
                                           r = rnd(0.25, 0.45) * u, vx = rnd(-0.8, 0.8) * u, t = 0 }
                 end
             end
+            if s.put or s.drop_it then put_bone() end
+            if s.got then                           -- (out of the dust, a bone in his mouth)
+                a.bone, fight_t = B and true or nil, nil
+                for _ = 1, 10 do
+                    puffs[#puffs + 1] = { x = fight_x + rnd(-0.9, 0.9) * u, y = H - rnd(0.2, 1.4) * u,
+                                          r = rnd(0.3, 0.5) * u, vx = rnd(-0.8, 0.8) * u, t = 0 }
+                end
+            end
         end
+        if s.fight then fight_t = tc + dt end
         local CC = clips(s.f)
         local c = CC[s.clip] or CC.walk
         tc = tc + dt
@@ -3071,7 +3223,7 @@ function spawn.werewolf(el, spr, h)
             local dir = s.to > wx and 1 or -1
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
-            if not s.back then walk_out(a, scr(wx), dir * d, 0.5 * u, { form = s.f, sprite = spr.name }) end
+            if not s.back then walk_out(a, scr(wx), dir * d, 0.5 * u, { form = s.f, sprite = spr.name, bone = a.bone }) end
             frame = c.start + math.floor(tc * c.fps) % c.count
         elseif s.spin then
             local n, r0, r1 = s.spin[1], s.spin[2], s.spin[3]
@@ -3086,7 +3238,7 @@ function spawn.werewolf(el, spr, h)
             done = tc >= (s.dur or c.count / c.fps)
         end
         -- as the wolf, a cat standing up to him (close by) sends him off
-        if s.f == "wolf" and not a.fled then
+        if s.f == "wolf" and not a.fled and not s.fight then
             a.wolf_x = scr(wx)
             for _, cat in ipairs(cats) do
                 if cat.arched and math.abs(cat.p.x - a.wolf_x) < 0.32 * H then flee(cat.p.x) return a.update(0, t) end
@@ -3094,11 +3246,55 @@ function spawn.werewolf(el, spr, h)
         else
             a.wolf_x = (s.f == "wolf") and scr(wx) or nil
         end
+        local here = scr(wx) > 0.1 * W and scr(wx) < 0.9 * W
+        if s.clip == "walk4" and not a.fled and here then
+            local ahead = (s.to > wx and 1 or -1) * d       -- (screen)
+            for _, b in ipairs(actors) do
+                local fam = b ~= a and b.cx and not b.leaving and not b.gone and actor_family(b)
+                -- a skeleton or the mummy just ahead (one walking about, not in a scene of its own)
+                if (fam == "skeleton" or fam == "mummy") and (b.family or b.el.type == "performer") and not a.bone
+                        and not b.swap and not b.called and (b.cx - scr(wx)) * ahead > 0 and math.abs(b.cx - scr(wx)) < 1.8 * u
+                        and b.cx > 0.05 * W and b.cx < 0.95 * W then
+                    fight(b)
+                    return a.update(0, t)
+                end
+            end
+            -- a bone lying here, at his mouth: taken up (a stop for it)
+            local bn = B and not a.bone and a.mouth_x and free_bone(a.mouth_x, 0.25 * u)
+            if bn and not a.picked then
+                bn.gone, a.bone, a.picked = true, true, true
+                table.insert(steps, si, { f = "wolf", clip = "idle4", dur = 0.7, m = s.m, log = "werewolf: takes up a bone" })
+                a.logged = nil
+                return a.update(0, t)
+            end
+        end
+        -- the man meets a zombie: it gets him
+        if s.f == "man" and here and not a.met_zombie then
+            for _, b in ipairs(actors) do
+                local bx = b ~= a and not b.leaving and not b.gone and actor_family(b) == "zombie" and (b.cx or b.zx)
+                if bx and math.abs(bx - scr(wx)) < 1.5 * u then
+                    a.met_zombie = true
+                    if math.random() < (el.zombie_chance or 0.7) and zombied() then return false end
+                end
+            end
+        end
         local sp = sprite(s.f)
         local mi = (s.m and true or false) ~= (d < 0)
         local ox = mi and (sp.w - sp.origin[1]) or sp.origin[1]
         local l = { spr = sp, frame = frame, variant = mi, x = scr(wx) - ox, y = H - sp.origin[2] }
         a.sx, a.sy, a.cx = l.x, l.y, scr(wx)
+        -- the bone in his mouth (the clip's tracked snout)
+        local bl
+        local tr = c.track and c.track.head and c.track.head[frame - c.start + 1]
+        if tr and s.f == "wolf" then
+            a.mouth_x, a.mouth_y, a.mouth_m = scr(wx) + (mi and -tr[1] or tr[1]) + (mi and -0.04 or 0.04) * u, H + tr[2] - 0.12 * u, mi
+            if a.bone then
+                local bo = mi and (B.w - B.origin[1]) or B.origin[1]
+                bl = { spr = B, frame = B.clips.lie.start, variant = mi, x = a.mouth_x - bo, y = a.mouth_y - B.origin[2] * 0.5 }
+            end
+        elseif s.f ~= "wolf" then
+            a.mouth_x = nil
+        end
         a.talking = a.line and s.act and true or false
         if a.talking and not a.say_t then a.say_t = t end
         local keep = {}
@@ -3116,10 +3312,30 @@ function spawn.werewolf(el, spr, h)
         if done and s.fade then return false end
         if done then si, tc = si + 1, 0 end
         if (wx < -1.4 * u or wx > W + 1.4 * u) and s.to and not s.back then return false end
-        return true, { l }
+        if s.fight then return true, {} end          -- (in the dust)
+        return true, { l, bl }
     end
     function a.ass(out)
         for _, p in ipairs(puffs) do puff(out, p.x, p.y, p.r * (1 + p.t), 0.3 + 0.7 * p.t / 1.3) end
+        if fight_t then                             -- the fight: a cloud of dust swirling, stars, a bone flying
+            local k, cy = fight_t, H - 0.85 * u
+            local al = 1 - clamp(k / 0.3, 0, 1) * clamp((2.6 - k) / 0.4, 0, 1)
+            puff(out, fight_x, cy, 0.95 * u, 0.15 + 0.6 * al, "&H9AA6B0&")
+            for i = 1, 11 do
+                local ang = k * 6.5 + i * 2 * math.pi / 11
+                local r = (0.6 + 0.15 * math.sin(k * 5 + i)) * u
+                puff(out, fight_x + math.cos(ang) * r * 1.35, cy + math.sin(ang) * r * 0.55,
+                     (0.36 + 0.1 * math.sin(k * 9 + i * 1.7)) * u, 0.1 + 0.7 * al, i % 2 == 0 and "&HB4BEC6&" or "&H8C98A2&")
+            end
+            for i = 1, 4 do                         -- (stars popping out of it)
+                local ph = (k * 1.6 + i / 4) % 1
+                local ang = i * 1.9 + math.floor(k * 1.6 + i / 4) * 2.3
+                local x, y = fight_x + math.cos(ang) * (0.7 + 0.8 * ph) * u, cy + math.sin(ang) * (0.4 + 0.6 * ph) * u - 0.3 * u
+                local sa = math.floor(clamp(math.max(al, ph), 0, 1) * 255)
+                out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\b1\\bord2\\shad0\\frz%d\\1c&H30D8FF&\\3c&H202020&\\1a&H%02X&\\3a&H%02X&}*",
+                    x, y, 0.5 * u, k * 400 + i * 90, sa, sa)
+            end
+        end
         for _, z in ipairs(zs) do
             local al = math.floor(clamp(z.t / 2.6, 0, 1) * 255)
             out[#out + 1] = string.format("{\\an5\\pos(%d,%d)\\fs%d\\b1\\bord2\\shad0\\1c&HF0E8E0&\\3c&H302020&\\1a&H%02X&\\3a&H%02X&}z",
@@ -3812,7 +4028,7 @@ function spawn.wanderer(el, spr, h)
     local hurry, meal_x, drop_at = 1, nil, nil
     if h.down_at then down_x = tonumber(h.down_at) end
     if h.tunnel then
-        x, state, down_x = free_x(0.25 * W, 0.75 * W), "under", nil
+        x, state, down_x = tonumber(h.at_x) or free_x(0.25 * W, 0.75 * W), "under", nil
         a.under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
     end
     local function dirt(n)
@@ -3947,6 +4163,7 @@ function spawn.wanderer(el, spr, h)
             v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
             a.spr, a.family = spr, fam
             if fam == "princess_zombie" then down_x = x + dir * rnd(1.2, 2.2) * u end
+            if a.kin and (room.left or room.right) then down_x = x + dir * rnd(2, 4) * u end   -- (a new zombie: off under the ground)
             for _ = 1, 8 do
                 puffs[#puffs + 1] = { x = x + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
                                       r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
@@ -4084,6 +4301,22 @@ function spawn.wanderer(el, spr, h)
                         if sp and (a.turn_sure or math.random() < (el.turn_chance or 0.6)) then
                             a.swap_into(sp, TURNED[kind], now + 1.6, "shock")
                             msg.verbose("cast: the princess meets the " .. kind .. " - she's turned")
+                            break
+                        end
+                    end
+                end
+            end
+            -- the werewolf man meets a zombie: it gets him - he's a zombie too
+            if fam == "werewolf" and not a.swap and not a.morphing and not a.called then
+                for _, b in ipairs(actors) do
+                    local bx = b ~= a and not b.leaving and not b.gone and actor_family(b) == "zombie" and (b.cx or b.zx)
+                    if bx and math.abs(bx - x) < 2 * u and not met[b] then
+                        met[b] = true
+                        local zsp = cast_sprite("zombie")
+                        if zsp and math.random() < (el.zombie_chance or 0.7) then
+                            a.kin = true
+                            a.swap_into(zsp, "zombie", now + 1.6, "shock")
+                            msg.verbose("cast: the werewolf man meets the zombie - he's a zombie too")
                             break
                         end
                     end
@@ -5498,7 +5731,8 @@ local function tick()
     do
         local first
         for _, a in ipairs(actors) do
-            if not a.leaving and not a.gone and a.handed_on ~= "yes" and is_character(a) and actor_family(a) == "zombie" then
+            if not a.leaving and not a.gone and not a.kin and a.handed_on ~= "yes" and is_character(a)
+                    and actor_family(a) == "zombie" then
                 local dup = first or room.taken["chr:zombie"]
                 a.dup_t = dup and (a.dup_t or 0) + dt or 0
                 if a.dup_t > (first and 0.5 or 10) then
@@ -5808,7 +6042,9 @@ end)
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
 --   zombie (of the cast) after it (one here already: that one, and its next stop drops a piece),
 --   q = the princess meeting the werewolf, a zombie, the vampire in turn (she's turned); the witch
---   cooking here: the princess alone, past her pot
+--   cooking here: the princess alone, past her pot; a = the wolf (on all fours) and a skeleton in
+--   his way (a fight, a bone), i = a bone lying here (a skeleton comes up there soon), n = a zombie and
+--   the werewolf man (of the cast; then the werewolf himself, as the man) - it gets him
 --   (walkers started so go towards a screen next door, if there is one)
 local under_k, morph_k, turn_k
 local LEVEL_NAMES = { "now and then one decoration", "mostly one decoration, sometimes two",
@@ -5981,6 +6217,50 @@ mp.add_forced_key_binding("q", "theme-preview-turned", function()
             if b then adopt(b, el, { hops = 0 }) b.next_at = 1e9 end
             return
         end
+    end
+end)
+local function preview_werewolf(h)
+    for _, el in ipairs(M and M.elements or {}) do
+        local spr = el.type == "werewolf" and M.sprites[el.sprite or ""]
+        if spr then
+            local a = spawn.werewolf(el, spr, h)
+            if a then adopt(a, el, { hops = 0 }) end
+            return a
+        end
+    end
+end
+local function preview_cast(sp, h)
+    local ce = M and cast_el()
+    local a = ce and sp and spawn.wanderer(ce, sp, h)
+    if a then adopt(a, ce, { hops = 0 }) a.next_at = 1e9 end
+    return a
+end
+mp.add_forced_key_binding("a", "theme-preview-wolf-fight", function()
+    local sk = M and cast_sprite("skeleton")
+    preview_werewolf({ form = "wolf", dir = 1, at = 0.05 * W, hops = 0, cross = true })
+    preview_cast(sk, { fam = "skeleton", dir = -1, at = 0.9 * W, ttl = 120, hops = 0 })
+end)
+mp.add_forced_key_binding("i", "theme-preview-bone", function()
+    for _, el in ipairs(M and M.elements or {}) do
+        local B = el.type == "werewolf" and M.sprites[el.bone or ""]
+        if B and B.clips and B.clips.lie then
+            local old = el.bone_rise
+            el.bone_rise = { 6, 10 }
+            new_bone(el, B, 0.5 * W, H - B.h, false).force = true
+            el.bone_rise = old
+            return
+        end
+    end
+end)
+local zman_k
+mp.add_forced_key_binding("n", "theme-preview-zombie-man", function()
+    zman_k = (zman_k or 0) + 1
+    local zs = M and cast_sprite("zombie")
+    preview_cast(zs, { fam = "zombie", dir = -1, at = 0.75 * W, ttl = 120, hops = 0 })
+    if zman_k % 2 == 1 then
+        preview_cast(M.sprites.werewolf_man3d, { fam = "werewolf", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+    else
+        preview_werewolf({ form = "man", dir = 1, at = 0.05 * W, hops = 0 })
     end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()

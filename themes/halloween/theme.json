@@ -123,6 +123,10 @@
       "anim": "anim/brain",
       "unit": 0.17
     },
+    "bone": {
+      "anim": "anim/bone",
+      "unit": 0.14
+    },
     "thought": {
       "frames": ["thought/thought_0.png", "thought/thought_1.png", "thought/thought_2.png",
                  "thought/thought_3.png", "thought/thought_4.png", "thought/thought_5.png",
@@ -872,6 +876,7 @@
       "type": "werewolf",
       "sprite": "werewolf_man3d",
       "wolf": "werewolf3d",
+      "bone": "bone",
       "min": 8,
       "video_min": 8,
       "every": [
