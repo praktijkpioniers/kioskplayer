@@ -18,7 +18,7 @@ Princess,Turned by the werewolf / a zombie / the vampire,done,TURNED table in th
 Princess,Kisses the vampire: he becomes a frog,done,princess scene; vampire part,
 Princess,Kisses a frog and becomes a frog herself,done,hooks.MEETS princess -> frog (0.2; certain when her time is up): a kiss and a puff,K
 Princess,No longer turns herself into a frog (to leave),done,frog gone from her own spells and from her time-up cheat,
-Princess,Looks into a mirror: sees herself (or nothing as the vampire princess),to do,mirror decor + a look step; reflection = her sprite mirrored and dimmed,
+Princess,Looks into a mirror: sees herself (or nothing as the vampire princess),done,"hooks.mirror_for (her next act now and then, 0.25): a mirror comes up beside her; her own frame cropped into the glass (draw: layer.crop); the princess vampire: the glass mists over, a shock",M
 Princess vampire,Finds or pulls in a coffin and lies down in it; the coffin sinks,done,"hooks.coffin_in: her time up, a coffin slides in; she lies down, it sinks",Z
 Vampire + princess vampire,Jump into one coffin together; the coffin wiggles,done,"hooks.MEETS vampire -> princess_vampire: hooks.coffin_in for two, it wiggles",V
 Vampire,Coffin act; walkers push the coffin; the cat sits on it,done,scene spawn.vampire,d

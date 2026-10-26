@@ -64,18 +64,25 @@ end
 -- ── overlay plumbing ────────────────────────────────────────────────────────
 
 -- variant: false/true (mirror) for normal sprites, or an index into spr.variants
--- ("right", "left", "up", "down") for sprites baked with directions.
-local function draw(id, spr, frame, variant, x, y)
+-- ("right", "left", "up", "down") for sprites baked with directions. crop: {x, y, w, h} - only that
+-- part of the frame (sprite px), still placed as the whole frame would be (a mirror's reflection)
+local function draw(id, spr, frame, variant, x, y, crop)
     local n = spr.frames
     local v = (variant == true) and 1 or (tonumber(variant) or 0)
     -- past the end of the atlas mpv reads beyond the file and dies: never ask for that
     if v < 0 or v >= math.max(#(spr.variants or {}), 1) then return end
     local idx = (frame % n) + v * n
     local xi, yi = math.floor(x + OX + 0.5), math.floor(y + OY + 0.5)
-    local key = xi .. ":" .. yi .. ":" .. idx
+    local cx, cy, cw, ch = 0, 0, spr.w, spr.h
+    if crop then
+        cx, cy = clamp(math.floor(crop[1]), 0, spr.w - 1), clamp(math.floor(crop[2]), 0, spr.h - 1)
+        cw, ch = clamp(math.floor(crop[3]), 1, spr.w - cx), clamp(math.floor(crop[4]), 1, spr.h - cy)
+    end
+    local key = xi .. ":" .. yi .. ":" .. idx .. (crop and (":" .. cx .. ":" .. cy .. ":" .. cw .. ":" .. ch) or "")
     if shown[id] == key then return end
     shown[id] = key
-    mp.command_native({ "overlay-add", id, xi, yi, spr.file, idx * spr.w * spr.h * 4, "bgra", spr.w, spr.h, spr.w * 4 })
+    mp.command_native({ "overlay-add", id, xi + cx, yi + cy, spr.file, (idx * spr.w * spr.h + cy * spr.w + cx) * 4, "bgra",
+                        cw, ch, spr.w * 4 })
 end
 
 local function hide(id)
@@ -1704,6 +1711,60 @@ function hooks.pickup(b)
     return false
 end
 
+-- a mirror for the princess (b, walking about here; el.mirror of the princess element: mirror_back,
+-- _front - tools/bake/mirror.py): it comes up out of the ground beside her, she turns to look - and
+-- there she is in the glass (her own frame, cropped to it, between the glass and the frame); the
+-- princess vampire: nothing, the glass mists over - a shock. Then it sinks away again.
+function hooks.mirror_for(b)
+    local S, pel = M.sprites, nil
+    for _, e in ipairs(M.elements) do if e.type == "princess" then pel = e end end
+    local back, front = pel and S[pel.mirror or "mirror_back"], pel and S[pel.mirror_front or "mirror_front"]
+    if not (back and front and back.origin and front.origin and back.unit and b.cx and b.spr and b.show
+            and b.spr.clips.idle and b.spr.origin and #free_ids >= 3) then return false end
+    for _, x in ipairs(actors) do if x.mirror and not x.gone then return false end end
+    local u = back.unit * H
+    local f = b.facing or 1
+    local mx = b.cx + f * 1.0 * u
+    if mx < 0.6 * u or mx > W - 0.6 * u then mx = b.cx - f * 1.0 * u end
+    local vamp = actor_family(b) == "princess_vampire"
+    local a = { el = pel, spr = back, layers = 3, groups = {}, mirror = true }
+    local tc, ph, dur = 0, "up", 0
+    local look = b.show(vamp and "shock" or "idle", 4.5)
+    msg.verbose("mirror: a mirror comes up beside the " .. actor_family(b))
+    local B = back.clips
+    local gy, ga, gb = H - 1.24 * u, 0.26 * u, 0.45 * u            -- (the glass: its middle, a rect inside)
+    function a.update(dt)
+        tc = tc + dt
+        local dy = 0
+        if ph == "up" then
+            dy = back.h * (1 - ease(clamp(tc / 1.0, 0, 1)))
+            if tc >= 1.0 then ph, tc = "look", 0 msg.verbose(vamp and "mirror: ...nothing in it - the glass mists over" or "mirror: there she is") end
+        elseif ph == "look" then
+            if tc >= look - 0.5 then ph, tc = "down", 0 end
+        else
+            dy = back.h * ease(clamp(tc / 1.0, 0, 1))
+            if tc >= 1.1 then return false end
+        end
+        local function at(sp, frame) return { spr = sp, frame = frame, variant = false, x = mx - sp.origin[1], y = H - sp.origin[2] + dy } end
+        local c = (vamp and ph == "look" and B.fog) or B.stand
+        local k = math.floor(tc * c.fps)
+        k = c.loop and k % c.count or math.min(k, c.count - 1)
+        local ls = { at(back, c.start + k), nil, at(front, front.clips and front.clips.stand and front.clips.stand.start or 0) }
+        if ph == "look" and not vamp and tc > 0.6 then           -- (her in the glass, facing her)
+            local sp = b.spr
+            local m = b.cx < mx
+            local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+            local lx, ly = mx - ox, H + 0.3 * u - sp.origin[2]
+            ls[2] = { spr = sp, frame = sp.clips.idle.start, variant = m, x = lx, y = ly,
+                      crop = { mx - ga - lx, gy - gb - ly, 2 * ga, 2 * gb } }
+        end
+        a.cx = mx
+        return true, ls
+    end
+    adopt(a, pel, { hops = 0 })
+    return true
+end
+
 -- the vampires' bat (the vampire element's el.bat), if it's there
 function hooks.bat_sprite()
     for _, e in ipairs(M.elements) do
@@ -2508,7 +2569,7 @@ local function next_act(w)
     -- (the witch only once she's done something: cooked, or been the princess - or no cooking
     -- came her way a while: she doesn't hang about, keeping the others away)
     local may_go = fam ~= "witch" or w.cooked or w.was_pr or (w.age or 0) > 45
-    if w.morph and (w.force_morph or (may_go and math.random() < (MORPH_CHANCE[fam] or 0))) then    -- a spell on herself
+    if w.morph and not w.force_mirror and (w.force_morph or (may_go and math.random() < (MORPH_CHANCE[fam] or 0))) then    -- a spell on herself
         local opts = {}
         local wel = witch_el()
         if fam == "witch" then
@@ -2535,6 +2596,11 @@ local function next_act(w)
             msg.verbose("cast: the " .. fam .. " casts a spell on " .. (fam == "vampire" and "himself" or "herself") .. " (" .. (o[3] or o[1]) .. ")")
             return true
         end
+    end
+    if (fam == "princess" or fam == "princess_vampire") and hooks.mirror_for
+            and (w.force_mirror or math.random() < 0.25) then      -- a look in the mirror
+        w.force_mirror = nil
+        if hooks.mirror_for(w) then return true end
     end
     local other = SWAPS[fam]                  -- the witch and the princess both here: now and then
     if other and w.swap_into and not w.swap and math.random() < 0.5 then     -- they turn into each other
@@ -4410,7 +4476,7 @@ function spawn.wanderer(el, spr, h)
     -- on its skull, in its socket - a while, then they fall out (the brain for a zombie to find)
     local BR, EY = brain_sprite(), M.sprites.eye
     if h.brainy and BR and EY and EY.origin then
-        a.brainy, a.layers, down_x = tonumber(h.brainy) or rnd(20, 35), 3, nil
+        a.brainy, a.layers = tonumber(h.brainy) or rnd(20, 35), 3
     end
     local state, tc = "walk", 0
     -- underground (skeletons, zombies): it sinks into the ground mid-screen and comes up on another
@@ -4422,6 +4488,7 @@ function spawn.wanderer(el, spr, h)
                    and rnd(0.3, 0.7) * W or nil
     local hurry, meal_x, drop_at = 1, nil, nil
     if h.down_at then down_x = tonumber(h.down_at) end
+    if a.brainy then down_x = nil end          -- (with brains: not under the ground)
     if h.tunnel then
         x, state, down_x = tonumber(h.at_x) or free_x(0.25 * W, 0.75 * W), "under", nil
         a.under_t = rnd(1, 2.5) + 1.2 * (tonumber(h.went) or 1)
@@ -4491,6 +4558,12 @@ function spawn.wanderer(el, spr, h)
         if kind == "person" then return a.swap_into(sp, f, at, pre) end
         a.morphing = { kind = kind, at = at, sp = sp }
         play(C.turn_front and { "turn_front", m = dir < 0 }, pre and { pre }, { "idle", dur = 30 })
+    end
+    function a.show(clip, dur)                  -- (it faces the viewer: clip - a while - and on; its length)
+        local c = C[clip] and clip or "idle"
+        play(C.turn_front and { "turn_front", m = dir < 0 }, { c, dur = dur }, { "idle", dur = 0.4 },
+             C.turn_side and { "turn_side", m = dir < 0 })
+        return (C.turn_front and 1 or 0) + (dur or C[c].count / C[c].fps) + 0.4
     end
     function a.spell()                          -- (it casts a spell on another: faces the viewer, casts, on)
         play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 0.6 },
@@ -6403,7 +6476,7 @@ local function tick()
                 if a.ids then   -- x = the layers
                     for k, id in ipairs(a.ids) do
                         local l = x[k]
-                        if l then draw(id, l.spr, l.frame, l.variant, l.x, l.y) else hide(id) end
+                        if l then draw(id, l.spr, l.frame, l.variant, l.x, l.y, l.crop) else hide(id) end
                     end
                 else
                     draw(a.id, a.spr, frame, mirror, x, y)
@@ -6738,7 +6811,7 @@ end)
 --   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
 --   W = the witch meets the princess (a spell: she's a frog), C = the window creep, V = the vampire meets the
 --   princess vampire (a coffin for two), B = the vampire a bat (it hangs a while, comes down: him again),
---   H = the witch comes as a raven, Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   H = the witch comes as a raven, M = the princess looks in a mirror (again: the princess vampire), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -7024,6 +7097,13 @@ mp.add_forced_key_binding("H", "theme-preview-witch-raven", function()  -- (the 
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "witch" and elements[el] then elements[el].next, elements[el].force, el.raven_force = 0, true, true end
     end
+end)
+mp.add_forced_key_binding("M", "theme-preview-mirror", function()       -- (the princess: a look in the mirror)
+    preview.mirror_k = (preview.mirror_k or 0) + 1
+    local vamp = preview.mirror_k % 2 == 0
+    local p = preview_cast(M and (vamp and turned_sprite("vampire") or M.sprites.princess3d),
+                           { fam = vamp and "princess_vampire" or "princess", dir = 1, at = 0.3 * W, ttl = 120, hops = 0 })
+    if p then p.next_at, p.force_mirror, p.staged = 2, true, true end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}
