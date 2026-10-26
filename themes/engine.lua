@@ -4057,12 +4057,16 @@ function spawn.wanderer(el, spr, h)
         play(C.turn_front and { "turn_front", m = dir > 0 }, { "idle", dur = rnd(0.5, 1.5) },
              C.turn_side and { "turn_side", m = dir < 0 })
     end
+    local function spin_item(c, r0, r1)   -- (a spin, queued: twice through the clip, its rate r0..r1)
+        return { "spin", spin = { r0, r1 }, dur = 2 * 2 * c.count / (c.fps * (r0 + r1)) }
+    end
     local function act_step()
         local q = queue[1]
         if not q then state, tc = "walk", 0 return nil end
         local cc = C[q[1]] or C.idle
         local len = q.dur or (cc.loop and 1 or cc.count / cc.fps)
         if tc >= len then
+            if q.after then q.after() end
             table.remove(queue, 1)
             tc = 0
             return act_step()
@@ -4071,7 +4075,16 @@ function spawn.wanderer(el, spr, h)
     end
     -- a spell on each other (the witch and the princess, see next_act): it faces the viewer and at
     -- the time given, in a puff, it's the other (sp, f) - a cackle or a cheer, and on as that
-    function a.swap_into(sp, f, at, pre)
+    -- spin: spun into the other one (the princess and the werewolf: faster and faster as herself, in
+    -- the puff on as the she-wolf, slowing down - both sprites with a spin clip, see spin_item)
+    function a.swap_into(sp, f, at, pre, spin)
+        if spin and C.spin and sp.clips.spin then
+            a.swap = { spr = sp, fam = f, at = math.huge, spin = true }
+            local up = spin_item(C.spin, 0.6, 2.6)
+            up.after = function() a.swap.at = mp.get_time() end
+            play(C.turn_front and { "turn_front", m = dir < 0 }, pre and C[pre] and { pre }, up, { "idle", dur = 30 })
+            return
+        end
         a.swap = { spr = sp, fam = f, at = at }
         play(C.turn_front and { "turn_front", m = dir < 0 }, pre and C[pre] and { pre }, { "idle", dur = 30 })
     end
@@ -4169,7 +4182,8 @@ function spawn.wanderer(el, spr, h)
                                       r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
             end
             local show = (C.cackle and "cackle") or (C.howl and "howl") or (C.cheer and "cheer") or (C.taunt and "taunt") or nil
-            play({ "idle", dur = 1.2 }, show and { show }, C.turn_side and { "turn_side", m = dir < 0 })
+            play(sw.spin and C.spin and spin_item(C.spin, 2.6, 0.6) or { "idle", dur = 1.2 }, show and { show },
+                 C.turn_side and { "turn_side", m = dir < 0 })
             msg.verbose("cast: in a puff, the " .. fam)
         end
         do
@@ -4299,7 +4313,7 @@ function spawn.wanderer(el, spr, h)
                         met[b] = true
                         local sp = turned_sprite(kind)
                         if sp and (a.turn_sure or math.random() < (el.turn_chance or 0.6)) then
-                            a.swap_into(sp, TURNED[kind], now + 1.6, "shock")
+                            a.swap_into(sp, TURNED[kind], now + 1.6, "shock", kind == "werewolf")
                             msg.verbose("cast: the princess meets the " .. kind .. " - she's turned")
                             break
                         end
@@ -4362,12 +4376,18 @@ function spawn.wanderer(el, spr, h)
         end
         if (dir > 0 and x > W + 1.5 * u) or (dir < 0 and x < -1.5 * u) then return false end
         local k = math.floor(tc * cc.fps * (state == "walk" and hurry or 1))
-        k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
+        local q1 = state == "act" and queue[1]
+        if q1 and q1.spin then                          -- (a spin, speeding up or slowing down)
+            local r0, r1 = q1.spin[1], q1.spin[2]
+            k = math.floor(cc.fps * (r0 * tc + (r1 - r0) * tc * tc / (2 * q1.dur))) % cc.count
+        else
+            k = cc.loop and k % cc.count or math.min(k, cc.count - 1)
+        end
         local mi = m and true or false
         local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
         local layer = { spr = spr, frame = cc.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
         a.sx, a.sy, a.cx, a.facing = layer.x, layer.y, x, dir
-        if sw and sw.done and now - sw.at < 0.25 then return true, {} end     -- (the change, in the puff)
+        if sw and sw.done and not sw.spin and now - sw.at < 0.25 then return true, {} end     -- (the change, in the puff)
         return true, { layer }
     end
     function a.ass(out)

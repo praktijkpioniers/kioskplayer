@@ -43,6 +43,13 @@
    "fps": 12.0,
    "loop": true,
    "stride": 1.780373995241366
+  },
+  "spin": {
+   "files": "spin_*.png",
+   "count": 16,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
  "unit_px": 147.69230769230768,
