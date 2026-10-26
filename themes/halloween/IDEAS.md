@@ -39,7 +39,7 @@ What happens when the row character meets the column one. ✓ = done, ○ = idea
 
 | Meets → | Witch | Werewolf | Princess | Vampire | Zombie | Skeleton | Mummy / sarcophagus | Frankenstein | Pumpkin-head | Cat |
 |---|---|---|---|---|---|---|---|---|---|---|
-| **Witch** | | | ✓ swap spell; ○ kisses her into a frog | | | | ✓ trap | | ✓ her pumpkin-head | |
+| **Witch** | | | ✓ swap spell; ✓ a spell: she's a frog | | | | ✓ trap | | ✓ her pumpkin-head | |
 | **Werewolf** | | | ✓ turns her (she-wolf) | | ✓ the man is zombified | ✓ fight, bone | ✓ fight, bone; ✓ trap | ✓ takes limbs | | ✓ cat scares him |
 | **She-wolf** | | | | | | ✓ takes bones | | ✓ takes limbs | | ✓ cat scares her |
 | **Princess** | ✓ swap | ✓ turned; ✓ wakes him | | ✓ turned; ✓ kiss: frog | ✓ turned | ✓ prince | ✓ trap / pickup | ✓ prince | ✓ prince | |

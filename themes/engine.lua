@@ -2424,8 +2424,7 @@ local function next_act(w)
         elseif fam == "princess" then
             local ws = wel and M.sprites[wel.sprite or ""]
             if ws and may_be("witch") then opts[#opts + 1] = { "person", ws, "witch" } end
-            local fr = frog_sprite()                       -- (the kiss the other way round: a frog)
-            if fr and #free_ids > 0 then opts[#opts + 1] = { "frog", fr } end
+            -- (not a frog by her own spell: by a frog's kiss, or the witch's - see hooks.MEETS)
         end
         if w.force_morph then                     -- (preview key y)
             local keep = {}
@@ -4376,11 +4375,17 @@ function spawn.wanderer(el, spr, h)
     end
     -- a spell on itself (the witch, see next_act): it faces the viewer, casts, and in a puff it's
     -- someone else of the cast (sp, f) - or a creature: "raven" (flies off), "cat" (strolls on)
-    function a.morph(kind, sp, f)
-        local at = mp.get_time() + (C.cast and C.cast.count / C.cast.fps or 0.8) + (C.turn_front and 0.5 or 0)
-        if kind == "person" then return a.swap_into(sp, f, at, "cast") end
+    function a.morph(kind, sp, f, pre)          -- (pre: the clip before the puff, "cast" by default)
+        pre = C[pre or "cast"] and (pre or "cast")
+        local at = mp.get_time() + (pre and C[pre].count / C[pre].fps or 0.8) + (C.turn_front and 0.5 or 0)
+        if kind == "person" then return a.swap_into(sp, f, at, pre) end
         a.morphing = { kind = kind, at = at, sp = sp }
-        play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 30 })
+        play(C.turn_front and { "turn_front", m = dir < 0 }, pre and { pre }, { "idle", dur = 30 })
+    end
+    function a.spell()                          -- (it casts a spell on another: faces the viewer, casts, on)
+        play(C.turn_front and { "turn_front", m = dir < 0 }, C.cast and { "cast" }, { "idle", dur = 0.6 },
+             C.turn_side and { "turn_side", m = dir < 0 })
+        return (C.turn_front and 0.5 or 0) + (C.cast and C.cast.count / C.cast.fps or 0.8)
     end
     if h.puff then a.swap = { spr = spr, fam = fam, at = mp.get_time() } end     -- (out of a puff, here)
     -- walking the same way as another (other), close by and nothing to do with it: not that - its
@@ -4444,7 +4449,7 @@ function spawn.wanderer(el, spr, h)
                             a.out, down_x = true, x + dir * 0.4 * u
                         elseif fam == "vampire" and rv and rv.clips and rv.clips.fly then
                             a.morph("raven", rv)
-                        elseif frog_sprite() then
+                        elseif fam ~= "princess" and frog_sprite() then      -- (she: a frog's kiss, hooks.MEETS)
                             a.morph("frog", frog_sprite())
                         end
                         msg.verbose("cast: the " .. fam .. "'s time is up - out by a cheat")
@@ -4635,51 +4640,8 @@ function spawn.wanderer(el, spr, h)
                     end
                 end
             end
-            -- the princess meets the werewolf, a zombie, the vampire: she may be turned
-            if fam == "princess" and not a.swap and not a.morphing and not a.called then
-                for _, b in ipairs(actors) do
-                    local bx = b ~= a and not b.leaving and not b.gone and b.groups and #b.groups > 0 and (b.cx or b.zx)
-                    local kind = bx and math.abs(bx - x) < 2.5 * u and not met[b] and TURNED[actor_family(b)] and actor_family(b)
-                    if kind then
-                        met[b] = true
-                        local sp = turned_sprite(kind)
-                        if sp and (a.turn_sure or math.random() < (el.turn_chance or 0.6)) then
-                            a.swap_into(sp, TURNED[kind], now + 1.6, "shock", kind == "werewolf")
-                            msg.verbose("cast: the princess meets the " .. kind .. " - she's turned")
-                            break
-                        end
-                    end
-                end
-            end
-            -- a zombie meets a skeleton: no brains there - but they fight (see hooks.zombie_fight)
-            if zombie and not a.meal and not a.called and not a.swap and not a.out_since then
-                for _, b in ipairs(actors) do
-                    if b ~= a and not met[b] and actor_family(b) == "skeleton" and (b.family or b.el.type == "performer")
-                            and b.cx and not b.gone and not b.leaving and not b.swap and not b.called and not b.brainy
-                            and math.abs(b.cx - x) < 1.6 * u and b.cx > 0.08 * W and b.cx < 0.92 * W then
-                        met[b] = true
-                        if (a.fight_sure or math.random() < (el.zombie_fight or 0.6)) and hooks.zombie_fight(a, b, x) then
-                            return false
-                        end
-                    end
-                end
-            end
-            -- the werewolf man meets a zombie: it gets him - he's a zombie too
-            if fam == "werewolf" and not a.swap and not a.morphing and not a.called then
-                for _, b in ipairs(actors) do
-                    local bx = b ~= a and not b.leaving and not b.gone and actor_family(b) == "zombie" and (b.cx or b.zx)
-                    if bx and math.abs(bx - x) < 2 * u and not met[b] then
-                        met[b] = true
-                        local zsp = cast_sprite("zombie")
-                        if zsp and math.random() < (el.zombie_chance or 0.7) then
-                            a.kin = true
-                            a.swap_into(zsp, "zombie", now + 1.6, "shock")
-                            msg.verbose("cast: the werewolf man meets the zombie - he's a zombie too")
-                            break
-                        end
-                    end
-                end
-            end
+            -- meeting one close by: a reaction (the table hooks.MEETS)
+            if hooks.meet(a, fam, x, u, now, met) == "gone" then return false end
             -- wanted here: hang about (to and fro) a while
             local el2, st = nil, nil
             if a.ttl > 0 and linger < (el.linger_max or 60) then el2, st = wanted_here(fam, now) end
@@ -4763,6 +4725,93 @@ function spawn.wanderer(el, spr, h)
         for _, q in ipairs(clods) do puff(out, q.x, q.y, q.r, 0.1, "&H1E3A5A&") end
     end
     return a
+end
+
+-- Meetings: one of the cast walking about meets another close by -> a reaction. One entry per pair:
+--   who, whom   the families (actor_family) of the walker and of the one met
+--   near        how close (units, default 2)
+--   chance      {el key, default chance} or function(a, b, el) -> chance; sure = the walker's flag that makes it certain (previews;
+--               a.meet_sure makes any of its meetings certain)
+--   ok(a, b)    extra test (both still free for it); go(a, b, x, now) the reaction: "gone" when the walker
+--               is gone with it, true when it's taken (no more meetings this step)
+-- Each pair is met once (met[b]), whether it comes off or not.
+hooks.MEETS = {
+    -- the princess meets the werewolf, a zombie, the vampire: she may be turned
+    { who = "princess", whom = { "werewolf", "zombie", "vampire" }, near = 2.5, chance = { "turn_chance", 0.6 }, sure = "turn_sure",
+      ok = function(a, b) return b.groups and #b.groups > 0 end,
+      go = function(a, b, x, now)
+          local kind = actor_family(b)
+          local sp = turned_sprite(kind)
+          if not sp then return end
+          a.swap_into(sp, TURNED[kind], now + 1.6, "shock", kind == "werewolf")
+          msg.verbose("cast: the princess meets the " .. kind .. " - she's turned")
+          return true
+      end },
+    -- a zombie meets a skeleton: no brains there - but they fight (hooks.zombie_fight)
+    { who = "zombie", whom = "skeleton", near = 1.6, chance = { "zombie_fight", 0.6 }, sure = "fight_sure",
+      ok = function(a, b)
+          return not a.meal and not a.out_since and (b.family or b.el.type == "performer") and b.cx
+              and not b.swap and not b.called and not b.brainy and b.cx > 0.08 * W and b.cx < 0.92 * W
+      end,
+      go = function(a, b, x) if hooks.zombie_fight(a, b, x) then return "gone" end end },
+    -- the princess meets a frog: a kiss - and she's the frog (likelier when her time's up)
+    { who = "princess", whom = "frog", near = 0.9, chance = { "frog_kiss", 0.2 }, sure = "out_since",
+      ok = function(a, b) return not b.rising and #free_ids > 0 and frog_sprite() end,
+      go = function(a, b)
+          if (b.cx - a.cx) * (a.facing or 1) < 0 then return end          -- (one ahead of her)
+          a.morph("frog", frog_sprite(), nil, "kiss")
+          msg.verbose("cast: the princess kisses a frog - and she's a frog herself")
+          return true
+      end },
+    -- the witch meets the princess: a spell - the princess is a frog (likelier when her time's up)
+    { who = "witch", whom = "princess", near = 2.2,
+      chance = function(a, b, el) return b.out_since and 0.9 or (el.witch_frog or 0.12) end,
+      ok = function(a, b)
+          return b.morph and b.pause and not b.swap and not b.morphing and not b.called
+              and #free_ids > 0 and frog_sprite()
+      end,
+      go = function(a, b, x, now)
+          local dur = a.spell()
+          b.pause(dur + 1)
+          b.morphing = { kind = "frog", at = now + dur, sp = frog_sprite() }
+          msg.verbose("witch: a spell on the princess - she's a frog")
+          return true
+      end },
+    -- the werewolf man meets a zombie: it gets him - he's a zombie too
+    { who = "werewolf", whom = "zombie", chance = { "zombie_chance", 0.7 },
+      go = function(a, b, x, now)
+          local zsp = cast_sprite("zombie")
+          if not zsp then return end
+          a.kin = true
+          a.swap_into(zsp, "zombie", now + 1.6, "shock")
+          msg.verbose("cast: the werewolf man meets the zombie - he's a zombie too")
+          return true
+      end },
+}
+
+-- the walker a (family fam, at x; unit u) looks for one to meet (see hooks.MEETS); met: the ones it has met
+function hooks.meet(a, fam, x, u, now, met)
+    if a.swap or a.morphing or a.called or a.doomed then return end
+    local el = a.el
+    for _, m in ipairs(hooks.MEETS) do
+        if m.who == fam then
+            for _, b in ipairs(actors) do
+                local bf = b ~= a and not met[b] and not b.gone and not b.leaving and (b.cx or b.zx) and (b.frog and "frog" or actor_family(b))
+                local whom = bf and (type(m.whom) == "table" and m.whom or { m.whom })
+                local hit = false
+                if whom then for _, w in ipairs(whom) do if w == bf then hit = true end end end
+                if hit and math.abs((b.cx or b.zx) - x) < (m.near or 2) * u and (not m.ok or m.ok(a, b)) then
+                    met[b] = true
+                    local c = m.chance or {}
+                    local p = type(c) == "function" and c(a, b, el) or (el[c[1]] or c[2] or 1)
+                    if a.meet_sure or (m.sure and a[m.sure]) or math.random() < p then
+                        local r = m.go(a, b, x, now)
+                        if r then return r end
+                    end
+                end
+            end
+        end
+    end
 end
 
 -- a zombie (z, at zx) meets a skeleton (sk): no brains there - but they fight, in a cloud of dust.
@@ -6470,7 +6519,8 @@ end)
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
 --   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
---   S = a zombie and a skeleton meet (a fight: brain and eye), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
+--   W = the witch meets the princess (a spell: she's a frog), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6714,12 +6764,28 @@ local zman_k
 mp.add_forced_key_binding("n", "theme-preview-zombie-man", function()
     zman_k = (zman_k or 0) + 1
     local zs = M and cast_sprite("zombie")
-    preview_cast(zs, { fam = "zombie", dir = -1, at = 0.75 * W, ttl = 120, hops = 0 })
+    local z = preview_cast(zs, { fam = "zombie", dir = -1, at = 0.75 * W, ttl = 120, hops = 0 })
+    if z then z.busy = true end
     if zman_k % 2 == 1 then
-        preview_cast(M.sprites.werewolf_man3d, { fam = "werewolf", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+        local wm = preview_cast(M.sprites.werewolf_man3d, { fam = "werewolf", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+        if wm then wm.meet_sure, wm.busy = true, true end
     else
         preview_werewolf({ form = "man", dir = 1, at = 0.05 * W, hops = 0 })
     end
+end)
+mp.add_forced_key_binding("K", "theme-preview-frog-kiss", function()     -- (the princess meets a frog)
+    local ce, fr = M and cast_el(), M and frog_sprite()
+    local f = ce and fr and spawn.hopper(ce, fr, { dir = -1, at = 0.4 * W, hops = 0, ttl = 120 })
+    if f then adopt(f, ce, { hops = 0 }) end
+    local p = preview_cast(M and M.sprites.princess3d, { fam = "princess", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+    if p then p.meet_sure, p.busy, p.staged = true, true, true end
+end)
+mp.add_forced_key_binding("W", "theme-preview-witch-frog", function()    -- (the witch meets the princess)
+    local wel = M and witch_el()
+    local p = preview_cast(M and M.sprites.princess3d, { fam = "princess", dir = -1, at = 0.8 * W, ttl = 120, hops = 0 })
+    local w = wel and preview_cast(M.sprites[wel.sprite or ""], { fam = "witch", dir = 1, at = 0.15 * W, ttl = 120, hops = 0 })
+    if p then p.busy, p.staged = true, true end
+    if w then w.meet_sure, w.busy, w.staged = true, true, true end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}
