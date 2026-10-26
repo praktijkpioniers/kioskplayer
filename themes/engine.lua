@@ -1480,7 +1480,9 @@ function spawn.mummy(el, spr)
     local skel_sp, mummy_sp = cast_sprite("skeleton"), cast_sprite("mummy")
     local helper_on = skel_sp and cast_el() and (who or (math.random() < (el.helper_on or 0.5)
                       and not select(2, chars_here("skeleton")) and not room.taken["chr:skeleton"]))
-    local mummy_on = mummy_sp and cast_el() and math.random() < (el.mummy_on or 0.3)
+    local mummy_on = mummy_sp and cast_el() and (el.mummy_force or math.random() < (el.mummy_on or 0.5))
+    local test = el.mummy_force                 -- (preview: a skeleton comes by the trap)
+    el.mummy_force = nil
     if who then a.recruited = { who } end
 
     local steps = {}
@@ -1553,11 +1555,15 @@ function spawn.mummy(el, spr)
         A.rest = { hide = true, rest = true }
         add { a = { hide = true }, free_a = true }
         add { dur = rnd(1.0, 2.0) }
+        -- the sarcophagus stays open a while, empty: one of the cast passing in front is taken - in
+        -- it, the lid slams shut, it rattles and sinks with it inside
+        add { trap = true, dur = rnd(range(el.trap_wait, 20)) }
     else
         go(A, "a", cx)
         turn(A, 0, "a")
     end
-    add { lid = { open, 0 }, dur = 1.0 }
+    local slam = add { lid = { open, 0 }, dur = 1.0 }
+    local rattle = add { a = { hide = true }, dur = 0, rattle = true }
     add { a = { hide = true }, dur = rnd(0.5, 1.2) }
     add { a = { hide = true }, rise = { 0, 1 }, dur = DECOR_MOVE_S }
 
@@ -1607,6 +1613,12 @@ function spawn.mummy(el, spr)
             msg.verbose("mummy step " .. si)
             if s.free_b then go_on(skel_sp, "skeleton", Bt.x) end
             if s.free_a then go_on(mummy_sp, "mummy", A.x) end
+            if s.trap and test and skel_sp and #free_ids > 0 then
+                local sx = d > 0 and cx or W - cx
+                local from = sx > W / 2 and sx - 3 * u or sx + 3 * u
+                local b = spawn.wanderer(cast_el(), skel_sp, { fam = "skeleton", dir = from < sx and 1 or -1, at = from, hops = 0, ttl = 60 })
+                if b then adopt(b, cast_el(), { hops = 0 }) end
+            end
         end
         tc = tc + dt
         if s.summon and not s.summoned then
@@ -1614,6 +1626,19 @@ function spawn.mummy(el, spr)
             msg.verbose("mummy: the helper hurries over from next door")
             hand_over(side, { kind = "passer", el = el.index, sprite = helper.name, clip = "walk", rate = 2.4,
                               dir = side == "right" and -1 or 1, from_far = true, hops = MAX_HOPS })
+        end
+        if s.trap and not a.victim and tc > 1 then             -- (one of the cast in front of it: in it goes)
+            local sx = d > 0 and cx or W - cx
+            for _, b in ipairs(actors) do
+                if b ~= a and b.family and not b.scene and not b.gone and not b.leaving and not b.swap and not b.called
+                        and not b.she and b.cx and math.abs(b.cx - sx) < 0.45 * u and b.spr and b.spr.clips
+                        and b.spr.clips.idle and b.spr.origin then
+                    b.gone, a.victim = true, b.spr
+                    slam.dur, rattle.dur, tc = 0.3, 1.6, s.dur
+                    msg.verbose("mummy: the " .. actor_family(b) .. " walks past the sarcophagus - it's taken, shut in")
+                    break
+                end
+            end
         end
         local p = s.dur and clamp(tc / s.dur, 0, 1) or 1
         if s.lid then lf = math.floor(s.lid[1] + (s.lid[2] - s.lid[1]) * p + 0.5) end
@@ -1626,7 +1651,13 @@ function spawn.mummy(el, spr)
             walk_out(a, hx, d, 0.5 * u, { kind = "passer", sprite = helper.name, clip = "walk", rate = 2.4, unique = false,
                 hops = MAX_HOPS })      -- (home is just next door: not all round the room)
         end
-        local layers = { place(box, cx, 0, false, dy), la, lb, place(lid, cx, lf, false, dy) }
+        local jx = s.rattle and rnd(-0.04, 0.04) * u or 0               -- (someone shut in it)
+        if a.victim and not lb then
+            local v = a.victim
+            lb = { spr = v, frame = v.clips.idle.start, variant = false, x = ((d > 0) and cx or (W - cx)) - v.origin[1] + jx,
+                   y = H - v.origin[2] + dy }
+        end
+        local layers = { place(box, cx + jx, 0, false, dy), la, lb, place(lid, cx + jx, lf, false, dy) }
         if la then a.sx, a.sy = la.x, la.y end
         a.talking = a.line and s.a and s.a.act and true or false
         if a.talking and not a.say_t then a.say_t = t end
@@ -2027,6 +2058,21 @@ local PIECES = { -- clip, flying off (x: outwards, y: up, in u/s), height of its
     { "piece_arm_l", -2.4, 5.5, 1.45, 0.15 }, { "piece_arm_r", 2.4, 5.5, 1.45, 0.15 },
     { "piece_leg_l", -1.6, 3.5, 0.45, 0.2 }, { "piece_leg_r", 1.6, 3.5, 0.45, 0.2 },
 }
+function PIECES.relic(spr, i, frame)        -- (piece i lying about, frame: as it came down; see new_relic)
+    local p, u = PIECES[i], spr.unit * H
+    return { spr = spr, frame = frame, mx = spr.origin[1], my = spr.origin[2] - p[4] * u, lie = p[5] * u,
+             kind = i == 1 and "head" or "limb", piece = i }
+end
+function PIECES.from(h)                     -- (a relic handed over from next door: h.relic {sprite, piece, frame})
+    local r = type(h) == "table" and h.relic
+    local spr = r and M.sprites[r.sprite or ""]
+    if not spr then return nil end
+    if r.piece then return PIECES[r.piece] and spr.unit and PIECES.relic(spr, r.piece, r.frame) end
+    return spr.clips and spr.clips.lie and hooks.bone_relic(spr)
+end
+function PIECES.pass(r)                     -- (and over: what goes in h.relic)
+    return r and { sprite = r.spr.name, piece = r.piece, frame = r.frame } or nil
+end
 function spawn.frankenstein(el, spr, h)
     local C = spr.clips
     if not (C and C.walk and C.idle and C.shock and spr.origin and spr.unit) then return nil end
@@ -2039,7 +2085,9 @@ function spawn.frankenstein(el, spr, h)
     if h then dir, a.hops = h.dir == 1 and 1 or -1, tonumber(h.hops) x = walk_in_x(h, v, 0.65 * u) end
     local explode = el.explode ~= false
     -- with a screen next door he may first walk over there (and blow up there)
-    if explode and can_walk_on(a, dir) and math.random() < 0.5 then explode = false end
+    local here = el.explode_here
+    if explode and not here and can_walk_on(a, dir) and math.random() < 0.5 then explode = false end
+    el.explode_here = nil
     local stops = {}
     for _ = 1, explode and 2 or math.random(1, 2) do stops[#stops + 1] = free_x(0.15 * W, 0.85 * W) end
     table.sort(stops, function(p, q) return (p - q) * dir < 0 end)
@@ -2108,7 +2156,7 @@ function spawn.frankenstein(el, spr, h)
                     -- near the side of a screen next door his head may fly over there
                     local side = (x > W / 2) and 1 or -1
                     local far = side > 0 and (W - x) or x
-                    if room[side > 0 and "right" or "left"] and far < 0.45 * W and math.random() < 0.75 then
+                    if room[side > 0 and "right" or "left"] and far < 0.45 * W and not here and math.random() < 0.75 then
                         local hd = pieces[1]
                         hd.vx, hd.vy, hd.over = side * (far + 4.5 * u) / 1.1, -8.5 * u, side
                     end
@@ -2180,10 +2228,21 @@ function spawn.frankenstein(el, spr, h)
                     end
                 end
                 local sink = (still_t and t - still_t > 2.5) and (t - still_t - 2.5) * 0.8 * u or 0
-                layers[1 + i] = { spr = spr, frame = p.c.start + fr, variant = false,
-                                  x = x - spr.origin[1] + p.dx, y = y0 + p.dy + sink }
+                if not p.left then
+                    layers[1 + i] = { spr = spr, frame = p.c.start + fr, variant = false,
+                                      x = x - spr.origin[1] + p.dx, y = y0 + p.dy + sink }
+                end
             end
-            if all_still and not still_t then still_t = t end      -- all down: a moment, then into the ground
+            if all_still and not still_t then                       -- all down: a moment, then the body into the ground
+                still_t = t
+                for i, p in ipairs(pieces) do                       -- (the head, the arms and legs left lying about)
+                    local px = x + p.dx
+                    if i ~= 2 and not p.over and px > 0.03 * W and px < 0.97 * W and el.relics ~= false then
+                        p.left = true
+                        hooks.new_relic(el, PIECES.relic(spr, i, p.c.start + math.floor(p.f) % p.c.count), px, H - PIECES[i][5] * u, false)
+                    end
+                end
+            end
             if still_t and t - still_t > 5 then return false end
         end
         return true, layers
@@ -3003,26 +3062,40 @@ spawn_hopper = spawn.hopper
 -- coming at him (it arches its back, red eyes, hisses: prowler.lua) frightens the wolf: he
 -- flinches, backs off and runs back the way he came. Sprites: el.sprite the man, el.wolf the
 -- wolf (same rig and frame). Planned coming in from the left, mirrored half the time.
--- a bone (the werewolf's el.bone, tools/bake/bone.py): the wolf came off a fight with a skeleton or
--- the mummy with it in his mouth and put it down here. It lies there; a wolf going by on all fours
--- takes it up again; left long enough (el.bone_rise), a skeleton climbs up out of the ground there
--- (none about, room for one) and the bone's gone - not yet: it waits, after a while sinks away.
-local function free_bone(x, reach)          -- a bone lying here, within reach of x
+-- relics: things lying about - a bone (the werewolf's el.bone, tools/bake/bone.py: the wolf came off a
+-- fight with a skeleton or the mummy with it in his mouth), Frankenstein's head and limbs (left over
+-- when he blew apart). r: {spr, frame, mx, my: its middle in the frame (px, facing right), lie: the
+-- middle above the ground, kind: bone, head or limb, piece: of PIECES}. A wolf going by on all fours
+-- takes up a bone or a limb; a headless pumpkin-head puts the head on. Left long enough
+-- (el.bone_rise), a skeleton climbs up out of the ground where a bone lies (none about, room for
+-- one) and the bone's gone; the rest after a while sink away.
+local function free_bone(x, reach)          -- a bone or a limb lying here, within reach of x
     for _, b in ipairs(actors) do
-        if b.bone_piece and not b.gone and not b.rising and math.abs(b.cx - x) < reach then return b end
+        if b.relic and b.relic.kind ~= "head" and not b.gone and not b.taken and not b.rising
+                and math.abs(b.cx - x) < reach then return b end
     end
 end
-local function new_bone(el, spr, x, y, m)   -- (x, y: its middle, put down from there)
-    local a = { el = el, spr = spr, layers = 1, groups = {}, bone_piece = true, lying = true, cx = x, t = 0 }
+function hooks.relic_layer(r, cx, cy, m)    -- (r drawn with its middle at cx, cy)
+    return { spr = r.spr, frame = r.frame, variant = m, x = cx - (m and (r.spr.w - r.mx) or r.mx), y = cy - r.my }
+end
+function hooks.bone_relic(B)
+    return { spr = B, frame = B.clips.lie.start, mx = B.origin[1], my = B.origin[2] * 0.5, lie = 0.45 * B.origin[2],
+             kind = "bone" }
+end
+local function new_bone(el, r, x, y, m)     -- (x, y: its middle, put down from there)
+    local spr = r.spr
+    local bone = r.kind == "bone"
+    local a = { el = el, spr = spr, layers = 1, groups = {}, relic = r, lying = true, cx = x, t = 0 }
     local lo, hi = range(el.bone_rise, 30)
-    local rise_at, ttl, sink = rnd(lo, hi or lo), 240, 0
-    local ground = H - 0.45 * spr.origin[2]
-    local frame = spr.clips.lie.start
+    local rise_at, sink = rnd(lo, hi or lo), 0
+    local tl, th = range(el.relic_ttl, 120)
+    a.ttl = bone and 240 or rnd(tl, th or tl)
+    local ground = H - r.lie
     function a.update(dt)
         if a.gone then return false end
-        a.t = a.t + dt
+        a.t, a.ttl = a.t + dt, a.ttl - dt
         if y < ground then y = math.min(ground, y + 3 * spr.h * dt) end     -- (dropped: down on the ground)
-        if not a.rising and a.t > rise_at then
+        if bone and not a.rising and a.t > rise_at then
             local sk, ce = cast_sprite("skeleton"), cast_el()
             if sk and ce and (a.force or may_be("skeleton")) and #free_ids > 0 then
                 local b = spawn.wanderer(ce, sk, { fam = "skeleton", dir = math.random() < 0.5 and 1 or -1, tunnel = 1,
@@ -3036,37 +3109,44 @@ local function new_bone(el, spr, x, y, m)   -- (x, y: its middle, put down from 
             if not a.rising then rise_at = a.t + 15 end
         end
         if a.rising and a.t - a.rising > 1.2 then return false end     -- (gone into it, under the ground)
-        if a.t > ttl then
+        if a.ttl < 0 and not a.taken then
             sink = sink + dt
             if sink > 1.5 then return false end
         end
-        local jx = a.rising and rnd(-0.04, 0.04) * spr.w or 0          -- (something stirs under it)
-        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
-        return true, { { spr = spr, frame = frame, variant = m, x = x - ox + jx,
-                         y = y - spr.origin[2] * 0.5 + sink / 1.5 * spr.h } }
+        local l = hooks.relic_layer(r, x, y, m)
+        l.x = l.x + (a.rising and rnd(-0.04, 0.04) * spr.w or 0)    -- (something stirs under it)
+        l.y = l.y + sink / 1.5 * 2.5 * r.lie
+        return true, { l }
     end
     adopt(a, el, { hops = 0 })
-    msg.verbose("bone: put down")
+    msg.verbose("relic: a " .. r.kind .. " lies there")
     return a
 end
+hooks.new_relic = new_bone
 
+-- The she-wolf (h.she): the princess turned by him (see spawn.wanderer), spr the princess and
+-- el.she_wolf her as the wolf. She prowls about on all fours a while (takes up a bone, a limb; a
+-- skeleton in her way: a fight), may lie down for a nap; then she spins back into the princess
+-- and goes on as herself, one of the cast.
 function spawn.werewolf(el, spr, h)
-    local wolf = M.sprites[el.wolf or ""]
+    local she = h and h.she and true or nil
+    local wolf = M.sprites[(she and (el.she_wolf or "princess_wolf3d")) or el.wolf or ""]
     local C, Wc = spr.clips, wolf and wolf.clips
     if not (C and C.walk and C.spin and Wc and Wc.walk and Wc.spin and Wc.flinch and Wc.back
             and spr.origin and wolf.origin and spr.unit) then
         return nil
     end
     local u = spr.unit * H
-    local a = { el = el, spr = spr, layers = 2 }
+    local a = { el = el, spr = spr, layers = 2, she = she, family = she and "princess_wolf" or nil }
     local d
-    local form = (h and h.form == "wolf") and "wolf" or "man"
+    local form = (she or (h and h.form == "wolf")) and "wolf" or "man"
     -- the wolf on all fours (walk4, idle4; drop: down onto them, rise: up again - a second or so);
     -- upright for the rest (a howl, the change, lying down)
     local quad = Wc.walk4 and Wc.idle4 and Wc.drop and Wc.rise and true or false
     local B = M.sprites[el.bone or ""]
     if not (B and B.clips and B.clips.lie and B.origin) then B = nil end
-    a.bone = B and quad and form == "wolf" and h and h.bone and true or nil     -- (come over with one)
+    -- (come over with one in his mouth: a bone, a limb)
+    a.bone = quad and form == "wolf" and (PIECES.from(h) or (B and h and h.bone and hooks.bone_relic(B))) or nil
     local wx
     if h then
         d = h.dir == 1 and 1 or -1
@@ -3084,7 +3164,7 @@ function spawn.werewolf(el, spr, h)
     -- the plan: steps (f: man or wolf; walk to, a clip once or for dur, facing m; spin: turns,
     -- rate from..to; puff: the change)
     local steps, X, face, F = {}, wx, 1, form
-    local P4, side = form == "wolf" and quad, 1    -- (on all fours; the way he last faced)
+    local P4, side = form == "wolf" and quad and not (h and h.upright), 1    -- (on all fours; the way he last faced)
     local function add(s) s.f = s.f or F; steps[#steps + 1] = s; return s end
     local function turn(f)
         if f == face then return end
@@ -3130,7 +3210,7 @@ function spawn.werewolf(el, spr, h)
         turn(0)
         add { clip = "spin", spin = { 1, 0.9, 3.2 } }
         F = F == "man" and "wolf" or "man"
-        add { clip = "spin", spin = { 1, 3.2, 0.9 }, puff = true, log = "werewolf: turns into a " .. F }
+        add { clip = "spin", spin = { 1, 3.2, 0.9 }, puff = true, log = "werewolf: turns into a " .. (she and F == "man" and "princess" or F) }
     end
     -- the wolf lies down at a spot and sleeps, his one task the princess: she comes by (called in,
     -- see the princess in spawn.wanderer), he wakes - she's turned; no one comes, he sleeps away
@@ -3146,6 +3226,25 @@ function spawn.werewolf(el, spr, h)
     el.sleep_force = nil
     if h and h.cross then                         -- (just across: preview key a)
         go(W + 1.5 * u)
+    elseif she then
+        for _ = 1, math.random(2, 3) do
+            local to = free_scene_x(1.5 * u, W - 1.5 * u, d, a)
+            if math.abs(to - X) > 1.0 * u then go(to) end
+            if math.random() < 0.3 and Wc.howl then stop("howl") else stop("idle", rnd(1.0, 2.5)) end
+        end
+        if Wc.lie and Wc.lie_down and Wc.stand_up and math.random() < (el.she_naps or 0.5) then
+            local m = side < 0
+            up()
+            add { clip = "lie_down", m = m, log = "werewolf: the she-wolf lies down for a nap" }
+            add { clip = "lie", m = m, sleep = true, dur = rnd(10, 20) }
+            add { clip = "stand_up", m = m }
+            face = side
+            stop("idle", rnd(0.5, 1.0))
+        end
+        change()
+        if C.cheer then stop("cheer") end
+        turn(side)
+        add { clip = "idle", dur = 0.05, princess = true, log = "werewolf: she's the princess again" }
     else
         local at = free_scene_x(math.max(2 * u, W * 0.25), math.min(W - 2 * u, W * 0.7), d)
         a.spot = d > 0 and at or W - at               -- (its place: kept for it)
@@ -3170,8 +3269,8 @@ function spawn.werewolf(el, spr, h)
     local fight_t, fight_x
     local function put_bone()                       -- (out of his mouth, down on the ground)
         if not (a.bone and a.mouth_x) then return end
-        a.bone, a.picked = nil, true                -- (not taken up again by him)
-        new_bone(el, B, a.mouth_x, a.mouth_y, a.mouth_m)
+        a.bone_was, a.bone, a.picked = a.bone, nil, true               -- (not taken up again by him)
+        new_bone(el, a.bone_was, a.mouth_x, a.mouth_y, a.mouth_m)
     end
     local function flee(cx)                         -- the cat at cx (screen): back off, run back
         local side = ((d > 0 and cx or W - cx) > wx) and 1 or -1    -- (scene space)
@@ -3267,8 +3366,15 @@ function spawn.werewolf(el, spr, h)
                 end
             end
             if s.put or s.drop_it then put_bone() end
+            if s.princess then                      -- (on as herself, one of the cast)
+                local ce = cast_el()
+                local b = ce and #free_ids > 0 and spawn.wanderer(ce, spr, { fam = "princess", hops = 0, at = scr(wx),
+                                    dir = (side > 0) == (d > 0) and 1 or -1, ttl = math.floor(rnd(40, 90)) })
+                if b then adopt(b, ce, { hops = 0 }) end
+                return false
+            end
             if s.got then                           -- (out of the dust, a bone in his mouth)
-                a.bone, fight_t = B and true or nil, nil
+                a.bone, fight_t = B and hooks.bone_relic(B) or nil, nil
                 for _ = 1, 10 do
                     puffs[#puffs + 1] = { x = fight_x + rnd(-0.9, 0.9) * u, y = H - rnd(0.2, 1.4) * u,
                                           r = rnd(0.3, 0.5) * u, vx = rnd(-0.8, 0.8) * u, t = 0 }
@@ -3283,12 +3389,12 @@ function spawn.werewolf(el, spr, h)
         if s.sleep or s.fade then                   -- asleep: zzz; the princess near wakes him
             local hd = ((s.m and true or false) ~= (d < 0)) and -1 or 1
             local hx = scr(wx) + hd * 1.0 * u
-            a.asleep_x = s.sleep and hx or nil
+            a.asleep_x = s.sleep and not she and hx or nil
             slept = slept + dt
             if math.floor((slept - dt) / 1.1) ~= math.floor(slept / 1.1) and s.sleep then
                 zs[#zs + 1] = { x = hx, y = H - 0.9 * u, t = 0, r = 0.22 * u }
             end
-            if s.sleep then
+            if s.sleep and not she then
                 if not a.called_in and slept > (a.call_at or 0) then
                     a.call_at = a.call_at or rnd(4, 12)
                     if slept > a.call_at then a.called_in = true call_princess(hx) end
@@ -3309,7 +3415,8 @@ function spawn.werewolf(el, spr, h)
             local dir = s.to > wx and 1 or -1
             wx = wx + dir * v * dt
             if (dir > 0 and wx >= s.to) or (dir < 0 and wx <= s.to) then wx, done = s.to, true end
-            if not s.back then walk_out(a, scr(wx), dir * d, 0.5 * u, { form = s.f, sprite = spr.name, bone = a.bone }) end
+            if not s.back then walk_out(a, scr(wx), dir * d, 0.5 * u, { form = s.f, sprite = spr.name, relic = PIECES.pass(a.bone),
+                                                        she = she }) end
             frame = c.start + math.floor(tc * c.fps) % c.count
         elseif s.spin then
             local n, r0, r1 = s.spin[1], s.spin[2], s.spin[3]
@@ -3346,16 +3453,16 @@ function spawn.werewolf(el, spr, h)
                 end
             end
             -- a bone lying here, at his mouth: taken up (a stop for it)
-            local bn = B and not a.bone and a.mouth_x and free_bone(a.mouth_x, 0.25 * u)
+            local bn = not a.bone and a.mouth_x and free_bone(a.mouth_x, 0.3 * u)
             if bn and not a.picked then
-                bn.gone, a.bone, a.picked = true, true, true
-                table.insert(steps, si, { f = "wolf", clip = "idle4", dur = 0.7, m = s.m, log = "werewolf: takes up a bone" })
+                bn.gone, a.bone, a.picked = true, bn.relic, true
+                table.insert(steps, si, { f = "wolf", clip = "idle4", dur = 0.7, m = s.m, log = "werewolf: takes up a " .. bn.relic.kind })
                 a.logged = nil
                 return a.update(0, t)
             end
         end
         -- the man meets a zombie: it gets him
-        if s.f == "man" and here and not a.met_zombie then
+        if s.f == "man" and here and not a.met_zombie and not she then
             for _, b in ipairs(actors) do
                 local bx = b ~= a and not b.leaving and not b.gone and actor_family(b) == "zombie" and (b.cx or b.zx)
                 if bx and math.abs(bx - scr(wx)) < 1.5 * u then
@@ -3374,9 +3481,7 @@ function spawn.werewolf(el, spr, h)
         local tr = c.track and c.track.head and c.track.head[frame - c.start + 1]
         if tr and s.f == "wolf" then
             a.mouth_x, a.mouth_y, a.mouth_m = scr(wx) + (mi and -tr[1] or tr[1]) + (mi and -0.04 or 0.04) * u, H + tr[2] - 0.12 * u, mi
-            if a.bone then
-                local bo = mi and (B.w - B.origin[1]) or B.origin[1]
-                bl = { spr = B, frame = B.clips.lie.start, variant = mi, x = a.mouth_x - bo, y = a.mouth_y - B.origin[2] * 0.5 }
+            if a.bone then bl = hooks.relic_layer(a.bone, a.mouth_x, a.mouth_y, mi)
             end
         elseif s.f ~= "wolf" then
             a.mouth_x = nil
@@ -4257,6 +4362,7 @@ function spawn.wanderer(el, spr, h)
         if sw and not sw.done and now >= sw.at then
             sw.done = true
             if fam == "princess" and sw.fam == "witch" then a.was_pr = true end
+            local was = spr
             spr, C, fam = sw.spr, sw.spr.clips, sw.fam
             a.doomed = DOOMED[fam]                     -- (the princess turned: she goes)
             c = a.doomed and C.run or C.walk
@@ -4269,8 +4375,20 @@ function spawn.wanderer(el, spr, h)
                                       r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
             end
             local show = (C.cackle and "cackle") or (C.howl and "howl") or (C.cheer and "cheer") or (C.taunt and "taunt") or nil
+            -- (the she-wolf: on as the werewolf's act, spinning back into the princess in the end)
+            local wel
+            for _, e in ipairs(M.elements) do if e.type == "werewolf" then wel = e end end
+            local she = fam == "princess_wolf" and sw.spin and wel and spawn.werewolf and {
+                "idle", dur = 0.05, after = function()
+                    local b = #free_ids > 1 and spawn.werewolf(wel, was, { she = true, upright = true, dir = dir, at = x, hops = 0 })
+                    if b then
+                        adopt(b, wel, { hops = 0 })
+                        a.gone = true
+                        msg.verbose("cast: the she-wolf prowls about")
+                    end
+                end }
             play(sw.spin and C.spin and spin_item(C.spin, 2.6, 0.6) or { "idle", dur = 1.2 }, show and { show },
-                 C.turn_side and { "turn_side", m = dir < 0 })
+                 C.turn_side and { "turn_side", m = dir < 0 }, she or nil)
             msg.verbose("cast: in a puff, the " .. fam)
         end
         do
@@ -4700,9 +4818,10 @@ function new_pumpkin(el, spr, x, m, ttl)
     adopt(a, el, { hops = 0 })
     return a
 end
-function lying_pumpkin(spr, not_this)
+function lying_pumpkin(spr, not_this, any)  -- (any: Frankenstein's head lying about will do too)
     for _, a in ipairs(actors) do
-        if a.lying and a ~= not_this and not a.taken and not a.gone and a.ttl > 5 and a.spr == spr then return a end
+        if a.lying and a ~= not_this and not a.taken and not a.gone and (a.ttl or 0) > 5
+                and (a.spr == spr and not a.relic or any and a.relic and a.relic.kind == "head") then return a end
     end
 end
 
@@ -4711,6 +4830,7 @@ end
 -- a screen edge or something in its way (a scene, the frogs' pile, a pumpkin) it lifts its head off,
 -- carries it down and leaves it lying - and walks on without it (h.headless). Headless, it makes for
 -- a pumpkin lying about, picks it up and puts it on: a pumpkin-head again. More pumpkins about, so.
+-- Frankenstein's head lying about will do as well: it walks on with that on (worn, h.relic).
 function spawn.pumpkinhead(el, spr, h)
     local C = spr.clips
     if not (C.walk and C.walk_nh and C.idle_nh and C.lift_nh and C.pick_nh and C.head and C.head.track
@@ -4718,6 +4838,8 @@ function spawn.pumpkinhead(el, spr, h)
     local u = spr.unit * H
     local dir = h.dir == 1 and 1 or -1
     local headless = h.headless and true or false
+    local worn = PIECES.from(h)                  -- (Frankenstein's head on: see new_relic)
+    if worn then headless = false end
     local front = 0.5 * u
     local x = walk_in_x(h, C.walk.stride_px * C.walk.fps / C.walk.count, front)
     local a = { el = el, spr = spr, layers = 2, groups = { "walker" }, family = "pumpkinhead", from = h.from }
@@ -4743,7 +4865,11 @@ function spawn.pumpkinhead(el, spr, h)
     local down                                   -- (the one just set down: {x, m})
     local function leave_it()
         if not down then return end
-        a.dropped = new_pumpkin(el, spr, down.x, down.m, rnd(range(el.pumpkin_ttl, 240)))
+        if down.worn then
+            a.dropped = hooks.new_relic(el, down.worn, down.x, H - down.worn.lie, down.m)
+        else
+            a.dropped = new_pumpkin(el, spr, down.x, down.m, rnd(range(el.pumpkin_ttl, 240)))
+        end
         down = nil
     end
     -- the head-off and head-on: phases {clip, f0, f1 (frames, either way) or hold+dur, head(k, p):
@@ -4756,8 +4882,8 @@ function spawn.pumpkinhead(el, spr, h)
             { clip = "pick_nh", f0 = 0, f1 = LOW, rate = 0.6, head = function(k) return add2(handr(k), lerp2(relC, relG, k / LOW)) end },
             { clip = "pick_nh", f0 = LOW, f1 = 15, head = false, on = function()
                 -- (it lies there: drawn under it while it steps past, then left lying)
-                down = { x = x + dir * G[1], m = dir < 0 }
-                headless = true
+                down = { x = x + dir * G[1], m = dir < 0, worn = worn }
+                headless, worn = true, nil
                 msg.verbose("pumpkin-head: off with its head - a pumpkin lies there")
             end },
         }
@@ -4766,12 +4892,19 @@ function spawn.pumpkinhead(el, spr, h)
         return {
             { clip = "pick_nh", f0 = 0, f1 = LOW, head = false },
             { clip = "pick_nh", f0 = LOW, f1 = 15, on = function()
-                if pumpkin then pumpkin.gone = true end
-                msg.verbose("pumpkin-head: picks up a pumpkin")
+                if pumpkin then pumpkin.gone, worn = true, pumpkin.relic end
+                if worn and worn.spr.clips.piece_head then                      -- (upright on its neck)
+                    worn = PIECES.relic(worn.spr, 1, worn.spr.clips.piece_head.start)
+                end
+                msg.verbose("pumpkin-head: picks up a " .. (worn and "head - Frankenstein's" or "pumpkin"))
             end, head = function(k) return add2(handr(k), lerp2(relG, relC, (k - LOW) / (15 - LOW))) end },
             { clip = "lift_nh", f0 = 0, f1 = UP, head = function(k) return add2(mean(k), K) end },
             { clip = "lift_nh", hold = UP, dur = 0.5, head = function(_, p) return { h0[1], h0[2] + lift * (1 - p) } end },
-            { clip = "cheer", f0 = 0, f1 = C.cheer and C.cheer.count - 1 or 0, head = false, on = function()
+            pumpkin and pumpkin.relic and { clip = "idle_nh", f0 = 0, f1 = math.min(10, C.idle_nh.count - 1), head = function() return h0 end,
+              on = function()
+                headless = false
+                msg.verbose("pumpkin-head: and it's on - Frankenstein's head")
+            end } or { clip = "cheer", f0 = 0, f1 = C.cheer and C.cheer.count - 1 or 0, head = false, on = function()
                 headless = false
                 msg.verbose("pumpkin-head: and it's on - a pumpkin-head again")
             end },
@@ -4794,7 +4927,7 @@ function spawn.pumpkinhead(el, spr, h)
     function a.update(dt, t)
         tc = tc + dt
         a.ttl = a.ttl - dt
-        local clip, k, headp = headless and "walk_nh" or "walk", nil, nil
+        local clip, k, headp = (headless or worn) and "walk_nh" or "walk", nil, nil
         if state == "walk" then
             local c = C[clip]
             local v = c.stride_px * c.fps / c.count * (el.speed or 1.0)
@@ -4812,7 +4945,7 @@ function spawn.pumpkinhead(el, spr, h)
                     end
                 end
             elseif headless and a.ttl > 0 then
-                target = target and not target.gone and target or lying_pumpkin(spr, a.dropped)   -- (not its own)
+                target = target and not target.gone and target or lying_pumpkin(spr, a.dropped, true)   -- (not its own)
                 if target and not target.taken then
                     local face = target.cx > x and 1 or -1
                     if face ~= dir and math.abs(target.cx - x) > G[1] + 0.2 * u then turn_round() end   -- (the other way)
@@ -4830,7 +4963,8 @@ function spawn.pumpkinhead(el, spr, h)
             if state == "walk" and lead >= 0 and a.goes_off == nil then a.goes_off = math.random() < (el.pumpkin_off or 0.85) end
             if state == "walk" and lead >= 0 and a.ttl > 0 and not a.goes_off then
                 if not walk_out(a, x, dir, front, { kind = "wanderer", fam = "pumpkinhead", headless = headless or nil,
-                                                    ttl = math.floor(a.ttl), unique = false, hops = 0, from = a.from }) then
+                                                    ttl = math.floor(a.ttl), unique = false, hops = 0, from = a.from,
+                                                    relic = PIECES.pass(worn) }) then
                     turn_round()
                 end
             end
@@ -4859,7 +4993,7 @@ function spawn.pumpkinhead(el, spr, h)
                 if ph.head == false then headp = false end
             end
             if state == "walk" then
-                clip = headless and "walk_nh" or "walk"
+                clip = (headless or worn) and "walk_nh" or "walk"
                 k = 0
             end
         end
@@ -4869,13 +5003,18 @@ function spawn.pumpkinhead(el, spr, h)
         local ox = mi and (spr.w - spr.origin[1]) or spr.origin[1]
         local body = { spr = spr, frame = c.start + k, variant = mi, x = x - ox, y = H - spr.origin[2] }
         local head = nil
-        if headp then                                -- (the head where it's carried)
+        if worn and headp == nil and state == "walk" then headp = h0 end
+        if headp and worn then
+            head = hooks.relic_layer(worn, x + dir * headp[1], H + headp[2], mi)
+        elseif headp then                            -- (the head where it's carried)
             local sg = dir
             head = { spr = spr, frame = C.head.start, variant = mi, x = x - ox + sg * (headp[1] - h0[1]),
                      y = H - spr.origin[2] + (headp[2] - h0[2]) }
         end
         a.sx, a.sy, a.cx, a.facing = body.x, body.y, x, dir
-        if down then                                 -- (the head it set down, under it)
+        if down and down.worn then
+            return true, { hooks.relic_layer(down.worn, down.x, H - down.worn.lie, down.m), body, head }
+        elseif down then                             -- (the head it set down, under it)
             local sg, dm = down.m and -1 or 1, down.m
             local dox = dm and (spr.w - spr.origin[1]) or spr.origin[1]
             return true, { { spr = spr, frame = C.head.start, variant = dm, x = down.x - sg * h0[1] - dox,
@@ -6143,9 +6282,9 @@ end)
 -- Preview keys (only reach mpv where keyboard input is enabled, i.e. test setups):
 --   1..9 = level (9 = demo grid), 0 = back to the calendar, v = idle/video, t = speech balloons,
 --   f = web building ×8, w = start a new web, c = send a cat now, d = the vampire next,
---   m = the mummy next, z = the zombie next, k = the frankenstein next, s = a skeleton next,
+--   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
---   r = the scarecrow next, g = the two frogs next, j = a pumpkin-head (off with its head),
+--   r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6199,7 +6338,9 @@ mp.add_forced_key_binding("d", "theme-preview-vampire", function()
 end)
 mp.add_forced_key_binding("m", "theme-preview-mummy", function()
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "mummy" and elements[el] then elements[el].next, elements[el].force = 0, true end
+        if el.type == "mummy" and elements[el] then           -- (it goes on as one of the cast: the trap)
+            elements[el].next, elements[el].force, el.mummy_force = 0, true, true
+        end
     end
 end)
 mp.add_forced_key_binding("z", "theme-preview-zombie", function()
@@ -6214,7 +6355,9 @@ mp.add_forced_key_binding("s", "theme-preview-skeleton", function()
 end)
 mp.add_forced_key_binding("k", "theme-preview-frankenstein", function()
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "frankenstein" and elements[el] then elements[el].next, elements[el].force = 0, true end
+        if el.type == "frankenstein" and elements[el] then
+            elements[el].next, elements[el].force, el.explode_here = 0, true, true      -- (blows up here)
+        end
     end
 end)
 mp.add_forced_key_binding("h", "theme-preview-witch", function()
@@ -6237,9 +6380,14 @@ mp.add_forced_key_binding("p", "theme-preview-princess", function()
         if el.type == "princess" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
 end)
-mp.add_forced_key_binding("r", "theme-preview-scarecrow", function()
+mp.add_forced_key_binding("r", "theme-preview-shewolf", function()
+    local ps = M and M.sprites.princess3d
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "scarecrow" and elements[el] then elements[el].next, elements[el].force = 0, true end
+        if el.type == "werewolf" and ps and #free_ids > 1 then
+            local a = spawn.werewolf(el, ps, { she = true, upright = true, dir = 1, at = 0.3 * W, hops = 0 })
+            if a then adopt(a, el, { hops = 0 }) end
+            return
+        end
     end
 end)
 mp.add_forced_key_binding("g", "theme-preview-frogs", function()
@@ -6355,7 +6503,7 @@ mp.add_forced_key_binding("i", "theme-preview-bone", function()
         if B and B.clips and B.clips.lie then
             local old = el.bone_rise
             el.bone_rise = { 6, 10 }
-            new_bone(el, B, 0.5 * W, H - B.h, false).force = true
+            new_bone(el, hooks.bone_relic(B), 0.5 * W, H - B.h, false).force = true
             el.bone_rise = old
             return
         end

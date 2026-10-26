@@ -1,5 +1,5 @@
 {
- "_doc": "The princess bitten by the werewolf (princess.json, the wolf's look from werewolf.json): fur where the skin was, the hair a darker mane, the dress torn and dusty, still the crown; wolf ears, snout, nose and yellow eyes (props); hunched. howl: Cheer, the head up; run: off.",
+ "_doc": "The princess bitten by the werewolf (princess.json, the wolf's look from werewolf.json): fur where the skin was, the hair a darker mane, the dress torn and dusty, still the crown; wolf ears, snout, nose and yellow eyes (props); hunched. howl: Cheer, the head up; run: off. On all fours, asleep, startled: the werewolf's clips (werewolf.json: walk4 / idle4 / run4, drop / rise, lie_down / lie / stand_up, flinch, back), the frame as wide as his. Her hips tilted forward instead of the spine (hips 60, spine 10, the legs back): the skirt flares out behind, not into the ground; lift -0.02.",
  "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
  "parts": [
   {
@@ -40,8 +40,8 @@
  },
  "frame": {
   "x": [
-   -0.9,
-   1.0
+   -1.6,
+   1.6
   ],
   "h": 2.6
  },
@@ -348,6 +348,362 @@
      0
     ]
    }
+  },
+  "flinch": {
+   "action": "Hit_A",
+   "yaw": 90,
+   "step": 2
+  },
+  "back": {
+   "action": "Walking_Backwards",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "turn": {
+    "spine": [
+     18,
+     0,
+     0
+    ]
+   }
+  },
+  "lie_down": {
+   "action": "Lie_Down",
+   "yaw": -90,
+   "step": 2
+  },
+  "lie": {
+   "action": "Lie_Idle",
+   "yaw": -90,
+   "loop": true,
+   "step": 2
+  },
+  "stand_up": {
+   "action": "Lie_StandUp",
+   "yaw": -90,
+   "step": 2
+  },
+  "walk4": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "turn": {
+    "hips": [
+     60,
+     0,
+     0
+    ],
+    "spine": [
+     10,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     -5,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     -5,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.02,
+   "track": {
+    "head": [
+     0.34,
+     0,
+     -0.02
+    ]
+   }
+  },
+  "idle4": {
+   "action": "Idle",
+   "yaw": 90,
+   "loop": true,
+   "step": 2,
+   "turn": {
+    "hips": [
+     60,
+     0,
+     0
+    ],
+    "spine": [
+     10,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     -5,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     -5,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.02,
+   "track": {
+    "head": [
+     0.34,
+     0,
+     -0.02
+    ]
+   }
+  },
+  "run4": {
+   "action": "Running_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "turn": {
+    "hips": [
+     60,
+     0,
+     0
+    ],
+    "spine": [
+     10,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     -5,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     -5,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "lift": -0.02
+  },
+  "drop": {
+   "action": "Idle",
+   "yaw": 90,
+   "step": 3,
+   "turn": {
+    "hips": [
+     60,
+     0,
+     0
+    ],
+    "spine": [
+     10,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     -5,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     -5,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "ramp": [
+    0,
+    1
+   ],
+   "lift": [
+    0,
+    -0.02
+   ]
+  },
+  "rise": {
+   "action": "Idle",
+   "yaw": 90,
+   "step": 3,
+   "turn": {
+    "hips": [
+     60,
+     0,
+     0
+    ],
+    "spine": [
+     10,
+     0,
+     0
+    ],
+    "chest": [
+     50,
+     0,
+     0
+    ],
+    "head": [
+     -110,
+     0,
+     0
+    ],
+    "upperarm.l": [
+     0,
+     0,
+     -115
+    ],
+    "upperarm.r": [
+     0,
+     0,
+     115
+    ],
+    "upperleg.l": [
+     -5,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     -5,
+     0,
+     0
+    ],
+    "lowerleg.l": [
+     -95,
+     0,
+     0
+    ],
+    "lowerleg.r": [
+     -95,
+     0,
+     0
+    ]
+   },
+   "ramp": [
+    1,
+    0
+   ],
+   "lift": [
+    -0.02,
+    0
+   ]
   }
  }
 }
