@@ -728,6 +728,7 @@
       "type": "vampire",
       "sprite": "vampire3d",
       "lie": "vampire_lie3d",
+      "lie_she": "princess_vampire_lie3d",
       "box": "coffin_box",
       "lid": "coffin_lid",
       "min": 7,

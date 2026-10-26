@@ -1704,6 +1704,91 @@ function hooks.pickup(b)
     return false
 end
 
+-- a coffin for the vampire or the princess vampire (ws: one or both of them, walking about here): it
+-- slides in from the nearer side and stops by them; the lid opens, in they jump and lie down, the
+-- lid shuts - the two of them in it: it wiggles a while, the lid rattling - and it sinks away into
+-- the ground. The vampire element's coffin (el.box, el.lid) and lying sprites (el.lie, el.lie_she)
+function hooks.coffin_in(ws)
+    local S, vel = M.sprites, nil
+    for _, e in ipairs(M.elements) do if e.type == "vampire" then vel = e end end
+    local box, lid = vel and S[vel.box or ""], vel and S[vel.lid or ""]
+    if not (box and lid and box.origin and lid.origin and #free_ids >= 2 + #ws) then return false end
+    local lies = {}
+    for i, b in ipairs(ws) do
+        local L = S[(actor_family(b) == "vampire" and vel.lie or vel.lie_she) or ""]
+        if not (L and L.clips and L.clips.lie_down and L.origin and L.unit and b.cx and b.spr and b.pause) then return false end
+        lies[i] = L
+    end
+    local u, half, open = lies[1].unit * H, box.w / 2, lid.frames - 1
+    local sink, rest, hop = (vel.sink or 0.45) * u, 0.42 * u, 1.3 * u
+    local mid = 0
+    for _, b in ipairs(ws) do mid = mid + b.cx / #ws end
+    if #ws == 1 then mid = ws[1].cx + (ws[1].facing or 1) * (half + 0.8 * u) end
+    mid = clamp(mid, half + u, W - half - u)
+    local from = mid < W / 2 and -half or W + half
+    local v = math.max(1.5 * u, math.abs(mid - from) / 4)
+    local slide = math.abs(mid - from) / v
+    local a = { el = vel, spr = box, layers = 2 + #ws, groups = {}, scene = true }
+    local x, ph, tc, lf, jx = from, "slide", 0, 0, {}
+    for _, b in ipairs(ws) do b.boxed = true b.pause(slide + 2.5) end
+    msg.verbose("coffin: a coffin slides in for the " .. (#ws > 1 and "two vampires" or actor_family(ws[1])))
+    local function place(sp, px, frame, dy, m)
+        local ox = m and (sp.w - sp.origin[1]) or sp.origin[1]
+        return { spr = sp, frame = frame, variant = m or false, x = px - ox, y = H - sp.origin[2] + (dy or 0) }
+    end
+    local function next_ph(p) ph, tc = p, 0 if p ~= "slide" then msg.verbose("coffin: " .. p) end end
+    function a.update(dt)
+        tc = tc + dt
+        local dy, wig = 0, 0
+        if ph == "slide" then
+            x = from + (mid - from) * clamp(tc / slide, 0, 1)
+            if tc >= slide then next_ph("open") end
+        elseif ph == "open" then
+            lf = math.floor(open * clamp(tc, 0, 1) + 0.5)
+            if tc >= 1.2 then
+                for i, b in ipairs(ws) do jx[i] = b.gone and mid or b.cx  b.gone = true end
+                next_ph("jump in")
+            end
+        elseif ph == "jump in" then
+            if tc >= 0.9 then next_ph("lie down") end
+        elseif ph == "lie down" then
+            local c = lies[1].clips.lie_down
+            if tc >= c.count / c.fps then next_ph("shut") end
+        elseif ph == "shut" then
+            lf = math.floor(open * (1 - clamp(tc, 0, 1)) + 0.5)
+            if tc >= 1.0 then next_ph(#ws > 1 and "wiggle" or "still") end
+        elseif ph == "wiggle" then
+            wig = math.sin(tc * 31) * 0.05 * u * (0.6 + 0.4 * math.sin(tc * 3))
+            lf = (math.sin(tc * 7) > 0.7) and math.min(2, open) or 0
+            if tc >= 3.5 then lf = 0 next_ph("still") end
+        elseif ph == "still" then
+            if tc >= 1.5 then next_ph("sink") end
+        else
+            dy = box.h * clamp(tc / 3, 0, 1)
+            if tc >= 3.2 then msg.verbose("coffin: gone into the ground") return false end
+        end
+        local ls = { place(lid, x + wig, lf, dy) }
+        for i, b in ipairs(ws) do
+            local L, lx = lies[i], mid + rest - (i - 1) * 0.12 * u
+            if ph == "jump in" then
+                local q = clamp(tc / 0.9, 0, 1)
+                local idle = b.spr.clips.idle
+                local l = place(b.spr, jx[i] + (lx - jx[i]) * ease(q), idle.start, sink * q - hop * math.sin(math.pi * q), lx < jx[i])
+                ls[#ls + 1] = l
+            elseif ph == "lie down" or ph == "shut" then
+                local c = L.clips.lie_down
+                local k = ph == "shut" and c.count - 1 or math.min(math.floor(tc * c.fps), c.count - 1)
+                ls[#ls + 1] = place(L, lx + wig, c.start + k, sink + dy)
+            end
+        end
+        ls[2 + #ws] = place(box, x + wig, 0, dy)
+        a.cx = x
+        return true, ls
+    end
+    adopt(a, vel, { hops = 0 })
+    return true
+end
+
 -- ASS helpers for the frankenstein: a jagged spark from (x0, y0) to (x1, y1), a puff of smoke
 local function spark(out, x0, y0, x1, y1, color, width)
     local pts, n = {}, 5
@@ -4397,7 +4482,7 @@ function spawn.wanderer(el, spr, h)
         play(C.turn_front and { "turn_front", m = dir < 0 }, { "idle", dur = dur }, C.turn_side and { "turn_side", m = dir < 0 })
     end
     function a.avoid(other)
-        if state ~= "walk" or a.meal or a.called or a.doomed or a.swap or a.morphing or a.lured then return false end
+        if state ~= "walk" or a.meal or a.called or a.doomed or a.boxed or a.swap or a.morphing or a.lured then return false end
         local r, what = math.random(), nil
         a.avoided = (a.avoided or 0) + 1
         if (r < 0.3 or a.avoided > 2) and (a.ttl or 0) > 0 and next_act(a) then
@@ -4439,10 +4524,12 @@ function spawn.wanderer(el, spr, h)
         if a.ttl <= 0 and fam ~= "witch" then
             a.out_since = a.out_since or now
             if state == "walk" and x > 0.15 * W and x < 0.85 * W
-                    and not (a.swap or a.morphing or a.called or a.doomed or a.meal or a.lured) then
+                    and not (a.swap or a.morphing or a.called or a.doomed or a.boxed or a.meal or a.lured) then
                 if not a.pickup_tried and now - a.out_since > 2 then
                     a.pickup_tried = true
-                    if a.pickup_sure or math.random() < (el.pickup_chance or 0.5) then hooks.pickup(a) end
+                    if (fam == "vampire" or fam == "princess_vampire") and math.random() < (el.coffin_chance or 0.8) then
+                        hooks.coffin_in({ a })                      -- (a vampire: its own coffin)
+                    elseif a.pickup_sure or math.random() < (el.pickup_chance or 0.5) then hooks.pickup(a) end
                 elseif not a.forced and now - a.out_since > (el.out_force or 10) then
                     a.forced = true
                     if math.random() < (el.cheat_chance or 0.7) then
@@ -4780,6 +4867,10 @@ hooks.MEETS = {
           msg.verbose("witch: a spell on the princess - she's a frog")
           return true
       end },
+    -- the vampire meets the princess vampire: a coffin for two - in they jump, it wiggles, it sinks
+    { who = "vampire", whom = "princess_vampire", near = 3, chance = { "coffin_two", 0.5 },
+      ok = function(a, b) return b.pause and not b.swap and not b.morphing and not b.called and not b.boxed and not b.doomed end,
+      go = function(a, b) if hooks.coffin_in({ a, b }) then return true end end },
     -- the werewolf man meets a zombie: it gets him - he's a zombie too
     { who = "werewolf", whom = "zombie", chance = { "zombie_chance", 0.7 },
       go = function(a, b, x, now)
@@ -4794,7 +4885,7 @@ hooks.MEETS = {
 
 -- the walker a (family fam, at x; unit u) looks for one to meet (see hooks.MEETS); met: the ones it has met
 function hooks.meet(a, fam, x, u, now, met)
-    if a.swap or a.morphing or a.called or a.doomed then return end
+    if a.swap or a.morphing or a.called or a.doomed or a.boxed then return end
     local el = a.el
     for _, m in ipairs(hooks.MEETS) do
         if m.who == fam then
@@ -6523,7 +6614,8 @@ end)
 --   m = the mummy next (it goes on, the empty sarcophagus a trap: x then), z = the zombie next, k = the frankenstein next, s = a skeleton next,
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
 --   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
---   W = the witch meets the princess (a spell: she's a frog), C = the window creep, Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   W = the witch meets the princess (a spell: she's a frog), C = the window creep, V = the vampire meets the
+--   princess vampire (a coffin for two), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6794,6 +6886,12 @@ mp.add_forced_key_binding("C", "theme-preview-creep", function()        -- (the 
     for _, el in ipairs(M and M.elements or {}) do
         if el.type == "crawler" and el.sprite == "creep" and elements[el] then elements[el].next, elements[el].force = 0, true end
     end
+end)
+mp.add_forced_key_binding("V", "theme-preview-coffin-two", function()  -- (the vampire meets the princess vampire)
+    local pv = preview_cast(M and turned_sprite("vampire"), { fam = "princess_vampire", dir = -1, at = 0.7 * W, ttl = 120, hops = 0 })
+    local v = preview_cast(M and cast_sprite("vampire"), { fam = "vampire", dir = 1, at = 0.2 * W, ttl = 120, hops = 0 })
+    if pv then pv.busy, pv.staged = true, true end
+    if v then v.meet_sure, v.busy, v.staged = true, true, true end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

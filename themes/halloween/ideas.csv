@@ -41,3 +41,10 @@ Window creep,Something crawls past outside the window (octopus-like),done,crawle
 Cat,Better animation (baked 3D or the drawing reworked),to do,art,c
 Machinery,One table of meetings (A meets B -> reaction + chance) checked from a single proximity loop,done,hooks.MEETS + hooks.meet (cast walkers); the werewolf act still has its own checks,
 Scarecrow,Scarecrow with crows,dropped,removed,
+Skeleton,The brainy skeleton gets something to do with its brain (a bright idea),to do,a thought bubble (thought.py) with an idea; it cheers,
+Zombie,A zombie finds zombie pieces lying about and puts them back together: another zombie stands up,to do,relics of a zombie gathered -> a zombie rises,
+Zombie,A zombie finds an eye lying about and pops it in,to do,eye relic taken up,
+Witch,The witch meets a zombie: a spell - it's a frog,to do,hooks.MEETS witch -> zombie,
+Vampire,The vampire meets the werewolf: a stand-off - hiss and growl and both turn away,to do,hooks.MEETS vampire -> werewolf,
+Frankenstein,Frankenstein meets a zombie: it sniffs at him for brains and goes off disgusted,to do,hooks.MEETS zombie -> frankenstein,
+Cat,The cat meets a skeleton: it takes a bone? / plays with the eye,to do,prowler -> relics,
