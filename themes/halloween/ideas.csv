@@ -1,0 +1,43 @@
+character,idea,status,how,key
+Witch,Cooks at her cauldron; a cackle,done,scene spawn.witch,h
+Witch,Spell on the princess: they turn into each other,done,cast swap_into,x
+Witch,Spell on herself: a raven / a cat / the princess,done,cast morph; also her way out when her time is up,y
+Witch,Arrives as a raven flying over from another screen then turns into the witch,partly,a passing raven turns into the witch 15% of the time (bird witch_back); a fast fly-over on request is still to do,
+Witch,Kisses the princess into a frog,to do,new outcome of the witch meeting,
+Werewolf,The man spins into the wolf; a howl,done,scene spawn.werewolf,l
+Werewolf,On all fours: walk / idle / run; drop and rise,done,baked clips walk4 idle4 run4 drop rise,
+Werewolf,Sleeps; the princess is called in and wakes him,done,sleep step; call_princess,o
+Werewolf,Fights a skeleton or the mummy in a dust cloud and comes out with a bone,done,fight(); bone carried at the tracked snout,a
+Werewolf,Takes up bones and limbs lying about and puts them down elsewhere,done,relics: free_bone / new_relic,i
+Werewolf,A zombie gets the werewolf man: he is a zombie too,done,zombied(); cast swap,n
+She-wolf,The princess met by the werewolf spins into the she-wolf,done,spin clips; hand-over to the werewolf act with h.she,q
+She-wolf,Prowls on all fours; takes up bones and limbs; naps; spins back into the princess,done,she-wolf plan in spawn.werewolf,r
+Princess,Kisses the frog: a prince (whoever is free),done,scene spawn.princess,p
+Princess,Arrives as a frog hopping in that puffs into her (not just walking in),done,princess scene part A when no princess is about (el.frog_in),p
+Princess,Turned by the werewolf / a zombie / the vampire,done,TURNED table in the cast,q
+Princess,Kisses the vampire: he becomes a frog,done,princess scene; vampire part,
+Princess,Kisses a frog and becomes a frog herself,to do,new outcome of the frog kiss,
+Princess,No longer turns herself into a frog (to leave),to do,remove the frog from her own morph options,
+Princess,Looks into a mirror: sees herself (or nothing as the vampire princess),to do,mirror decor + a look step; reflection = her sprite mirrored and dimmed,
+Princess vampire,Finds or pulls in a coffin and lies down in it; the coffin sinks,to do,reuse the vampire's coffin with a lying princess-vampire sprite,
+Vampire + princess vampire,Jump into one coffin together; the coffin wiggles,to do,coffin with two; rattle like the sarcophagus,
+Vampire,Coffin act; walkers push the coffin; the cat sits on it,done,scene spawn.vampire,d
+Vampire,Turns into a bat (flying / hanging) and back,to do,new bat bakes (fly / hang / transform) played both ways,
+Frankenstein,Shocks himself and blows apart,done,scene spawn.frankenstein (forced here in preview),k
+Frankenstein,His head and limbs stay lying about,done,pieces become relics,k
+Frankenstein,Less hair / stitches showing / faces the viewer more,to do,art: rework the model,
+Pumpkin-head,Takes its head off and leaves it; a headless one picks a pumpkin up,done,spawn.pumpkinhead,j
+Pumpkin-head,Headless: puts Frankenstein's head on and walks on with it,done,head relic; worn,
+Mummy,Unwraps; a skeleton winds the bandages back; any skeleton about joins in,done,scene spawn.mummy; recruits,m
+Mummy,The empty sarcophagus is a trap: one of the cast passing is shut in and it sinks,done,trap step,m
+Mummy,A sarcophagus comes up to take one of the cast whose time is up,done,hooks.pickup -> spawn.mummy with h.pickup (at most every 30 s),Z
+Skeleton,Climbs out of the ground where a bone lies; a tombstone pops up,done,bone relic; grave_at,
+Skeleton,Fights a zombie in a dust cloud and takes its brain and eye,done,hooks.zombie_fight; brainy skeleton,S
+Skeleton,The brainy skeleton's brain and eye fall out after a while: a skeleton again,done,a.brainy timer; brain (zombies eat it) and eye relic,S
+Zombie,Drops and eats brains; goes underground; shorter stay,done,cast zombie,z e u
+Zombie,Left in pieces after losing to a skeleton,done,zombie piece clips as relics,S
+Everyone,Time's up: leave gracefully (walk off / underground / sarcophagus) or by a cheat after 10 s (frog / raven / dig in),done,despawn lifecycle in spawn.wanderer (ttl / out_since / out_force),Z
+Window creep,Something crawls past outside the window (octopus-like),to do,new crawler; needs a new bake,
+Cat,Better animation (baked 3D or the drawing reworked),to do,art,c
+Machinery,One table of meetings (A meets B -> reaction + chance) checked from a single proximity loop,to do,move the existing pairs in; each new gag becomes one entry,
+Scarecrow,Scarecrow with crows,dropped,removed,
