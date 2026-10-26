@@ -1,0 +1,32 @@
+{
+ "view": "front",
+ "model": "creep.py",
+ "clips": {
+  "crawl": {
+   "files": "crawl_*.png",
+   "count": 16,
+   "fps": 12,
+   "loop": true,
+   "stride": 0.16666666666666669
+  },
+  "peek": {
+   "files": "peek_*.png",
+   "count": 48,
+   "fps": 12,
+   "loop": false,
+   "stride": 0.0
+  },
+  "climb": {
+   "files": "climb_*.png",
+   "count": 16,
+   "fps": 12,
+   "loop": true,
+   "stride": 0.13333333333333333
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  125.53846153846152,
+  148
+ ]
+}

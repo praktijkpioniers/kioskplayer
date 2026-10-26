@@ -123,6 +123,14 @@
       "anim": "anim/brain",
       "unit": 0.17
     },
+    "bat3d": {
+      "anim": "anim/bat",
+      "unit": 0.095
+    },
+    "creep": {
+      "anim": "anim/creep",
+      "unit": 0.085
+    },
     "eye": {
       "anim": "anim/eye",
       "unit": 0.15

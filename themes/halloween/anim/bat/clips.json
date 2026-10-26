@@ -1,0 +1,32 @@
+{
+ "view": "front",
+ "model": "bat.py",
+ "clips": {
+  "hang": {
+   "files": "hang_*.png",
+   "count": 24,
+   "fps": 8,
+   "loop": true,
+   "stride": 0
+  },
+  "unfold": {
+   "files": "unfold_*.png",
+   "count": 14,
+   "fps": 12,
+   "loop": false,
+   "stride": 0
+  },
+  "fly": {
+   "files": "fly_*.png",
+   "count": 8,
+   "fps": 16,
+   "loop": true,
+   "stride": 0
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  81.23076923076923,
+  4.43076923076923
+ ]
+}
