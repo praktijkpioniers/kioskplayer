@@ -245,7 +245,7 @@ end
 -- the middle to its front. h: what it takes along (kind defaults to the element's type).
 local MAX_HOPS = 3
 local FLY_HOPS = 3        -- (screens may go all round the room: no flying round for ever)
-local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true, carriage = true, bird = true }    -- kinds that only come in from a neighbour
+local HANDED_ONLY = { piece = true, passer = true, hopper = true, wanderer = true, carriage = true, bird = true, bat = true }    -- kinds that only come in from a neighbour
 local function with_guest(a)          -- a zombie's guest, or the zombie while its guest is about
     if a.guest_of then return true end
     for _, b in ipairs(actors) do if b.guest_of == a and not b.leaving then return true end end
@@ -1704,6 +1704,14 @@ function hooks.pickup(b)
     return false
 end
 
+-- the vampires' bat (the vampire element's el.bat), if it's there
+function hooks.bat_sprite()
+    for _, e in ipairs(M.elements) do
+        local b = e.type == "vampire" and M.sprites[e.bat or ""]
+        if b and b.clips and b.clips.fly and b.clips.hang and b.clips.unfold then return b end
+    end
+end
+
 -- a coffin for the vampire or the princess vampire (ws: one or both of them, walking about here): it
 -- slides in from the nearer side and stops by them; the lid opens, in they jump and lie down, the
 -- lid shuts - the two of them in it: it wiggles a while, the lid rattling - and it sinks away into
@@ -2466,7 +2474,7 @@ end
 -- (the lumberjack turns into the werewolf, the zombie sniffs about...). Not while a scene is on.
 -- w: the wanderer (or frog); true if something's on next
 local SWAPS = { witch = "princess", princess = "witch" }
-local MORPH_CHANCE = { witch = 0.85, princess = 0.3 }
+local MORPH_CHANCE = { witch = 0.85, princess = 0.3, vampire = 0.3, princess_vampire = 0.25 }
 local function witch_el()
     for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
 end
@@ -2513,6 +2521,8 @@ local function next_act(w)
             local ws = wel and M.sprites[wel.sprite or ""]
             if ws and may_be("witch") then opts[#opts + 1] = { "person", ws, "witch" } end
             -- (not a frog by her own spell: by a frog's kiss, or the witch's - see hooks.MEETS)
+        elseif (fam == "vampire" or fam == "princess_vampire") and hooks.bat_sprite() and #free_ids > 0 then
+            opts[#opts + 1] = { "bat", hooks.bat_sprite() }              -- (the vampires: a bat)
         end
         if w.force_morph then                     -- (preview key y)
             local keep = {}
@@ -2522,7 +2532,7 @@ local function next_act(w)
         if #opts > 0 then
             local o = opts[math.random(#opts)]
             w.morph(o[1], o[2], o[3])
-            msg.verbose("cast: the " .. fam .. " casts a spell on herself (" .. (o[3] or o[1]) .. ")")
+            msg.verbose("cast: the " .. fam .. " casts a spell on " .. (fam == "vampire" and "himself" or "herself") .. " (" .. (o[3] or o[1]) .. ")")
             return true
         end
     end
@@ -4537,6 +4547,8 @@ function spawn.wanderer(el, spr, h)
                         local rv = wel and M.sprites[wel.raven or ""]
                         if TUNNEL[fam] then
                             a.out, down_x = true, x + dir * 0.4 * u
+                        elseif (fam == "vampire" or fam == "princess_vampire") and hooks.bat_sprite() then
+                            a.morph("bat", hooks.bat_sprite())
                         elseif fam == "vampire" and rv and rv.clips and rv.clips.fly then
                             a.morph("raven", rv)
                         elseif fam ~= "princess" and frog_sprite() then      -- (she: a frog's kiss, hooks.MEETS)
@@ -4558,6 +4570,10 @@ function spawn.wanderer(el, spr, h)
             if mo.kind == "raven" and mo.sp and spawn.bird and #free_ids > 0 then
                 local b = spawn.bird(el, mo.sp, { dir = dir, at = x, y = (H - 1.3 * u) / H, hops = 0, from = h.from,
                                                   ttl = math.floor(rnd(60, 180)) })
+                if b then adopt(b, el, { hops = 0 }) end
+            elseif mo.kind == "bat" and mo.sp and #free_ids > 0 then
+                local b = spawn.bat(el, mo.sp, { dir = dir, at = x, y = (H - 1.6 * u) / H, hops = 0, from = h.from, vamp = fam,
+                                                 ttl = math.floor(rnd(40, 90)) })
                 if b then adopt(b, el, { hops = 0 }) end
             elseif mo.kind == "cat" and hooks.cat_at then
                 hooks.cat_at(x, dir)
@@ -5004,6 +5020,100 @@ function spawn.bird(el, spr, h)
             if y < -spr.h then return false end
         end
         if (dir > 0 and x > W + spr.w) or (dir < 0 and x < -spr.w) then return false end
+        local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
+        a.cx = x
+        return true, { { spr = spr, frame = B[clip].start + k, variant = m, x = x - ox, y = y - spr.origin[2] } }
+    end
+    return a
+end
+
+-- the vampire (fam: or the princess vampire) out of a puff at x (a bat come down there): true if so
+function hooks.vampire_from(x, dir, fam)
+    local ce = cast_el()
+    local sp = fam == "princess_vampire" and turned_sprite("vampire") or cast_sprite("vampire")
+    if not (ce and sp and may_be(fam) and #free_ids > 0) then return false end
+    local a = spawn.wanderer(ce, sp, { fam = fam, dir = dir, at = x, hops = 0, puff = true, ttl = math.floor(rnd(40, 90)) })
+    if not a then return false end
+    adopt(a, ce, { hops = 0 })
+    return true
+end
+
+-- bat: the vampire as a bat (the vampire element's el.bat, tools/bake/bat.py; h.vamp: who it is -
+-- the vampire or the princess vampire). It flutters across, over to the screen next door; now and
+-- then it flies up to hang from the top a while (folding up: its unfold clip backwards) and drops
+-- off again, or it comes down to the ground and in a puff is the vampire again (none about). Its
+-- time up, it flies up and away. Origin: its feet (hanging); flying, the body is below them.
+function spawn.bat(el, spr, h)
+    local B = spr.clips
+    if not (B and B.fly and B.hang and B.unfold and spr.origin and spr.unit) then return nil end
+    local u = spr.unit * H
+    local dir = h.dir == 1 and 1 or -1
+    local v = rnd(0.14, 0.22) * W
+    local front = 0.5 * u
+    local x = walk_in_x(h, v, front)
+    local y = clamp(tonumber(h.y) or 0.3, 0.02, 1) * H
+    local a = { el = el, spr = spr, layers = 1, groups = {}, bird = true }
+    a.hops, a.ttl = 0, tonumber(h.ttl) or 60
+    local vamp = h.vamp
+    local ty = rnd(0.1, 0.35) * H
+    local spot, down
+    local function plan()           -- (somewhere ahead: hang there, or come down - as the vampire)
+        spot = math.random() < 0.6 and x + dir * rnd(0.2, 0.5) * W or nil
+        if spot and (spot < 0.1 * W or spot > 0.9 * W) then spot = nil end
+        down = spot and vamp and math.random() < (h.down or 0.5)
+    end
+    plan()
+    local state, t, tt, x0, y0, stay = "fly", 0, 0, x, y, 0
+    local uc = B.unfold.count / B.unfold.fps
+    function a.update(dt)
+        t, tt = t + dt, tt + dt
+        a.ttl = a.ttl - dt
+        local clip, k = "fly", math.floor(tt * B.fly.fps) % B.fly.count
+        if state == "fly" then
+            x = x + dir * v * dt
+            y = y + clamp(ty + 0.04 * H * math.sin(tt * 3.3) - y, -0.3 * H * dt, 0.3 * H * dt)
+            if spot and (spot - x) * dir <= 0 then
+                state, t = down and "down" or "up", 0
+                msg.verbose("bat: " .. (down and "comes down" or "up to hang a while"))
+            end
+            if a.ttl <= 0 then state, t, x0, y0 = "away", 0, x, y end
+            if state == "fly" and not walk_out(a, x, dir, front, { kind = "bat", unique = false, hops = 0, from = h.from,
+                                                                   y = y / H, ttl = math.floor(a.ttl), vamp = vamp })
+                    and ((dir > 0 and x > W - front) or (dir < 0 and x < front)) then
+                state, t, x0, y0 = "away", 0, x, y
+            end
+        elseif state == "up" then
+            x = x + dir * 0.1 * v * dt
+            y = y - 0.4 * H * dt
+            if y <= 0.005 * H then y, state, t = 0.005 * H, "fold", 0 end
+        elseif state == "fold" or state == "unfold" then
+            clip = "unfold"
+            k = math.min(math.floor(t * B.unfold.fps), B.unfold.count - 1)
+            if state == "fold" then k = B.unfold.count - 1 - k end
+            if t >= uc then
+                if state == "fold" then state, t, stay = "hang", 0, rnd(5, 12)
+                else state, t, tt, ty = "fly", 0, 0, rnd(0.15, 0.35) * H plan() end
+            end
+        elseif state == "hang" then
+            clip, k = "hang", math.floor(t * B.hang.fps) % B.hang.count
+            if t > stay or a.ttl <= 0 then state, t = "unfold", 0 end
+        elseif state == "down" then
+            x = x + dir * 0.2 * v * dt
+            y = y + 0.4 * H * dt
+            if y >= H - 0.75 * u then
+                if hooks.vampire_from(x, dir, vamp) then
+                    msg.verbose("bat: in a puff, the bat is the " .. tostring(vamp))
+                    return false
+                end
+                state, t, ty, spot = "fly", 0, rnd(0.15, 0.35) * H, nil
+            end
+        else                                            -- (up and away, off the top)
+            x = x0 + dir * v * t
+            y = y0 - 0.5 * H * t * t
+            if y < -spr.h then return false end
+        end
+        if (dir > 0 and x > W + spr.w) or (dir < 0 and x < -spr.w) then return false end
+        local m = dir < 0
         local ox = m and (spr.w - spr.origin[1]) or spr.origin[1]
         a.cx = x
         return true, { { spr = spr, frame = B[clip].start + k, variant = m, x = x - ox, y = y - spr.origin[2] } }
@@ -6615,7 +6725,7 @@ end)
 --   h = the witch (and her cauldron) next, l = the werewolf next (o: he lies down to sleep, the princess called), p = the princess next,
 --   S = a zombie and a skeleton meet (a fight: brain and eye), K = the princess meets a frog (a kiss: she's a frog),
 --   W = the witch meets the princess (a spell: she's a frog), C = the window creep, V = the vampire meets the
---   princess vampire (a coffin for two), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
+--   princess vampire (a coffin for two), B = the vampire a bat (it hangs a while, comes down: him again), Z = time's up for the cast here (a sarcophagus for one, a cheat), r = the she-wolf (the princess turned: she prowls, naps, spins back), g = the two frogs next, j = a pumpkin-head (off with its head),
 --   y = a witch casting a spell on herself (the princess, the cat, a raven in turn),
 --   x = a witch and a princess (they turn into each other), u = a skeleton / a zombie that goes
 --   under the ground (and comes up on another screen), e = a piece of brain lying here and a
@@ -6892,6 +7002,10 @@ mp.add_forced_key_binding("V", "theme-preview-coffin-two", function()  -- (the v
     local v = preview_cast(M and cast_sprite("vampire"), { fam = "vampire", dir = 1, at = 0.2 * W, ttl = 120, hops = 0 })
     if pv then pv.busy, pv.staged = true, true end
     if v then v.meet_sure, v.busy, v.staged = true, true, true end
+end)
+mp.add_forced_key_binding("B", "theme-preview-bat", function()          -- (the vampire: a bat, and back)
+    local v = preview_cast(M and cast_sprite("vampire"), { fam = "vampire", dir = 1, at = 0.3 * W, ttl = 120, hops = 0 })
+    if v then v.next_at, v.force_morph = 1.5, "bat" end
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

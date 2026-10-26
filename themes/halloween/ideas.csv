@@ -19,10 +19,10 @@ Princess,Kisses the vampire: he becomes a frog,done,princess scene; vampire part
 Princess,Kisses a frog and becomes a frog herself,done,hooks.MEETS princess -> frog (0.2; certain when her time is up): a kiss and a puff,K
 Princess,No longer turns herself into a frog (to leave),done,frog gone from her own spells and from her time-up cheat,
 Princess,Looks into a mirror: sees herself (or nothing as the vampire princess),to do,mirror decor + a look step; reflection = her sprite mirrored and dimmed,
-Princess vampire,Finds or pulls in a coffin and lies down in it; the coffin sinks,to do,reuse the vampire's coffin with a lying princess-vampire sprite,
-Vampire + princess vampire,Jump into one coffin together; the coffin wiggles,to do,coffin with two; rattle like the sarcophagus,
+Princess vampire,Finds or pulls in a coffin and lies down in it; the coffin sinks,done,"hooks.coffin_in: her time up, a coffin slides in; she lies down, it sinks",Z
+Vampire + princess vampire,Jump into one coffin together; the coffin wiggles,done,"hooks.MEETS vampire -> princess_vampire: hooks.coffin_in for two, it wiggles",V
 Vampire,Coffin act; walkers push the coffin; the cat sits on it,done,scene spawn.vampire,d
-Vampire,Turns into a bat (flying / hanging) and back,to do,new bat bakes (fly / hang / transform) played both ways,
+Vampire,Turns into a bat (flying / hanging) and back,done,"spawn.bat (bat3d): a spell on himself / his time-up cheat; it flutters over next door, hangs from the top a while, comes down and is the vampire again (hooks.vampire_from)",B
 Frankenstein,Shocks himself and blows apart,done,scene spawn.frankenstein (forced here in preview),k
 Frankenstein,His head and limbs stay lying about,done,pieces become relics,k
 Frankenstein,Less hair / stitches showing / faces the viewer more,to do,art: rework the model,
