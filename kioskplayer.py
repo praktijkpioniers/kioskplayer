@@ -174,6 +174,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "themes_max_level": 8,             # cap for "auto" (8 = full blown on the day itself)
     "themes_date_override": "",        # preview: pretend today is YYYY-MM-DD
     "themes_text": False,              # characters may say shouts/jokes in speech balloons
+    # "room": theme settings changed on one screen (webcontrol) go for every player in the room
+    # (needs "room" enabled below); "screen": each screen on its own
+    "themes_scope": "room",
 
     # TV overscan: fraction of the screen a TV hides at each side, 0.03 or [left, top, right, bottom];
     # theme animations and the watermark stay inside the rest
@@ -230,6 +233,15 @@ def load_config() -> dict[str, Any]:
 
     return merged
 
+
+
+# the theme settings a screen shares with the room (themes_scope "room")
+THEMES_SHARED = ("themes_enabled", "themes_disabled_types", "themes_force", "themes_level",
+                 "themes_max_level", "themes_date_override", "themes_text")
+
+
+def themes_settings(cfg: dict[str, Any]) -> dict[str, Any]:
+    return {k: cfg.get(k, DEFAULT_CONFIG.get(k)) for k in THEMES_SHARED}
 
 
 def save_config(cfg: dict[str, Any]) -> None:
@@ -1130,10 +1142,30 @@ class App:
     def _subtitle_remember_now(self) -> float:
         return self.room_lang_remember_s if self._room_lang_shared() else self.subtitle_remember_s
 
+    def _themes_shared(self) -> bool:
+        return str(self.cfg.get("themes_scope", "room")).lower() == "room" and self.room is not None
+
     def _handle_room_change(self, key: str, value: Any, e: dict) -> None:
         """A room state change (runs in the main loop). lang: another screen or a selector chose a
-        language for the room; this screen follows it."""
+        language for the room; this screen follows it. themes: the theme settings changed on
+        another screen; this one takes them over (and keeps them in its config.json)."""
         log(f"ROOM {key} = {value!r} (by {e.get('by') or e.get('n')}, {e.get('src', '?')})")
+        if key == "themes":
+            if not (self._themes_shared() and isinstance(value, dict)):
+                return
+            if self.room_bus and e.get("n") == self.room_bus.node:
+                return                                   # our own change
+            new = {k: value[k] for k in THEMES_SHARED if k in value}
+            if all(self.cfg.get(k) == v for k, v in new.items()):
+                return
+            self.cfg.update(new)
+            try:
+                save_config(self.cfg)
+            except Exception as ex:
+                log(f"ROOM themes: config not saved: {ex!r}")
+            self.themes.configure(self.cfg)
+            log(f"ROOM themes: level {self.cfg.get('themes_level')} (max {self.cfg.get('themes_max_level')}) from {e.get('n')}")
+            return
         if key != "lang" or not self._room_lang_shared():
             return
         if self.room_bus and e.get("n") == self.room_bus.node and not e.get("by"):
@@ -2079,6 +2111,7 @@ class App:
         log("CONFIG_CHANGED received → reloading config")
 
         new_cfg = load_config()
+        themes_before = themes_settings(self.cfg)
         self.cfg = new_cfg
         self.blanker.cfg = new_cfg
         self.renderer.cfg = new_cfg
@@ -2132,6 +2165,13 @@ class App:
         self.renderer.load_idle(self._bg_path(), force=True)
 
         self.themes.configure(new_cfg)
+        # theme settings changed here (webcontrol): the whole room follows
+        if self._themes_shared() and themes_settings(new_cfg) != themes_before:
+            try:
+                self.room.set("themes", themes_settings(new_cfg), src="web")
+                log("ROOM themes: shared with the room")
+            except Exception as ex:
+                log(f"ROOM themes not shared: {ex!r}")
 
         # stay in current state; do not auto-play
 

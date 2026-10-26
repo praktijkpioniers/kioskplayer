@@ -53,6 +53,7 @@ display), it can also **listen** for `room/state` and read `p.lang.v`.
 | key | value |
 |---|---|
 | `lang` | the room's subtitle language: ISO 639-1 lowercase (`"nl"`, `"en"`, `"de"`, `"ko"`, ...) or `"off"`. Meta `src`: `"button"`, `"rfid"`, `"web"`, ... |
+| `themes` | the room's theme settings, set from one player's web page (`themes_scope` `"room"`): an object with `themes_enabled`, `themes_disabled_types`, `themes_force`, `themes_level` (`"auto"` or 0..9), `themes_max_level`, `themes_date_override`, `themes_text`; each player with `themes_scope` `"room"` takes them over into its config.json. Meta `src`: `"web"` |
 
 ## Example (test vector)
 

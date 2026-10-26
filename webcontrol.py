@@ -282,6 +282,7 @@ def render_page(cfg: dict, msg: str = "") -> str:
         f'<option value="{esc(n)}" {"selected" if n == cur_force else ""}>{esc(n)}</option>' for n in theme_names
     )
     cur_level = str(cfg.get("themes_level", "auto") or "auto")
+    themes_scope = "screen" if str(cfg.get("themes_scope", "room")).lower() == "screen" else "room"
     level_opts_html = f'<option value="auto" {"selected" if cur_level == "auto" else ""}>Auto (follows the calendar)</option>' + "".join(
         f'<option value="{n}" {"selected" if cur_level == str(n) else ""}>{n}: {esc(txt)}</option>'
         for n, txt in themes.LEVELS.items()
@@ -501,6 +502,12 @@ a.buttonlink {{
 
 <label>Pretend date (empty = today)</label>
 <input type="date" name="themes_date_override" value="{esc(cfg.get("themes_date_override") or "")}">
+
+<label>Theme settings apply to</label>
+<select name="themes_scope">
+  <option value="room" {"selected" if themes_scope == "room" else ""}>the whole room (needs Room on)</option>
+  <option value="screen" {"selected" if themes_scope == "screen" else ""}>this screen only</option>
+</select>
 </fieldset>
 
 <fieldset>
@@ -908,6 +915,7 @@ class Handler(BaseHTTPRequestHandler):
         cfg.pop("themes_force_intensity", None)
         cfg["themes_date_override"] = (data.get("themes_date_override", [""])[0] or "").strip()
         cfg["themes_text"] = (str(get("themes_text", str) or "0").strip() == "1")
+        cfg["themes_scope"] = "screen" if str(get("themes_scope", str) or "").strip() == "screen" else "room"
 
         # watermark
         cfg["watermark_enabled"] = (str(get("watermark_enabled", str) or "1").strip() == "1")
