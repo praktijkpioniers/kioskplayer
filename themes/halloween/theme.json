@@ -940,7 +940,7 @@
       "group": "spider"
     },
     {
-      "_doc": "the window creep: an octopus-like thing crawling past high up, as if outside a window; now and then it stops, looks in and taps the glass (tools/bake/creep.py)",
+      "_doc": "the creep: an octopus-like thing crawling past along the floor; now and then it stops, looks at us and waves a tentacle (tools/bake/creep.py)",
       "type": "crawler",
       "sprite": "creep",
       "clips": {"walk": "crawl", "wave": "peek"},
@@ -949,7 +949,7 @@
       "every": [150, 300],
       "max_active": 1,
       "directions": ["right", "left"],
-      "y": [0.12, 0.3],
+      "ground": true,
       "walk": [3, 6],
       "wave_chance": 0.7,
       "video_min": 8,

@@ -967,6 +967,7 @@ function spawn.crawler(el, spr)
         if mode == "video" and level() < PRIME then ylo, yhi = 0.86, 0.92 end
         a.x = (dx > 0) and -spr.w or W
         a.y = rnd(ylo, yhi) * H - spr.h / 2
+        if el.ground then a.y = H - spr.h * (el.ground == true and 1 or el.ground) end     -- (along the floor)
     else
         a.x = band_x(el, spr.w)
         a.y = (dy > 0) and -spr.h or H

@@ -77,6 +77,6 @@ These need new or changed artwork (Blender bakes in `tools/bake`) before the eng
 - [x] **Cat**: better animation. Either a baked 3D cat like the others, or the drawn cat with its shapes and proportions reworked.
 - [x] **Bat for the vampire**: flying, hanging upside down, and a transform clip that also plays backwards.
 - [x] **Mirror**: a standing mirror as decor. The reflection can be her own sprite, mirrored and dimmed.
-- [x] **Window creep**: an octopus-like creature crawling past outside the window.
+- [x] **Window creep**: an octopus-like creature crawling past (along the floor: the videos have no window to crawl past).
 - [x] **Princess vampire lying down**: for her own coffin, and a coffin big enough for two.
 - [x] Zombie pieces, eye, skeleton head tracking (done for zombie vs skeleton).
