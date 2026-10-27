@@ -48,6 +48,7 @@ What happens when the row character meets the column one. ✓ = done, ○ = idea
 | **Zombie** | | ✓ gets the man | ✓ turns her | | ✓ eats a dropped brain; ✓ mends a zombie | ✓ fight: left in pieces | ✓ trap | ✓ sniffs him | | |
 | **Skeleton** | | ✓ fight | ✓ prince | | ✓ fight: takes brain and eye | | ✓ helper; ✓ trap | | | |
 | **Frankenstein** | | | ✓ prince | ✓ pushes his coffin | | | | | ✓ head worn by it | |
+| **Mummy** | ✓ wraps her up | ✓ wraps him up | ✓ wraps her up | ✓ wraps him up | ✓ wraps it up | | | | ✓ wraps it up | |
 | **Pumpkin-head** | | | ✓ prince | | | | ✓ trap | ✓ wears his head | ✓ takes a lying pumpkin | |
 
 **Things lying about**:

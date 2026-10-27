@@ -210,6 +210,46 @@
       "anim": "anim/werewolf",
       "unit": 0.115
     },
+    "princess_mummified3d": {
+      "anim": "anim/princess_mummified",
+      "unit": 0.115
+    },
+    "princess_vampire_mummified3d": {
+      "anim": "anim/princess_vampire_mummified",
+      "unit": 0.115
+    },
+    "princess_wolf_mummified3d": {
+      "anim": "anim/princess_wolf_mummified",
+      "unit": 0.115
+    },
+    "princess_zombie_mummified3d": {
+      "anim": "anim/princess_zombie_mummified",
+      "unit": 0.115
+    },
+    "witch_mummified3d": {
+      "anim": "anim/witch_mummified",
+      "unit": 0.115
+    },
+    "vampire_mummified3d": {
+      "anim": "anim/vampire_mummified",
+      "unit": 0.115
+    },
+    "werewolf_man_mummified3d": {
+      "anim": "anim/werewolf_man_mummified",
+      "unit": 0.115
+    },
+    "zombie_mummified3d": {
+      "anim": "anim/zombie_mummified",
+      "unit": 0.115
+    },
+    "pumpkinhead_mummified3d": {
+      "anim": "anim/pumpkinhead_mummified",
+      "unit": 0.085
+    },
+    "frankenstein_mummified3d": {
+      "anim": "anim/frankenstein_mummified",
+      "unit": 0.115
+    },
     "mummy3d": {
       "anim": "anim/mummy",
       "unit": 0.115
@@ -886,6 +926,8 @@
     {
       "type": "mummy",
       "sprite": "mummy3d",
+      "mummified": {"princess3d": "princess_mummified3d", "princess_vampire3d": "princess_vampire_mummified3d", "princess_wolf3d": "princess_wolf_mummified3d", "princess_zombie3d": "princess_zombie_mummified3d", "witch3d": "witch_mummified3d", "vampire3d": "vampire_mummified3d", "werewolf_man3d": "werewolf_man_mummified3d", "zombie3d": "zombie_mummified3d", "pumpkinhead3d": "pumpkinhead_mummified3d", "frankenstein3d": "frankenstein_mummified3d"},
+      "mummify": 0.5,
       "helper": "mummy_helper3d",
       "recruits": ["skeleton"],
       "box": "sarcophagus_box",
@@ -944,6 +986,8 @@
       "type": "crawler",
       "sprite": "creep",
       "clips": {"walk": "crawl", "wave": "peek"},
+      "climb_out": 0.6,
+      "climb_speed": 3,
       "speed": 1.6,
       "min": 6,
       "every": [150, 300],

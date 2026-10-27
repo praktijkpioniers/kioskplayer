@@ -1,0 +1,46 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 13,
+   "fps": 4.62,
+   "loop": true,
+   "stride": 0.42852692926923436
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "wrap": {
+   "files": "wrap_*.png",
+   "count": 24,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 128.0,
+ "origin_px": [
+  153.5,
+  384
+ ]
+}

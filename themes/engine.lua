@@ -952,7 +952,7 @@ local OPPOSITE = { right = "left", left = "right", up = "down", down = "up" }
 function spawn.crawler(el, spr)
     -- (el.clips: its own names for walk / idle / wave, e.g. the creep's {"walk": "crawl", "wave": "peek"})
     local CL, clips = el.clips or {}, {}
-    for _, k in ipairs({ "walk", "idle", "wave" }) do clips[k] = spr.clips and spr.clips[CL[k] or k] end
+    for _, k in ipairs({ "walk", "idle", "wave", "climb" }) do clips[k] = spr.clips and spr.clips[CL[k] or k] end
     local walk = clips.walk
     if not walk then return nil end
     local a = { el = el, spr = spr }
@@ -976,6 +976,9 @@ function spawn.crawler(el, spr)
     a.v = walk.stride_px * walk.fps / walk.count * (el.speed or 1.0)
     a.clip, a.tc = "walk", 0
     a.walk_left = rnd(range(el.walk, 3))
+    -- el.climb_out: the chance that at the edge it's heading for, it climbs up it and out at the top
+    a.climb_out = clips.climb and dx ~= 0 and (el.climb_force or math.random() < (el.climb_out or 0))
+    el.climb_force = nil
 
     -- "wander": [8, 16] → an erratic path: a new direction every el.turn seconds, turning back
     -- in at the sides; after the wander time it heads for the nearer of top and bottom, and once
@@ -1037,7 +1040,13 @@ function spawn.crawler(el, spr)
             a.x = a.x + a.dx * a.v * dt
             a.y = a.y + a.dy * a.v * dt
             a.walk_left = a.walk_left - dt
-            if a.walk_left <= 0 and onscreen() then
+            if a.climb_out and ((a.dx > 0 and a.x + spr.w > W - 0.02 * W) or (a.dx < 0 and a.x < 0.02 * W)) then
+                local c2 = clips.climb                  -- (up the edge: seen from the front, arms on the glass)
+                a.clip, a.tc, a.climb_out, a.variant = "climb", 0, false, false
+                a.x = a.dx > 0 and W - 0.78 * spr.w or -0.22 * spr.w
+                a.v = c2.stride_px * c2.fps / c2.count * (el.climb_speed or el.speed or 1.0)
+            end
+            if a.clip == "walk" and a.walk_left <= 0 and onscreen() then
                 if clips.wave and math.random() < (el.wave_chance or 0.4) then
                     start("wave", clips.wave.count / clips.wave.fps)
                 elseif clips.idle then
@@ -1046,6 +1055,9 @@ function spawn.crawler(el, spr)
                 a.walk_left = rnd(range(el.walk, 3))
             end
             if a.x < -spr.w - 2 or a.x > W + 2 or a.y < -spr.h - 2 or a.y > H + 2 then return false end
+        elseif a.clip == "climb" then
+            a.y = a.y - a.v * dt
+            if a.y < -spr.h - 2 then return false end
         elseif a.tc >= a.dur then
             start("walk")
             c = clips.walk
@@ -4700,7 +4712,7 @@ function spawn.wanderer(el, spr, h)
             a.spr, a.family = spr, fam
             if fam == "princess_zombie" then down_x = x + dir * rnd(1.2, 2.2) * u end
             if a.kin and (room.left or room.right) then down_x = x + dir * rnd(2, 4) * u end   -- (a new zombie: off under the ground)
-            for _ = 1, 8 do
+            for _ = 1, sw.wrap and 0 or 8 do
                 puffs[#puffs + 1] = { x = x + rnd(-0.5, 0.5) * u, y = H - rnd(0.2, 1.8) * u,
                                       r = rnd(0.25, 0.45) * u, vx = rnd(-0.5, 0.5) * u, t = 0 }
             end
@@ -4717,9 +4729,10 @@ function spawn.wanderer(el, spr, h)
                         msg.verbose("cast: the she-wolf prowls about")
                     end
                 end }
-            play(sw.spin and C.spin and spin_item(C.spin, 2.6, 0.6) or { "idle", dur = 1.2 }, show and { show },
+            if sw.wrap and C.wrap then show = "wrap" end     -- (wrapped up by the mummy: the bandage winds up)
+            play(sw.spin and C.spin and spin_item(C.spin, 2.6, 0.6) or { "idle", dur = sw.wrap and 0.05 or 1.2 }, show and { show },
                  C.turn_side and { "turn_side", m = dir < 0 }, she or nil)
-            msg.verbose("cast: in a puff, the " .. fam)
+            msg.verbose(sw.wrap and "cast: wrapped up from the feet to the head - a mummy now" or ("cast: in a puff, the " .. fam))
         end
         do
             local keep = {}
@@ -5040,6 +5053,22 @@ hooks.MEETS = {
           msg.verbose("cast: the zombie finds an eye - and pops it in")
           return true
       end },
+    -- the mummy meets (pretty much) anyone: it stops, and they are wrapped up - the bandage winding
+    -- up from their feet to the head (their own mummified bake, el.mummified) - on as a mummy
+    { who = "mummy", whom = { "princess", "princess_wolf", "princess_zombie", "princess_vampire", "witch", "vampire",
+                              "werewolf", "zombie", "pumpkinhead", "frankenstein" }, near = 1.6,
+      chance = function() local e = hooks.mummy_el() return e and e.mummify or 0.5 end,
+      ok = function(a, b)
+          return not a.wrapped and b.swap_into and not b.swap and not b.morphing and not b.called and not b.boxed
+              and not b.doomed and not b.meal and hooks.mummified(b.spr)
+      end,
+      go = function(a, b, x, now)
+          if a.pause then a.pause(3.5) end
+          b.swap_into(hooks.mummified(b.spr), "mummy", now + 0.6)
+          b.swap.wrap, b.wrapped = true, true
+          msg.verbose("cast: the mummy gets the " .. actor_family(b) .. " - wrapped up")
+          return true
+      end },
     -- the werewolf man meets a zombie: it gets him - he's a zombie too
     { who = "werewolf", whom = "zombie", chance = { "zombie_chance", 0.7 },
       go = function(a, b, x, now)
@@ -5053,6 +5082,14 @@ hooks.MEETS = {
 }
 
 -- the walker a (family fam, at x; unit u) looks for one to meet (see hooks.MEETS); met: the ones it has met
+function hooks.mummy_el()
+    for _, e in ipairs(M.elements) do if e.type == "mummy" then return e end end
+end
+function hooks.mummified(sp)                -- (sp wrapped up by the mummy: its own bake, if there is one)
+    local e = hooks.mummy_el()
+    local m = e and e.mummified and sp and M.sprites[e.mummified[sp.name] or ""]
+    return m and m.clips and m.clips.wrap and m.clips.walk and m.origin and m.unit and m or nil
+end
 function hooks.meet(a, fam, x, u, now, met)
     if a.swap or a.morphing or a.called or a.doomed or a.boxed then return end
     local el = a.el
@@ -7159,7 +7196,9 @@ mp.add_forced_key_binding("W", "theme-preview-witch-frog", function()    -- (the
 end)
 mp.add_forced_key_binding("C", "theme-preview-creep", function()        -- (the window creep, now)
     for _, el in ipairs(M and M.elements or {}) do
-        if el.type == "crawler" and el.sprite == "creep" and elements[el] then elements[el].next, elements[el].force = 0, true end
+        if el.type == "crawler" and el.sprite == "creep" and elements[el] then
+            elements[el].next, elements[el].force, el.climb_force = 0, true, true      -- (and out up the edge)
+        end
     end
 end)
 mp.add_forced_key_binding("V", "theme-preview-coffin-two", function()  -- (the vampire meets the princess vampire)
@@ -7219,6 +7258,23 @@ mp.add_forced_key_binding("O", "theme-preview-open-pairs", function()  -- (the n
         if b then b.busy, b.staged, b.idea_at = true, true, 10 end
     end
     msg.info("preview: open pair " .. k)
+end)
+mp.add_forced_key_binding("U", "theme-preview-mummify", function()    -- (the mummy meets someone: wrapped up)
+    local e, list = hooks.mummy_el(), {}
+    for name in pairs(e and e.mummified or {}) do
+        local sp = M.sprites[name]
+        if sp and hooks.mummified(sp) and sp.clips.walk and sp.origin then list[#list + 1] = name end
+    end
+    if #list == 0 then return end
+    table.sort(list)
+    preview.mum_k = (preview.mum_k or 0) % #list + 1
+    local sp = M.sprites[list[preview.mum_k]]
+    local fam = sp.name:gsub("3d$", ""):gsub("_man$", "")
+    local b = preview_cast(sp, { fam = fam, dir = -1, at = 0.7 * W, ttl = 120, hops = 0 })
+    local m = preview_cast(M.sprites[e.sprite or ""], { fam = "mummy", dir = 1, at = 0.2 * W, ttl = 120, hops = 0 })
+    if b then b.busy, b.staged = true, true end
+    if m then m.meet_sure, m.busy, m.staged = true, true, true end
+    msg.info("preview: the mummy and the " .. fam)
 end)
 mp.add_forced_key_binding("b", "theme-preview-flyer", function()
     local fl = {}

@@ -48,3 +48,5 @@ Witch,The witch meets a zombie: a spell - it's a frog,done,hooks.MEETS witch -> 
 Vampire,The vampire meets the werewolf: a stand-off - hiss and growl and both turn away,done,hooks.MEETS vampire -> werewolf (el.standoff 0.6),O (1)
 Frankenstein,Frankenstein meets a zombie: it sniffs at him for brains and goes off disgusted,done,hooks.MEETS zombie -> frankenstein (sniff),O (2)
 Cat,The cat meets a skeleton: it takes a bone? / plays with the eye,done,tick_cats: an eye or bone just ahead of its nose is batted along (up to 3 times),
+Window creep,It leaves by climbing up a screen edge and out at the top,done,crawler el.climb_out 0.6: at the edge it heads for it switches to its climb clip (front view) and goes up (el.climb_speed),C
+Mummy,The mummy mummifies pretty much anyone it meets: the bandage winds up them from the feet and they walk on as a mummy,done,hooks.MEETS mummy -> most families (mummy el.mummify 0.5); each has its own bandaged bake (tools/bake/mummified.py: kaykit shell over all meshes + a wrap clip; props stay bare); swap with wrap instead of a puff,U

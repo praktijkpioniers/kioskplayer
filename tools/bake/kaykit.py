@@ -34,7 +34,8 @@
 #   "shell":   {"meshes": [...], "thickness": 0.05, "color": "#e6dfc8", "stripe": "#a99d82"}  a
 #              bandage wrapping over those meshes (a mummy); per clip "wrap": 1 wrapped (default),
 #              0 bare, [from, to] (un)wrapping during the clip: the bandage shows below a level
-#              that rises from the feet to the head (with a spiral edge)
+#              that rises from the feet to the head (with a spiral edge); "meshes": "all" wraps every mesh
+#              that shows (props stay bare: a crown, a hat still shows - see mummified.py)
 #   per clip "only": ["Knight_Head", "prop"]  render only the meshes whose names contain one of these
 #   per clip "show": ["2H_Staff"]  show meshes "hide" hides everywhere else (a stick for stirring)
 #   per clip "drop": ["prop"]  hide these meshes in this clip (a pumpkin-head without its head)
@@ -167,7 +168,7 @@ if SHELL:
     import bmesh
     cloth = bandage_mat("bandage", SHELL.get("color", "#e6dfc8"), SHELL.get("stripe", "#a99d82"))
     for o in list(meshes):
-        if o.name.split(".")[0] in SHELL["meshes"]:
+        if SHELL["meshes"] == "all" or o.name.split(".")[0] in SHELL["meshes"]:
             c = o.copy()
             c.data = o.data.copy()
             c.name = o.name + "_shell"

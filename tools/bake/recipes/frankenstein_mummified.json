@@ -1,0 +1,1541 @@
+{
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+ "hide": [
+  "Icosphere",
+  "Knight_Helmet",
+  "Knight_Cape",
+  "1H_Sword_Offhand",
+  "Badge_Shield",
+  "Rectangle_Shield",
+  "Round_Shield",
+  "Spike_Shield",
+  "1H_Sword",
+  "2H_Sword"
+ ],
+ "recolor": {
+  "knight_texture": {
+   "0,0": "#8fae78",
+   "1,0": "#6f8c5c",
+   "3,0": "#3b3934",
+   "4,0": "#2c2e36",
+   "7,0": "#363844",
+   "2,1": "#3d3832",
+   "3,1": "#3d3832",
+   "7,1": "#2a2b32",
+   "1,2": "#33343c",
+   "4,2": "#24252b",
+   "5,2": "#24252b",
+   "5,0": "#4a3a30",
+   "6,0": "#3e3028",
+   "5,1": "#4a3a30",
+   "6,1": "#3e3028",
+   "3,2": "#4a3a30",
+   "0,1": "#3d3832",
+   "2,2": "#3d3832",
+   "1,1": "#4a443c"
+  }
+ },
+ "props": [
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.02,
+    1.0
+   ],
+   "size": [
+    0.88,
+    0.9,
+    0.16
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.44,
+    0.92
+   ],
+   "size": [
+    0.8,
+    0.08,
+    0.1
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    -0.3,
+    -0.45,
+    0.85
+   ],
+   "size": [
+    0.06,
+    0.09
+   ],
+   "rot": [
+    180,
+    0,
+    0
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    -0.15,
+    -0.45,
+    0.85
+   ],
+   "size": [
+    0.06,
+    0.09
+   ],
+   "rot": [
+    180,
+    0,
+    0
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0,
+    -0.45,
+    0.85
+   ],
+   "size": [
+    0.06,
+    0.09
+   ],
+   "rot": [
+    180,
+    0,
+    0
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0.15,
+    -0.45,
+    0.85
+   ],
+   "size": [
+    0.06,
+    0.09
+   ],
+   "rot": [
+    180,
+    0,
+    0
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0.3,
+    -0.45,
+    0.85
+   ],
+   "size": [
+    0.06,
+    0.09
+   ],
+   "rot": [
+    180,
+    0,
+    0
+   ],
+   "color": "#141417"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.42,
+    0.52
+   ],
+   "size": [
+    0.58,
+    0.08,
+    0.07
+   ],
+   "color": "#2c3526"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.25,
+    -0.35700000000000004,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.11999999999999998
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.15000000000000002,
+    -0.41200000000000003,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.12000000000000001
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.05,
+    -0.442,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.12000000000000001
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.05,
+    -0.442,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.12000000000000001
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.15000000000000002,
+    -0.41200000000000003,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.12000000000000001
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.25,
+    -0.387,
+    0.68
+   ],
+   "size": [
+    0.02,
+    0.11999999999999998
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.32400000000000007,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.2,
+    -0.394,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.1,
+    -0.43400000000000005,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.0,
+    -0.454,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.1,
+    -0.434,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.2,
+    -0.394,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.3,
+    -0.384,
+    0.68
+   ],
+   "size": [
+    0.016,
+    0.11
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.39,
+    0.37
+   ],
+   "size": [
+    0.018,
+    0.11999999999999998
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.39,
+    0.26
+   ],
+   "size": [
+    0.018,
+    0.13999999999999999
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.4,
+    0.42
+   ],
+   "size": [
+    0.015,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.4,
+    0.32
+   ],
+   "size": [
+    0.015,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.3,
+    -0.4,
+    0.22
+   ],
+   "size": [
+    0.015,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0,
+    -0.5,
+    0.17
+   ],
+   "size": [
+    0.016,
+    0.24
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.36,
+    -0.22,
+    0.05
+   ],
+   "size": [
+    0.018,
+    0.22
+   ],
+   "axis": "y",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.37,
+    -0.3,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.37,
+    -0.2,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.37,
+    -0.1,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.36,
+    -0.22,
+    0.05
+   ],
+   "size": [
+    0.018,
+    0.22
+   ],
+   "axis": "y",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.37,
+    -0.3,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.37,
+    -0.2,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.37,
+    -0.1,
+    0.05
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    -0.48,
+    0.0,
+    0.12
+   ],
+   "size": [
+    0.085,
+    0.4
+   ],
+   "axis": "x",
+   "color": "#b4b6be"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    -0.68,
+    0.0,
+    0.12
+   ],
+   "size": [
+    0.07,
+    0.2,
+    0.2
+   ],
+   "color": "#7e818a"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.48,
+    0.0,
+    0.12
+   ],
+   "size": [
+    0.085,
+    0.4
+   ],
+   "axis": "x",
+   "color": "#b4b6be"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0.68,
+    0.0,
+    0.12
+   ],
+   "size": [
+    0.07,
+    0.2,
+    0.2
+   ],
+   "color": "#7e818a"
+  },
+  {
+   "name": "Knight_ArmLeft_skin",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.13,
+    0,
+    0
+   ],
+   "size": [
+    0.135,
+    0.3
+   ],
+   "axis": "x",
+   "color": "#8fae78"
+  },
+  {
+   "name": "Knight_ArmLeft_hand",
+   "bone": "hand.l",
+   "shape": "sphere",
+   "at": [
+    0.09,
+    0,
+    0
+   ],
+   "size": [
+    0.155,
+    0.145,
+    0.145
+   ],
+   "color": "#8fae78"
+  },
+  {
+   "name": "Knight_ArmLeft_ring",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    0,
+    0
+   ],
+   "size": [
+    0.142,
+    0.03
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_x",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    -0.14,
+    0
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_x",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    0,
+    0.14
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_x",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    0,
+    -0.14
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_x",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    -0.1,
+    0.1
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_x",
+   "bone": "lowerarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.14,
+    -0.1,
+    -0.1
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmLeft_wring",
+   "bone": "hand.l",
+   "shape": "cylinder",
+   "at": [
+    -0.03,
+    0,
+    0
+   ],
+   "size": [
+    0.14,
+    0.025
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_skin",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.13,
+    0,
+    0
+   ],
+   "size": [
+    0.135,
+    0.3
+   ],
+   "axis": "x",
+   "color": "#8fae78"
+  },
+  {
+   "name": "Knight_ArmRight_hand",
+   "bone": "hand.r",
+   "shape": "sphere",
+   "at": [
+    -0.09,
+    0,
+    0
+   ],
+   "size": [
+    0.155,
+    0.145,
+    0.145
+   ],
+   "color": "#8fae78"
+  },
+  {
+   "name": "Knight_ArmRight_ring",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    0,
+    0
+   ],
+   "size": [
+    0.142,
+    0.03
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_x",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    -0.14,
+    0
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_x",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    0,
+    0.14
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_x",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    0,
+    -0.14
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_x",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    -0.1,
+    0.1
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_x",
+   "bone": "lowerarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.14,
+    -0.1,
+    -0.1
+   ],
+   "size": [
+    0.014,
+    0.1
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_ArmRight_wring",
+   "bone": "hand.r",
+   "shape": "cylinder",
+   "at": [
+    0.03,
+    0,
+    0
+   ],
+   "size": [
+    0.14,
+    0.025
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1",
+   "bone": "spine",
+   "shape": "cube",
+   "at": [
+    -0.17,
+    -0.335,
+    0.3
+   ],
+   "size": [
+    0.2,
+    0.03,
+    0.18
+   ],
+   "color": "#6e6a4e"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.27,
+    -0.35500000000000004,
+    0.24
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.07,
+    -0.35500000000000004,
+    0.24
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.2366666666666667,
+    -0.35500000000000004,
+    0.21
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.2366666666666667,
+    -0.35500000000000004,
+    0.39
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.27,
+    -0.35500000000000004,
+    0.3
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.07,
+    -0.35500000000000004,
+    0.3
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.17,
+    -0.35500000000000004,
+    0.21
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.17,
+    -0.35500000000000004,
+    0.39
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.27,
+    -0.35500000000000004,
+    0.36
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.07,
+    -0.35500000000000004,
+    0.36
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.10333333333333333,
+    -0.35500000000000004,
+    0.21
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch1_s",
+   "bone": "spine",
+   "shape": "cylinder",
+   "at": [
+    -0.10333333333333333,
+    -0.35500000000000004,
+    0.39
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2",
+   "bone": "hips",
+   "shape": "cube",
+   "at": [
+    0.2,
+    -0.3,
+    0.18
+   ],
+   "size": [
+    0.16,
+    0.03,
+    0.14
+   ],
+   "color": "#4f5a6a"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.12000000000000001,
+    -0.32,
+    0.13333333333333333
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.28,
+    -0.32,
+    0.13333333333333333
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.14666666666666667,
+    -0.32,
+    0.10999999999999999
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.14666666666666667,
+    -0.32,
+    0.25
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.12000000000000001,
+    -0.32,
+    0.18
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.28,
+    -0.32,
+    0.18
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.2,
+    -0.32,
+    0.10999999999999999
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.2,
+    -0.32,
+    0.25
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.12000000000000001,
+    -0.32,
+    0.22666666666666668
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.28,
+    -0.32,
+    0.22666666666666668
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "x",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.25333333333333335,
+    -0.32,
+    0.10999999999999999
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  },
+  {
+   "name": "Knight_Body_patch2_s",
+   "bone": "hips",
+   "shape": "cylinder",
+   "at": [
+    0.25333333333333335,
+    -0.32,
+    0.25
+   ],
+   "size": [
+    0.012,
+    0.06
+   ],
+   "axis": "z",
+   "color": "#1c1a1c"
+  }
+ ],
+ "outline": 0.008,
+ "bone_scale": {
+  "head": 0.8,
+  "upperleg.l": [
+   1,
+   1.35,
+   1
+  ],
+  "upperleg.r": [
+   1,
+   1.35,
+   1
+  ],
+  "lowerleg.l": [
+   1,
+   1.35,
+   1
+  ],
+  "lowerleg.r": [
+   1,
+   1.35,
+   1
+  ],
+  "spine": [
+   1.05,
+   1.2,
+   1.05
+  ]
+ },
+ "frame": {
+  "x": [
+   -1.2,
+   1.2
+  ],
+  "h": 3.0
+ },
+ "props_rest": true,
+ "_doc": "Generated by tools/bake/mummified.py from frankenstein.json: wrapped by the mummy.",
+ "shell": {
+  "meshes": "all",
+  "thickness": 0.04,
+  "color": "#e8e1cc",
+  "stripe": "#a89b80",
+  "stripes": 5,
+  "edge": 0.05
+ },
+ "clips": {
+  "walk": {
+   "action": "Walking_A",
+   "yaw": 60,
+   "loop": true,
+   "stride": "auto",
+   "step": 2,
+   "speed": 0.385,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     72,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     72,
+     0,
+     18
+    ]
+   }
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     72,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     72,
+     0,
+     18
+    ]
+   }
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    60,
+    15
+   ],
+   "frames": 6,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     72,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     72,
+     0,
+     18
+    ]
+   }
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    60
+   ],
+   "frames": 6,
+   "hold": {
+    "from": "Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.l",
+     "lowerarm.l",
+     "wrist.l",
+     "hand.l",
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.l": [
+     72,
+     0,
+     -18
+    ],
+    "upperarm.r": [
+     72,
+     0,
+     18
+    ]
+   }
+  },
+  "wrap": {
+   "action": "Idle",
+   "yaw": 15,
+   "frames": 24,
+   "step": 1,
+   "wrap": [
+    0,
+    1
+   ]
+  }
+ }
+}
