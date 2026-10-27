@@ -73,7 +73,7 @@ The engine's main chunk is at Lua's 200-locals limit, so new helpers go on `hook
 
 These need new or changed artwork (Blender bakes in `tools/bake`) before the engine work can follow.
 
-- [ ] **Frankenstein's look**: less hair so the stitches show, fewer clothes or clothes stitched together, and facing the viewer more so he reads as Frankenstein.
+- [x] **Frankenstein's look**: less hair so the stitches show, fewer clothes or clothes stitched together, and facing the viewer more so he reads as Frankenstein.
 - [x] **Cat**: better animation. Either a baked 3D cat like the others, or the drawn cat with its shapes and proportions reworked.
 - [x] **Bat for the vampire**: flying, hanging upside down, and a transform clip that also plays backwards.
 - [x] **Mirror**: a standing mirror as decor. The reflection can be her own sprite, mirrored and dimmed.

@@ -25,7 +25,7 @@ Vampire,Coffin act; walkers push the coffin; the cat sits on it,done,scene spawn
 Vampire,Turns into a bat (flying / hanging) and back,done,"spawn.bat (bat3d): a spell on himself / his time-up cheat; it flutters over next door, hangs from the top a while, comes down and is the vampire again (hooks.vampire_from)",B
 Frankenstein,Shocks himself and blows apart,done,scene spawn.frankenstein (forced here in preview),k
 Frankenstein,His head and limbs stay lying about,done,pieces become relics,k
-Frankenstein,Less hair / stitches showing / faces the viewer more,to do,art: rework the model,
+Frankenstein,Less hair / stitches showing / faces the viewer more,done,recipe rework: flat top; stitched scars; big bolts; grey-green skin; stitched forearms and patches; walks turned 30° to us,k
 Pumpkin-head,Takes its head off and leaves it; a headless one picks a pumpkin up,done,spawn.pumpkinhead,j
 Pumpkin-head,Headless: puts Frankenstein's head on and walks on with it,done,head relic; worn,
 Mummy,Unwraps; a skeleton winds the bandages back; any skeleton about joins in,done,scene spawn.mummy; recruits,m

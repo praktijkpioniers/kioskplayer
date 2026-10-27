@@ -192,7 +192,13 @@ if SHELL:
 # bone's head: {"bone": "head", "at": [x, y, z], "shape": "cylinder", "size": [radius, length],
 # "axis": "x", "color": "#..."}  (or "shape": "cube", "size": [sx, sy, sz]; "shape": "sphere",
 # "size": [rx, ry, rz]; "shape": "cone", "size": [radius, length], pointing up; both turned by
-# "rot": [x, y, z] degrees)
+# "rot": [x, y, z] degrees). Named "prop<i>" (so a clip's "only": ["prop"] takes them), or
+# "name": e.g. "Knight_ArmLeft_stitch" to go with that mesh in "only"/"drop" (a piece flying off)
+# "props_rest": true attaches them to the bones in the rest pose (where "at" is measured); without
+# it they ride on the bones as the import leaves them posed (fine for the head, not for the arms)
+if R.get("props_rest"):
+    rig.data.pose_position = "REST"
+    bpy.context.view_layer.update()
 for i, pr in enumerate(R.get("props", [])):
     b = rig.data.bones[pr["bone"]]
     at = rig.matrix_world @ b.head_local + Vector(pr.get("at", [0, 0, 0]))
@@ -214,7 +220,7 @@ for i, pr in enumerate(R.get("props", [])):
         bpy.ops.mesh.primitive_cylinder_add(radius=r, depth=ln, vertices=16, location=at)
         o = bpy.context.object
         o.rotation_euler = {"x": (0, math.pi / 2, 0), "y": (math.pi / 2, 0, 0), "z": (0, 0, 0)}[pr.get("axis", "x")]
-    o.name = f"prop{i}"
+    o.name = pr.get("name", f"prop{i}")
     bpy.context.view_layer.update()
     m = bpy.data.materials.new(o.name)
     m.use_nodes = True
@@ -226,6 +232,7 @@ for i, pr in enumerate(R.get("props", [])):
     bpy.context.view_layer.update()
     o.matrix_world = mw
     meshes.append(o)
+rig.data.pose_position = "POSE"
 
 # Turntable parent so yaw does not fight the imported rig transform.
 pivot = bpy.data.objects.new("pivot", None)
