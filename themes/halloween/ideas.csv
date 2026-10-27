@@ -37,7 +37,7 @@ Skeleton,The brainy skeleton's brain and eye fall out after a while: a skeleton 
 Zombie,Drops and eats brains; goes underground; shorter stay,done,cast zombie,z e u
 Zombie,Left in pieces after losing to a skeleton,done,zombie piece clips as relics,S
 Everyone,Time's up: leave gracefully (walk off / underground / sarcophagus) or by a cheat after 10 s (frog / raven / dig in),done,despawn lifecycle in spawn.wanderer (ttl / out_since / out_force),Z
-Window creep,Something crawls past outside the window (octopus-like),done,crawler element with sprite creep (tools/bake/creep.py): crawls past along the floor (el.ground - high up it floated: no window in the videos); stops and peeks at us,C
+Window creep,Something crawls past outside the window (octopus-like),done,crawler element with sprite creep (tools/bake/creep.py): comes out of a mirror coming up out of the ground (el.from_mirror; hooks.creep_mirror); crawls past along the floor (el.ground - high up it floated: no window in the videos); stops and peeks at us,C
 Cat,Better animation (baked 3D or the drawing reworked),done,prowler.lua redrawn: one torso shape; tapered legs; bigger ears; slit-pupil eyes; S tail; bottle-brush arch with a hiss; upright sit,c
 Machinery,One table of meetings (A meets B -> reaction + chance) checked from a single proximity loop,done,hooks.MEETS + hooks.meet (cast walkers); the werewolf act still has its own checks,
 Scarecrow,Scarecrow with crows,dropped,removed,
@@ -50,3 +50,5 @@ Frankenstein,Frankenstein meets a zombie: it sniffs at him for brains and goes o
 Cat,The cat meets a skeleton: it takes a bone? / plays with the eye,done,tick_cats: an eye or bone just ahead of its nose is batted along (up to 3 times),
 Window creep,It leaves by climbing up a screen edge and out at the top,done,crawler el.climb_out 0.6: at the edge it heads for it switches to its climb clip (front view) and goes up (el.climb_speed),C
 Mummy,The mummy mummifies pretty much anyone it meets: the bandage winds up them from the feet and they walk on as a mummy,done,hooks.MEETS mummy -> most families (mummy el.mummify 0.5); each has its own bandaged bake (tools/bake/mummified.py: kaykit shell over all meshes + a wrap clip; props stay bare); swap with wrap instead of a puff,U
+Princess,She never appears alone out of a frog: only out of two frogs' kiss or the witch's spell,done,spawn.princess needs her about here (the frog-hops-in start removed); gag_use 0 without her,p
+Princess,One princess shape at a time in the whole room (herself / she-wolf / princess zombie / vampire / wrapped up),done,hooks.princess_shape + princess_free: room claim chr:princess_shape; may_be / the frogs' lady / the witch's to_pr check it,

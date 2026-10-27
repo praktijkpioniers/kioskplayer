@@ -982,11 +982,12 @@
       "group": "spider"
     },
     {
-      "_doc": "the creep: an octopus-like thing crawling past along the floor; now and then it stops, looks at us and waves a tentacle (tools/bake/creep.py)",
+      "_doc": "the creep: an octopus-like thing - it comes out of a mirror coming up out of the ground (from_mirror), crawls off along the floor, now and then stops, looks at us and waves a tentacle, and at the edge may climb up and out (climb_out) (tools/bake/creep.py)",
       "type": "crawler",
       "sprite": "creep",
       "clips": {"walk": "crawl", "wave": "peek"},
       "climb_out": 0.6,
+      "from_mirror": 1,
       "climb_speed": 3,
       "speed": 1.6,
       "min": 6,

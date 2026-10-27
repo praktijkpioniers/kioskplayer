@@ -949,12 +949,18 @@ local DIR_INDEX = { right = 0, left = 1, up = 2, down = 3 }
 local DIR_VEC = { right = { 1, 0 }, left = { -1, 0 }, up = { 0, -1 }, down = { 0, 1 } }
 local OPPOSITE = { right = "left", left = "right", up = "down", down = "up" }
 
-function spawn.crawler(el, spr)
+function spawn.crawler(el, spr, h)
     -- (el.clips: its own names for walk / idle / wave, e.g. the creep's {"walk": "crawl", "wave": "peek"})
     local CL, clips = el.clips or {}, {}
     for _, k in ipairs({ "walk", "idle", "wave", "climb" }) do clips[k] = spr.clips and spr.clips[CL[k] or k] end
     local walk = clips.walk
     if not walk then return nil end
+    -- el.from_mirror: (the chance that) it comes out of a mirror coming up out of the ground
+    local from = h and h.mirror_x
+    if not from and clips.climb and math.random() < (el.from_mirror or 0) then
+        local m = hooks.creep_mirror(el, spr, clips)
+        if m then return m end
+    end
     local a = { el = el, spr = spr }
     local dirs = el.directions or { "right", "left" }
     if not spr.variants or #spr.variants < 4 then dirs = { "right", "left" } end
@@ -971,6 +977,13 @@ function spawn.crawler(el, spr)
     else
         a.x = band_x(el, spr.w)
         a.y = (dy > 0) and -spr.h or H
+    end
+    if from then                                -- (down from the mirror: off along the floor from there)
+        a.dir = h.dir > 0 and "right" or "left"
+        dx, dy = DIR_VEC[a.dir][1], 0
+        a.variant = (#(spr.variants or {}) >= 4) and DIR_INDEX[a.dir] or (a.dir == "left")
+        a.x = from - (a.variant == true and spr.w - spr.origin[1] or spr.origin[1])
+        a.y = H - spr.h * (el.ground == true and 1 or el.ground or 1)
     end
     a.dx, a.dy = dx, dy
     a.v = walk.stride_px * walk.fps / walk.count * (el.speed or 1.0)
@@ -1734,13 +1747,13 @@ function hooks.mirror_for(b)
     local back, front = pel and S[pel.mirror or "mirror_back"], pel and S[pel.mirror_front or "mirror_front"]
     if not (back and front and back.origin and front.origin and back.unit and b.cx and b.spr and b.show
             and b.spr.clips.idle and b.spr.origin and #free_ids >= 3) then return false end
-    for _, x in ipairs(actors) do if x.mirror and not x.gone then return false end end
+    for _, x in ipairs(actors) do if x.looking_glass and not x.gone then return false end end
     local u = back.unit * H
     local f = b.facing or 1
     local mx = b.cx + f * 1.0 * u
     if mx < 0.6 * u or mx > W - 0.6 * u then mx = b.cx - f * 1.0 * u end
     local vamp = actor_family(b) == "princess_vampire"
-    local a = { el = pel, spr = back, layers = 3, groups = {}, mirror = true }
+    local a = { el = pel, spr = back, layers = 3, groups = {}, looking_glass = true }
     local tc, ph, dur = 0, "up", 0
     local look = b.show(vamp and "shock" or "idle", 4.5)
     msg.verbose("mirror: a mirror comes up beside the " .. actor_family(b))
@@ -1776,6 +1789,66 @@ function hooks.mirror_for(b)
     end
     adopt(a, pel, { hops = 0 })
     return true
+end
+
+-- the creep out of a mirror (el.from_mirror): a mirror comes up out of the ground, the glass mists
+-- over - and there it is in the glass, coming closer; out it squeezes, climbs down the front of the
+-- mirror (its climb clip, backwards) to the floor and crawls off (a crawler, see spawn.crawler);
+-- the mirror sinks away again. The mirror of the princess element (see hooks.mirror_for)
+function hooks.creep_mirror(el, spr, clips)
+    local S, pel = M.sprites, nil
+    for _, e in ipairs(M.elements) do if e.type == "princess" then pel = e end end
+    local back, front = pel and S[pel.mirror or "mirror_back"], pel and S[pel.mirror_front or "mirror_front"]
+    local CB = clips.climb
+    if not (back and front and back.origin and front.origin and back.unit and back.clips.fog and spr.origin and spr.unit
+            and #free_ids >= 5) then msg.verbose("mirror: none for the creep (" .. #free_ids .. " ids)") return nil end
+    for _, x in ipairs(actors) do if x.looking_glass and not x.gone then return nil end end
+    local u, cu = back.unit * H, spr.unit * H
+    local mx = free_x(0.25 * W, 0.75 * W)
+    local gy, ga, gb = H - 1.24 * u, 0.26 * u, 0.45 * u            -- (the glass: its middle, a rect inside)
+    local floor_y = H - 0.42 * cu                                    -- (its middle, down on the floor)
+    local a = { el = el, spr = spr, layers = 4, looking_glass = true, cx = mx }
+    local tc, ph = 0, "up"
+    local B = back.clips
+    local function creep(by, frame, crop)                           -- (the creep, its middle at by)
+        local l = { spr = spr, frame = frame, variant = false, x = mx - spr.origin[1] - 0.05 * cu, y = by + 0.42 * cu - spr.origin[2] }
+        if crop then l.crop = { mx - ga - l.x, gy - gb - l.y, 2 * ga, 2 * gb } end
+        return l
+    end
+    function a.update(dt)
+        tc = tc + dt
+        local dy, c = 0, B.stand
+        local inside, out
+        local k = math.floor(tc * CB.fps) % CB.count
+        if not a.said then a.said = true msg.verbose("mirror: a mirror comes up out of the ground") end
+        if ph == "up" then
+            dy = back.h * (1 - ease(clamp(tc / 1.0, 0, 1)))
+            if tc >= 1.0 then ph, tc = "mist", 0 msg.verbose("mirror: the glass mists over...") end
+        elseif ph == "mist" then
+            c = B.fog
+            if tc >= 1.2 then ph, tc = "in", 0 msg.verbose("mirror: something in the glass - coming closer") end
+        elseif ph == "in" then
+            inside = creep(gy + 0.35 * u * (1 - ease(clamp(tc / 1.6, 0, 1))), CB.start + k, true)
+            if tc >= 1.8 then ph, tc = "down", 0 msg.verbose("mirror: out it squeezes - the creep") end
+        elseif ph == "down" then
+            out = creep(gy + (floor_y - gy) * clamp(tc / 1.6, 0, 1), CB.start + (CB.count - 1 - k))
+            if tc >= 1.6 then
+                ph, tc = "sink", 0
+                local d = mx < W / 2 and -1 or 1
+                if math.random() < 0.3 then d = -d end
+                local b = spawn.crawler(el, spr, { mirror_x = mx, dir = d })
+                if b then adopt(b, el, { hops = 0 }) b.unique = a.unique end
+            end
+        else
+            dy = back.h * ease(clamp(tc / 1.0, 0, 1))
+            if tc >= 1.1 then return false end
+        end
+        k = math.floor(tc * c.fps)
+        k = c.loop and k % c.count or math.min(k, c.count - 1)
+        local function at(sp, frame) return { spr = sp, frame = frame, variant = false, x = mx - sp.origin[1], y = H - sp.origin[2] + dy } end
+        return true, { at(back, c.start + k), inside or nil, at(front, front.clips and front.clips.stand and front.clips.stand.start or 0), out or nil }
+    end
+    return a
 end
 
 -- the vampires' bat (the vampire element's el.bat), if it's there
@@ -2552,8 +2625,24 @@ local MORPH_CHANCE = { witch = 0.85, princess = 0.3, vampire = 0.3, princess_vam
 local function witch_el()
     for _, el in ipairs(M and M.elements or {}) do if el.type == "witch" then return el end end
 end
+-- the princess in any shape (herself, the she-wolf, the princess zombie or vampire, wrapped up by
+-- the mummy - or the one in a scene): one of them at a time in the whole room
+function hooks.princess_shape(a)
+    if a.gone or a.leaving then return false end
+    if (actor_family(a) or ""):find("^princess") or (a.spr and a.spr.name or ""):find("^princess") then return true end
+    for _, f in ipairs(a.also or {}) do if f:find("^princess") then return true end end
+    return false
+end
+function hooks.princess_free()             -- none of her about, here or on another screen
+    if room.taken["chr:princess_shape"] then return false end
+    for _, a in ipairs(actors) do
+        if (a.family or a.scene or is_character(a)) and hooks.princess_shape(a) then return false end
+    end
+    return true
+end
 local function may_be(fam)                 -- one of the cast may turn into fam: none about, room here
     local n, same = chars_here(fam)
+    if fam:find("^princess") and not hooks.princess_free() then return false end
     return not same and not room.taken["chr:" .. fam] and n <= 2
 end
 local TUNNEL = { skeleton = true, zombie = true, princess_zombie = true }     -- (cast that go about under the ground)
@@ -2719,7 +2808,7 @@ function spawn.witch(el, spr)
     local to_pr = false
     if pr and not was and math.random() < (el.princess_chance or 0.25) then
         local _, same = chars_here("princess")
-        to_pr = not same and not room.taken["chr:princess"] and not taken(pr)
+        to_pr = not same and not room.taken["chr:princess"] and not taken(pr) and hooks.princess_free()
     end
     if to_pr then a.also = { "princess" } end
     a.recruited = { who }
@@ -3830,6 +3919,8 @@ function spawn.princess(el, spr)
     end
     local u = spr.unit * H
     if W < 9 * u then return nil end
+    -- (only with her about here: she comes out of two frogs' kiss or the witch's spell, never alone)
+    if not cast_here("princess") then return nil end
     -- who may play the other part: not about in the room, nor here
     local function free(name, fam)
         local sp = S[name or ""]
@@ -3893,21 +3984,6 @@ function spawn.princess(el, spr)
         t.x = to
     end
     local hold = math.floor(C.pick.count * 0.45)       -- (bent down)
-    -- not about: she comes as a frog, hopping in - a puff, and there she is
-    if not her and el.frog_in ~= false then
-        A.sp, A.x, A.face = frog, -0.6 * u, 1
-        A0 = A.x
-        A.rest = { clip = "sit", rest = true }
-        local at = rnd(0.1, 0.16) * W
-        add { a = { clip = "hop", hop = at }, log = "princess: a frog hops in" }
-        A.x = at
-        add { a = { clip = "sit", dur = rnd(0.5, 1.0) } }
-        A.sp, A.face = spr, 0
-        A.rest = { clip = "idle", rest = true }
-        add { a = { clip = "idle", dur = 1.0 }, puff = "a", log = "princess: in a puff, the frog is the princess" }
-        if math.random() < 0.5 then add { a = { clip = "cheer" } } end
-    end
-
     if story ~= "vampire" then
         local fx = free_scene_x(0.5 * W, 0.7 * W, d)
         a.spot = d > 0 and fx or W - fx               -- (its place: kept for it)
@@ -4128,6 +4204,7 @@ function spawn.frogs(el, spr)
         if not (sp and sp.clips and sp.clips.walk and sp.clips.idle and sp.origin and sp.unit) then return nil end
         local _, same = chars_here(fam)
         if same or room.taken["chr:" .. fam] or taken(sp) then return nil end
+        if fam:find("^princess") and not hooks.princess_free() then return nil end
         return sp
     end
     local function pick(list)
@@ -6047,6 +6124,7 @@ local function gag_use(el)                      -- how much sense it makes now (
         if about("princess") then return 1.6, "the princess about" end
         if room_frogs() >= 2 * FEW_FROGS then return 0.3, "frogs enough" end
     elseif t == "princess" then
+        if not cast_here("princess") then return 0, "no princess here" end
         for _, a in ipairs(actors) do if a.asleep_x then return 3, "a wolf asleep" end end
         if cast_here("frog") then return 2, "a frog here" end
         if about("werewolf") or about("vampire") or about("zombie") then return 1.5, "one to meet" end
@@ -6645,6 +6723,7 @@ local function tick()
                 if a.handed_on ~= "yes" then          -- (one walking off to next door: theirs to claim now)
                     if is_character(a) then set["chr:" .. actor_family(a)] = true end
                     for _, f in ipairs(a.also or {}) do set["chr:" .. f] = true end   -- (a duet: the other one)
+                    if hooks.princess_shape(a) then set["chr:princess_shape"] = true end
                 end
             end
             if #cats > 0 then set["spr:cat"] = true end
