@@ -192,7 +192,7 @@ function S.beggar(el, spr, h)
         local kid = g.pick_child(a)
         if not kid then g.resume() return end
         local gifts = { "sweet", "mandarin", "apple", "present" }
-        if kid.lantern and math.random() < 0.3 then gifts = { "lantern" } end
+        if kid.lantern and (kid.lantern.name or ""):match("^carry_") and not kid.moonlit and math.random() < 0.3 then gifts = { "lantern" } end
         local gift = gifts[math.random(#gifts)]
         kid.errand(a, gift, function()
             a.listening = nil
@@ -455,6 +455,7 @@ local function meet_cfg(who)
 end
 
 local force_unlit = false        -- (preview) the next group: one child with an unlit lantern
+local force_bare = false         -- (preview) the next group: one child with a bare stick (the moon comes to it)
 local function lantern_sprite(el, name, unlit)
     local M = E.M()
     if name and name ~= "" then return M.sprites[name] end
@@ -479,10 +480,12 @@ local function new_kid(el, spr, g, x, lantern)
     a.v = g.v or a.v_own
     a.lantern = lantern
     a.unlit = lantern and (lantern.name or ""):match("^unlit_") and true or nil
+    a.bare = lantern and lantern.name == "stick" or nil
     a.ph = rnd(0, 6.28)
     a.note = E.M().sprites[(el.notes or {})[math.random(math.max(1, #(el.notes or {})))] or ""]
     g.members[#g.members + 1] = a
     function a.cheer() if not a.steps[1] then a.steps = { { clip = "cheer" } } end end
+    function a.lightless() return a.unlit or a.bare or not a.lantern end
     function a.set_lit(on)            -- light the lantern (carry_*) or let it go out (unlit_*)
         local nm = a.lantern and a.lantern.name or ""
         local base = nm:gsub("^carry_", ""):gsub("^unlit_", "")
@@ -591,6 +594,10 @@ local function new_kid(el, spr, g, x, lantern)
         g.tick(t)
         local W_ = E.W()
         local frame = run_steps(a, dt)
+        if a.chasing then          -- after the moon that got away: off to the next screen, the moon caught there
+            E.walk_out(a, a.x, a.chasing, 0.4 * u, { grp = g.id, lantern = "carry_moon", proc = g.proc and 1 or nil, gv = a.v })
+            if a.x < -4 * u or a.x > W_ + 4 * u then return false end
+        end
         if not frame and a.unlit and g.mode == "walk" and a.x > 0 and a.x < W_ then
             look_for_light()
             frame = run_steps(a, 0)
@@ -735,6 +742,8 @@ function S.kid(el, spr, h)
     local unl = {}
     for i = 1, n do unl[i] = math.random() < (el.unlit or 1 / 6) end
     if force_unlit then for i = 1, n do unl[i] = (i == 2) end; force_unlit = false end
+    local bare_i = force_bare and 2 or nil
+    if force_bare then n, force_bare = math.max(n, 2), false end
     local lead = new_kid(el, spr, g, x, lantern_sprite(el, nil, unl[1]))
     local used = { [spr] = true }
     for i = 2, n do
@@ -746,10 +755,197 @@ function S.kid(el, spr, h)
         end
         if not s2 then break end
         used[s2] = true
-        local k = new_kid(el, s2, g, x - dir * (i - 1) * g.spacing * rnd(1.0, 1.15), lantern_sprite(el, nil, unl[i]))
+        local k = new_kid(el, s2, g, x - dir * (i - 1) * g.spacing * rnd(1.0, 1.15),
+                          i == bare_i and M.sprites.stick or lantern_sprite(el, nil, unl[i]))
         E.add(k, el)
     end
     return lead
+end
+
+-- ── the moon: a lantern up there ────────────────────────────────────────────
+-- In the sky (top left) for a while; then, a child without a light about, it comes down to the child's
+-- stick: sinking slowly, shrinking and warming, or coming loose and bouncing across the sky - the child
+-- runs after it, jumps and catches it (now and then it slips past: off to the next screen after it).
+-- The sky is empty a while (el.moonless); then a child's lantern slips off its stick, flies up wobbling,
+-- grows and pales and is the moon. One moon in the room (it claims spr:moon). Sprites: moon (the sky),
+-- moonfly (8 sizes: 0 lantern-size warm .. 7 the full moon), carry_moon (on a stick), stick, loose_*.
+
+local moon_gone_t, moonless = nil, 45      -- (this screen) when the moon last came down; how long the sky stays empty
+local moon_now = nil                        -- (preview) Ctrl+F5: down now; Ctrl+F6: up now
+
+local function moon_spot(el)
+    local W, H = E.W(), E.H()
+    local sp = E.M().sprites[el.sprite or "moon"]
+    local p = (el.places or { { 0.03, 0.04 } })[1]
+    return p[1] * W + (sp and sp.w or 0) / 2, p[2] * H + (sp and sp.h or 0) / 2
+end
+local function ease(s) return s * s * (3 - 2 * s) end
+
+local function kids_where(test)
+    local W = E.W()
+    local out = {}
+    for _, k in ipairs(others("kid")) do
+        if k.x > 0.12 * W and k.x < 0.88 * W and not k.steps[1] and not k.chasing and k.g and k.g.mode == "walk" and test(k) then
+            out[#out + 1] = k
+        end
+    end
+    return out
+end
+
+function S.moon(el, spr, h)
+    local W, H = E.W(), E.H()
+    local M = E.M()
+    local sky = M.sprites[el.sprite or "moon"]
+    local mfly = M.sprites[el.fly or "moonfly"]
+    if not sky then return nil end
+    if #others("moon") > 0 then return nil end
+    local a = { el = el, spr = sky, stm = "moon", layers = 1, unique = true }
+    local sx, sy = moon_spot(el)
+    local st, t0 = "sky", now()
+    local lo, hi = range(el.stay, 150)
+    local sky_until = now() + rnd(lo, hi)
+    local x, y, show, frame = sx, sy, sky, 0
+    local kid, path                -- the child it goes to / comes from; the way it goes
+    if moon_gone_t then
+        -- the sky's been empty: a child's lantern goes up to be the moon (no child with a light: not yet)
+        if moon_now ~= "up" and now() - moon_gone_t < moonless then return nil end
+        local ks = kids_where(function(k) return k.lantern and not k.lightless() and not k.moonlit end)
+        if #ks == 0 then return nil end
+        kid = ks[math.random(#ks)]
+        moon_now = nil
+        st = "slip"
+        local u = unit(kid.spr)
+        kid.steps = { { clip = "idle", dur = 0.35 },
+                      { clip = "cheer", rate = 1.6, on_start = function()        -- (swings it too hard)
+                          local lx, ly = kid.lantern_at()
+                          local base = (kid.lantern.name or ""):gsub("^carry_", "")
+                          a.loose = M.sprites["loose_" .. base]
+                          path = { x0 = lx, y0 = ly, t0 = now(), dur = rnd(7, 9) }
+                          kid.lantern, kid.bare = M.sprites[el.stick or "stick"], true
+                          st = "rise"
+                      end },
+                      { clip = "turn_front", face = kid.dir }, { clip = "idle", dur = 2.5 },     -- (looks up after it)
+                      { clip = "turn_side", face = kid.g.dir } }
+        x, y = kid.lantern_at()
+    end
+    moon_gone_t = nil
+
+    local function land_on(k)          -- the moon on the child's stick: its lantern now
+        local cm = M.sprites[el.carry or "carry_moon"]
+        if cm then k.lantern, k.unlit, k.bare, k.moonlit = cm, nil, nil, true end
+        moon_gone_t = now()
+        local mlo, mhi = range(el.moonless, 45)
+        moonless = rnd(mlo, mhi)
+    end
+    local function go_down()
+        local ks = kids_where(function(k) return k.lightless() end)
+        if #ks == 0 then return false end
+        kid = ks[math.random(#ks)]
+        moon_now = nil
+        local u = unit(kid.spr)
+        if math.random() < (el.loose or 0.4) then
+            -- it comes loose: wobbles, drops, bounces across the sky; the child runs under it and jumps
+            st = "loose"
+            local miss = math.random() < (el.miss or 0.15)
+            local dir = kid.g.dir
+            local cx = math.max(0.2 * W, math.min(0.8 * W, kid.x + dir * rnd(2.5, 5) * u))
+            path = { x0 = x, y0 = y, t0 = now(), dur = rnd(5, 6.5), cx = cx, miss = miss, dir = dir }
+            local lx = cx + dir * 1.1 * u                              -- (where its lantern will be)
+            path.lx, path.ly = lx, H - 1.9 * u
+            kid.steps = {
+                { clip = "turn_front", face = kid.dir }, { clip = "idle", dur = 0.6 },         -- (look! the moon)
+                { clip = "skip", walk_to = cx, v = kid.v_own * 1.5, face = dir },
+                { clip = "idle", wait = function() return st ~= "loose" or now() - path.t0 > path.dur * 0.86 end },
+                { clip = "cheer", rate = 1.3 },                                                -- (the jump, stick up)
+            }
+            if not miss then
+                for _, s2 in ipairs({ { clip = "turn_front", face = -dir }, { clip = "turn_side", face = -dir },
+                                      { clip = "turn_front", face = dir }, { clip = "turn_side", face = dir } }) do
+                    kid.steps[#kid.steps + 1] = s2                  -- (a happy little spin)
+                end
+            end
+        else
+            st = "sink"
+            path = { x0 = x, y0 = y, t0 = now(), dur = rnd(8, 11) }
+        end
+        return true
+    end
+
+    function a.update(dt, t)
+        local n = now()
+        if st == "sky" then
+            x, y, show, frame = sx, sy, sky, 0
+            if (n > sky_until or moon_now == "down") and n - t0 > 3 then
+                if not go_down() then sky_until = n + rnd(10, 20) end
+            end
+            if moon_now == "up" then           -- (preview: the sky empties at once for the other way round)
+                moon_gone_t, moonless, moon_now = n - 999, 0, "up"
+                return false
+            end
+        elseif st == "slip" then               -- (the child about to swing it off)
+            if kid.dead or not path and not kid.steps[1] then return false end
+            return true, {}
+        elseif st == "rise" then
+            local s = math.min(1, (n - path.t0) / path.dur)
+            local e = 1 - (1 - s) * (1 - s)        -- (quick off the stick, calming)
+            local wob = (1 - s) * (1 - s)
+            x = path.x0 + (sx - path.x0) * e + math.sin(n * 7.5) * 0.05 * H * wob
+            y = path.y0 + (sy - path.y0) * e + math.sin(n * 11) * 0.02 * H * wob
+            if s < 0.4 and a.loose then show, frame = a.loose, 0
+            else show, frame = mfly, math.min(7, math.floor((s - 0.4) / 0.6 * 8)) end
+            if s >= 1 then st, sky_until, t0 = "sky", n + rnd(lo, hi), n end
+        elseif st == "sink" then
+            if kid.dead or kid.leaving then st, path = "back", { x0 = x, y0 = y, t0 = n, dur = 5 } return true, {} end
+            local s = math.min(1, (n - path.t0) / path.dur)
+            local e = ease(s)
+            local tx, ty = kid.lantern_at()
+            x = path.x0 + (tx - path.x0) * e + math.sin(n * 1.3) * 0.02 * H * (1 - s)
+            y = path.y0 + (ty - path.y0) * e
+            show, frame = mfly, 7 - math.min(7, math.floor(s * 8))
+            if s >= 1 then
+                land_on(kid)
+                kid.steps = { { clip = "cheer" }, { clip = "turn_side", face = kid.g.dir } }
+                return false
+            end
+        elseif st == "back" then
+            local s = math.min(1, (n - path.t0) / path.dur)
+            x, y = path.x0 + (sx - path.x0) * ease(s), path.y0 + (sy - path.y0) * ease(s)
+            show, frame = mfly, math.min(7, math.floor(s * 8))
+            if s >= 1 then st, sky_until = "sky", n + rnd(20, 40) end
+        elseif st == "loose" then
+            local s = (n - path.t0) / path.dur
+            if s < 1 then
+                local e = s
+                local tx, ty = path.lx, path.ly
+                x = path.x0 + (tx - path.x0) * e + math.sin(n * 9) * 0.015 * H
+                -- dropping, with bounces off nothing (three hops getting lower)
+                local base = path.y0 + (ty - path.y0) * (e ^ 1.4)
+                y = base - math.abs(math.sin(3 * math.pi * e)) * 0.12 * H * (1 - e)
+                show, frame = mfly, 7 - math.min(5, math.floor(s * 6))
+            elseif not path.miss then
+                land_on(kid)
+                return false
+            else                               -- it slips past the stick: skimming off, the child after it
+                if not path.gone then
+                    path.gone = n
+                    kid.steps = { { clip = "skip", walk_to = path.dir > 0 and W + 6 * unit(kid.spr) or -6 * unit(kid.spr), v = kid.v_own * 1.6, face = path.dir } }
+                    kid.chasing = path.dir
+                end
+                x = x + path.dir * 0.35 * W * dt
+                y = path.ly - math.abs(math.sin((n - path.gone) * 5)) * 0.06 * H
+                show, frame = mfly, 2
+                if x < -0.1 * W or x > 1.1 * W then
+                    moon_gone_t = now()
+                    local mlo, mhi = range(el.moonless, 45)
+                    moonless = rnd(mlo, mhi)
+                    return false
+                end
+            end
+        end
+        if not show then return true, {} end
+        return true, { { spr = show, frame = frame, variant = false, x = x - show.w / 2, y = y - show.h / 2 } }
+    end
+    return a
 end
 
 -- ── preview keys ────────────────────────────────────────────────────────────
@@ -803,6 +999,23 @@ function S.install(api)
             end
         end
     end)
+    mp.add_forced_key_binding("Ctrl+F5", "stm-moon-down", function()       -- the moon comes down to a child
+        moon_now = "down"
+        force_bare = true
+        for _, el in ipairs(E.M() and E.M().elements or {}) do
+            if el.type == "kid" and not el.procession and E.elements()[el] then
+                E.elements()[el].next, E.elements()[el].force = 0, true
+                break
+            end
+        end
+        force("moon")
+    end)
+    mp.add_forced_key_binding("Ctrl+F6", "stm-moon-up", function()         -- a lantern goes up to be the moon
+        moon_now = "up"
+        if #others("moon") == 0 then moon_gone_t, moonless = now() - 999, 0 end
+        force("kid")
+        force("moon")
+    end)
     mp.add_forced_key_binding("Shift+F5", "stm-martin-look", function()      -- cycle St Martin's look, live
         for _, el in ipairs(E.M() and E.M().elements or {}) do
             if el.type == "martin" and el.looks then
@@ -821,7 +1034,7 @@ function S.install(api)
             end
         end
     end)
-    E.spawn.kid, E.spawn.martin, E.spawn.beggar = S.kid, S.martin, S.beggar
+    E.spawn.kid, E.spawn.martin, E.spawn.beggar, E.spawn.moon = S.kid, S.martin, S.beggar, S.moon
 end
 
 function S.reset() groups = {} end

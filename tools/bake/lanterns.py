@@ -161,19 +161,78 @@ def standing(shape, col, k):
     return pinned(im.resize((w // S, h // S), Image.LANCZOS))
 
 
-def moon():
-    R = 60 * S
+MOON_PALE, MOON_WARM = (236, 240, 248), (255, 205, 120)
+
+
+def moon_disc(R, f=1.0, warm=0.0, glow_a=80):
+    """The moon: a pale silver-white disc with a soft glow and faint craters, in a (4R x 4R) canvas;
+    f its size (1 = the full moon), warm 0..1 its colour going over to a lantern's (on its way down)."""
     im = Image.new("RGBA", (4 * R, 4 * R), (0, 0, 0, 0))
     c = 2 * R
+    r = R * f
+    col = mix(MOON_PALE, warm, MOON_WARM)
     g = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    ImageDraw.Draw(g).ellipse((c - 1.5 * R, c - 1.5 * R, c + 1.5 * R, c + 1.5 * R), fill=(255, 240, 190, 70))
-    im.alpha_composite(g.filter(ImageFilter.GaussianBlur(R / 3)))
+    ImageDraw.Draw(g).ellipse((c - 1.55 * r, c - 1.55 * r, c + 1.55 * r, c + 1.55 * r), fill=mix(col, 0.3) + (glow_a,))
+    im.alpha_composite(g.filter(ImageFilter.GaussianBlur(max(1, r / 3))))
     d = ImageDraw.Draw(im)
-    d.ellipse((c - R, c - R, c + R, c + R), fill=(250, 240, 200, 255))
-    for (dx, dy, rr) in ((-0.3, -0.2, 0.22), (0.35, 0.25, 0.16), (0.05, 0.5, 0.12), (0.4, -0.4, 0.1)):
-        d.ellipse((c + dx * R - rr * R, c + dy * R - rr * R, c + dx * R + rr * R, c + dy * R + rr * R),
-                  fill=(228, 216, 178, 255))
-    return im.resize((im.width // S, im.height // S), Image.LANCZOS)
+    d.ellipse((c - r, c - r, c + r, c + r), fill=col + (255,))
+    cr = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    cd = ImageDraw.Draw(cr)
+    for (dx, dy, rr) in ((-0.32, -0.18, 0.2), (0.3, 0.28, 0.15), (0.02, 0.52, 0.1), (0.42, -0.36, 0.09), (-0.45, 0.35, 0.08)):
+        cd.ellipse((c + (dx - rr) * r, c + (dy - rr) * r, c + (dx + rr) * r, c + (dy + rr) * r),
+                   fill=mix(col, 0.22, (140, 146, 165)) + (150,))
+    im.alpha_composite(cr.filter(ImageFilter.GaussianBlur(max(1, r / 14))))
+    return im
+
+
+def moon():
+    R = 60 * S
+    return moon_disc(R).resize((4 * R // S, 4 * R // S), Image.LANCZOS)
+
+
+def moonfly(k, n=8):
+    """The moon at n sizes: k 0 = lantern-size and warm (on a child's stick) .. n-1 = the full moon, pale."""
+    R = 60 * S
+    f = k / (n - 1)
+    return pinned(moon_disc(R, 0.32 + 0.68 * f, 1 - f).resize((4 * R // S, 4 * R // S), Image.LANCZOS))
+
+
+def carried_moon(k):
+    """The moon as a lantern on a child's stick (same frame as carried())."""
+    im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
+    sway = 9 * math.sin(2 * math.pi * k / FRAMES)
+    tip = (TIP[0] * S, TIP[1] * S)
+    r = 26 * S
+    disc = moon_disc(r, 1.0, 0.35, glow_a=int(110 * light_at(k)))
+    hang = 14 * S
+    cx = tip[0] - math.sin(math.radians(sway)) * (hang + r)
+    cy = tip[1] + math.cos(math.radians(sway)) * (hang + r)
+    im.alpha_composite(disc, (int(cx - 2 * r), int(cy - 2 * r)))
+    d = ImageDraw.Draw(im)
+    d.line([tip, (cx + math.sin(math.radians(sway)) * r, cy - math.cos(math.radians(sway)) * r)], fill=INK, width=2 * S)
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=INK, width=6 * S)
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=(130, 90, 55, 255), width=3 * S)
+    return pinned(im.resize((CW, CH), Image.LANCZOS))
+
+
+def bare_stick():
+    im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    tip = (TIP[0] * S, TIP[1] * S)
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=INK, width=6 * S)
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=(130, 90, 55, 255), width=3 * S)
+    d.line([tip, (tip[0], tip[1] + 10 * S)], fill=INK, width=2 * S)          # (the bit of wire left)
+    return pinned(im.resize((CW, CH), Image.LANCZOS))
+
+
+def loose(shape, col):
+    """A lantern come off its stick (flying off): the lantern alone, its glow round it."""
+    w = 160 * S
+    im = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    body = lantern_body(shape, col, 1.0, CARRY_R)
+    im.alpha_composite(glow(im.size, (w // 2, w // 2), 58 * S, col, 1.5))
+    im.alpha_composite(body, ((w - body.width) // 2, (w - body.height) // 2))
+    return pinned(im.resize((w // S, w // S), Image.LANCZOS))
 
 
 def note(k):
@@ -350,6 +409,13 @@ def main():
         for k in range(FRAMES):
             hanging(shape, COLOURS[name], (k + i) % FRAMES, string).save(os.path.join(ld, f"hang_{i}_{k}.png"), optimize=True)
     moon().save(os.path.join(pd, "moon.png"), optimize=True)
+    for k in range(8):
+        moonfly(k).save(os.path.join(pd, f"moonfly_{k}.png"), optimize=True)
+        carried_moon(k).save(os.path.join(ld, f"carry_moon_{k}.png"), optimize=True)
+    bare_stick().save(os.path.join(ld, "stick.png"), optimize=True)
+    for shape in SHAPES:
+        for name, col in COLOURS.items():
+            loose(shape, col).save(os.path.join(ld, f"loose_{shape}_{name}.png"), optimize=True)
     for k in range(4):
         note(k).save(os.path.join(pd, f"note_{k}.png"), optimize=True)
         coin(k).save(os.path.join(pd, f"coin_{k}.png"), optimize=True)

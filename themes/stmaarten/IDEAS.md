@@ -13,6 +13,13 @@ piece over; the beggar wraps it round, stands up and walks off. Four stages of c
 left he sits down in the cold: now he is a beggar, and a new St Martin comes along for him.
 One Martin per room.
 
+## The moon
+The moon hangs top left for a few minutes. Then it sinks, warming to lantern colour, onto the bare
+stick of a child who lost their lantern, or it flies loose; if it misses, the child chases it to the
+next screen. When the sky has had no moon long enough, a lit lantern slips off a child's stick and
+floats up, wobbling, to become the new moon (the child is left with a bare stick).
+Preview: **Ctrl+F5** the moon comes down, **Ctrl+F6** a new moon goes up.
+
 ## Meetings
 Kids sing for St Martin (sweets for everyone) or for a beggar (one child walks up with a gift:
 a sweet, a mandarin, an apple, a present, or their own lantern left glowing by the beggar).

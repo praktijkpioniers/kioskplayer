@@ -992,20 +992,151 @@
   "soot": {
    "file": "prop/soot.png",
    "height": 0.111
+  },
+  "moonfly": {
+   "frames": [
+    "prop/moonfly_0.png",
+    "prop/moonfly_1.png",
+    "prop/moonfly_2.png",
+    "prop/moonfly_3.png",
+    "prop/moonfly_4.png",
+    "prop/moonfly_5.png",
+    "prop/moonfly_6.png",
+    "prop/moonfly_7.png"
+   ],
+   "height": 0.17,
+   "fps": 1
+  },
+  "carry_moon": {
+   "frames": [
+    "lantern/carry_moon_0.png",
+    "lantern/carry_moon_1.png",
+    "lantern/carry_moon_2.png",
+    "lantern/carry_moon_3.png",
+    "lantern/carry_moon_4.png",
+    "lantern/carry_moon_5.png",
+    "lantern/carry_moon_6.png",
+    "lantern/carry_moon_7.png"
+   ],
+   "height": 0.143,
+   "fps": 8
+  },
+  "stick": {
+   "file": "lantern/stick.png",
+   "height": 0.143
+  },
+  "loose_round_orange": {
+   "file": "lantern/loose_round_orange.png",
+   "height": 0.117
+  },
+  "loose_round_red": {
+   "file": "lantern/loose_round_red.png",
+   "height": 0.117
+  },
+  "loose_round_yellow": {
+   "file": "lantern/loose_round_yellow.png",
+   "height": 0.117
+  },
+  "loose_round_blue": {
+   "file": "lantern/loose_round_blue.png",
+   "height": 0.117
+  },
+  "loose_round_green": {
+   "file": "lantern/loose_round_green.png",
+   "height": 0.117
+  },
+  "loose_round_pink": {
+   "file": "lantern/loose_round_pink.png",
+   "height": 0.117
+  },
+  "loose_round_purple": {
+   "file": "lantern/loose_round_purple.png",
+   "height": 0.117
+  },
+  "loose_star_orange": {
+   "file": "lantern/loose_star_orange.png",
+   "height": 0.117
+  },
+  "loose_star_red": {
+   "file": "lantern/loose_star_red.png",
+   "height": 0.117
+  },
+  "loose_star_yellow": {
+   "file": "lantern/loose_star_yellow.png",
+   "height": 0.117
+  },
+  "loose_star_blue": {
+   "file": "lantern/loose_star_blue.png",
+   "height": 0.117
+  },
+  "loose_star_green": {
+   "file": "lantern/loose_star_green.png",
+   "height": 0.117
+  },
+  "loose_star_pink": {
+   "file": "lantern/loose_star_pink.png",
+   "height": 0.117
+  },
+  "loose_star_purple": {
+   "file": "lantern/loose_star_purple.png",
+   "height": 0.117
+  },
+  "loose_house_orange": {
+   "file": "lantern/loose_house_orange.png",
+   "height": 0.117
+  },
+  "loose_house_red": {
+   "file": "lantern/loose_house_red.png",
+   "height": 0.117
+  },
+  "loose_house_yellow": {
+   "file": "lantern/loose_house_yellow.png",
+   "height": 0.117
+  },
+  "loose_house_blue": {
+   "file": "lantern/loose_house_blue.png",
+   "height": 0.117
+  },
+  "loose_house_green": {
+   "file": "lantern/loose_house_green.png",
+   "height": 0.117
+  },
+  "loose_house_pink": {
+   "file": "lantern/loose_house_pink.png",
+   "height": 0.117
+  },
+  "loose_house_purple": {
+   "file": "lantern/loose_house_purple.png",
+   "height": 0.117
   }
  },
  "elements": [
   {
-   "type": "decor",
+   "_doc": "the moon: a lantern up there - it comes down to a child without a light (sinking, or loose and caught with a jump), and a child's lantern flies up to be the next one (stmaarten.lua S.moon; Ctrl+F5 down, Ctrl+F6 up)",
+   "type": "moon",
    "sprite": "moon",
-   "anchor": "top-left",
    "places": [
     [
      0.03,
      0.04
     ]
    ],
+   "stay": [
+    120,
+    300
+   ],
+   "moonless": [
+    30,
+    60
+   ],
+   "loose": 0.4,
+   "miss": 0.15,
    "min": 1,
+   "every": [
+    6,
+    12
+   ],
+   "max_active": 1,
    "video_min": 5
   },
   {
@@ -1262,7 +1393,7 @@
      "martin_C_3"
     ]
    },
-   "look": "A"
+   "look": "B"
   }
  ]
 }
