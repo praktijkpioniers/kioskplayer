@@ -1210,6 +1210,7 @@
    "unit": 0.08
   }
  },
+ "planner": {"group": "act", "queue": 3, "gap": [4, 12]},
  "elements": [
   {
    "_doc": "the moon: a lantern up there - it comes down to a child without a light (sinking, or loose and caught with a jump), and a child's lantern flies up to be the next one (stmaarten.lua S.moon; Ctrl+F5 down, Ctrl+F6 up)",
@@ -1355,6 +1356,7 @@
    "_doc": "a lantern procession: a line of children",
    "type": "kid",
    "procession": true,
+   "group": "act",
    "sprites": [
     "kid_00",
     "kid_01",
@@ -1464,6 +1466,7 @@
   {
    "_doc": "St Martin sharing his cloak (stages: full, half, a quarter, none). \"look\" picks the outfit: v1 (first try), A gold cuirass + plumed helmet, B silver cuirass + plumed helmet, C bareheaded (Shift+F5 cycles it live)",
    "type": "martin",
+   "group": "act",
    "sprite": "martin_0",
    "stages": [
     "martin_0",
@@ -1536,7 +1539,9 @@
     90
    ],
    "min": 4,
-   "video_min": 9,
+   "video_min": 8,
+   "group": "act",
+   "gag_hold": 90,
    "hands": "church_hands"
   },
   {
@@ -1564,7 +1569,9 @@
     7
    ],
    "min": 5,
-   "video_min": 9
+   "video_min": 8,
+   "group": "act",
+   "gag_hold": 75
   }
  ]
 }

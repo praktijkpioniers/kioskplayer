@@ -648,6 +648,7 @@ end
 -- in among the actors, holding ids
 local function adopt(a, el, h)
     a.uncounted, a.handed = true, true
+    a.came = a.came or mp.get_time()      -- (on this screen since: see gag_on, el.gag_hold)
     a.hops = tonumber(h.hops) or 1
     a.unique = h.unique == true       -- holds its claim here now (no twin elsewhere)
     room.claim_t = 0
@@ -6104,10 +6105,16 @@ end
 local function is_gag(el)
     return M and M.planner and has_group(groups_of(el), M.planner.group or "monster") or false
 end
+-- An act whose prop lingers (a church, a house, a bonfire: they stay up a while after the act) lets
+-- the screen go once its act part is done: a.act_done set by the act, or el.gag_hold seconds after
+-- it came (on this screen); then the next gag may come while it still stands
 local function gag_on()                         -- the gag on here: its actor, or nil
     local g = M.planner.group or "monster"
+    local now = mp.get_time()
     for _, a in ipairs(actors) do
-        if a.scene or (a.el and not HANDED_ONLY[a.el.type] and not a.gone and has_group(a.groups or {}, g)) then return a end
+        if a.scene or (a.el and not HANDED_ONLY[a.el.type] and not a.gone and not a.act_done
+                and not (a.el.gag_hold and now - (a.born or a.came or now) > a.el.gag_hold)
+                and has_group(a.groups or {}, g)) then return a end
     end
 end
 local function about(fam)                       -- one of fam about, here or on another screen
@@ -6116,6 +6123,10 @@ local function about(fam)                       -- one of fam about, here or on 
 end
 local function gag_use(el)                      -- how much sense it makes now (×), and why
     local t = el.type
+    if hooks.gag_use then                       -- (a theme's own sense: St Maarten, see stm_plan.lua)
+        local u, why = hooks.gag_use(el, mode)
+        if u then return u, why end
+    end
     if t == "witch" then
         local n = room_frogs()
         if n < FEW_FROGS then return 2.5, "frogs wanted" end
@@ -6188,7 +6199,12 @@ local function plan_tick(now)
         end
         return
     end
-    if gag_on() then plan.free_t, plan.pull = nil, nil return end
+    local on = gag_on()
+    if (on and on.el and on.el.type or false) ~= plan.busy then    -- (for the log: what's on, when free)
+        plan.busy = on and on.el and on.el.type or false
+        msg.verbose("plan: " .. (plan.busy and ("busy " .. plan.busy) or "free"))
+    end
+    if on then plan.free_t, plan.pull = nil, nil return end
     if not plan.free_t then
         local lo, hi = range(M.planner.gap, 12)
         plan.free_t = now + rnd(lo, hi)
@@ -6253,6 +6269,8 @@ local function try_spawn(el, now)
     local spr = el.cast and {} or (unique and free_sprite_of(el) or sprite_of(el))   -- visitors pick their own sprite
     if not spr then st.next = now + rnd(5, 15) return end
     if not spawn[el.type] then return end
+    if planned then el._next = 0 end    -- (St Maarten acts with a timer of their own: called now, so due)
+    hooks.gag_noted = nil               -- (set by api.add when the act put itself up during the spawn)
     local a = spawn[el.type](el, spr)
     if a and unique and a.spr and taken(a.spr) then
         if a.release then a.release() end
@@ -6276,7 +6294,8 @@ local function try_spawn(el, now)
         b.gone = true
         msg.verbose("cast: the " .. tostring(b.family or "frog") .. " joins the " .. tostring(el.type))
     end
-    if is_gag(el) then gag_started(el, not planned and (st.force and "called" or nil)) end
+    if is_gag(el) and hooks.gag_noted ~= el then gag_started(el, not planned and (st.force and "called" or nil)) end
+    hooks.gag_noted = nil
     st.force = nil
     if unique then room.claim_t = 0 end    -- claim it right away: less chance of a twin elsewhere
     a.groups = a.groups or groups_of(el)
@@ -6369,6 +6388,16 @@ if hooks.stm and hooks.stm.install then
         add = function(a, el)           -- one more actor, not started by try_spawn (not counted)
             if #free_ids < (a.layers or 1) then return false end
             a.el, a.uncounted, a.groups = a.el or el, true, a.groups or {}
+            a.came = a.came or mp.get_time()
+            if el and a.el == el and is_gag(el) and #a.groups == 0 then
+                -- an act that puts itself up (the church, a house): the screen's gag, as if spawned
+                a.groups = groups_of(el)
+                if plan.go == el then
+                    gag_started(el); hooks.gag_noted = el
+                    local st = elements[el]
+                    if st then st.next = mp.get_time() + rnd(range(el.every, 30)) end
+                end
+            end
             a.id = take_id()
             if a.layers then
                 a.ids = { a.id }
@@ -6417,6 +6446,9 @@ hooks.stm_x = load_module("stm_extra.lua")
 if hooks.stm_x and hooks.stm_x.install and hooks.stm and hooks.stm.api then
     hooks.stm_x.install(hooks.stm.api, hooks.stm, hooks.stm_extras)
 end
+-- St Maarten: the planner's sense of what to put on next (stm_plan.lua; see gag_use)
+hooks.stm_plan = load_module("stm_plan.lua")
+if hooks.stm_plan and hooks.stm and hooks.stm.api then hooks.gag_use = hooks.stm_plan.install(hooks.stm.api) end
 local cat_next = {}  -- element name -> time the next cat may come
 local cat_dir        -- (preview key) the next cat walks this way
 
