@@ -34,7 +34,9 @@ EVENTS_PATH = THEMES_DIR / "events.json"
 ENGINE_LUA = THEMES_DIR / "engine.lua"
 CACHE_DIR = Path("~/.cache/kioskplayer/sprites").expanduser()
 
-WEEKDAYS = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+WEEKDAY_NUM = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+WEEKDAYS = list(WEEKDAY_NUM)    # mon..sun (closed days, the web page's boxes)
+CLOSED_AHEAD_DAYS = 90          # a closed day shows a season whose prime day is that close
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -56,13 +58,20 @@ def easter(year: int) -> dt.date:
     return dt.date(year, month, day + 1)
 
 
+def _weekday(name: Any) -> int:
+    return WEEKDAY_NUM[str(name)[:3].lower()]
+
+
 def resolve_date(spec: Any, year: int) -> dt.date:
     """
     Date spec forms:
       "10-31"                                   fixed month-day
+      {"month": 4, "day": 27}                   the same, as a dict (so it can take the keys below)
       {"month": 11, "weekday": "thu", "nth": 4} nth weekday of month (nth=-1 → last)
+      {"month": 11, "day": 12, "weekday": "sat"} the first Saturday on or after 11-12
       {"easter": -47}                           days relative to Easter Sunday
-      any dict form may add "offset": N         shift by N days (e.g. Black Friday = 4th thu +1)
+      any dict form may add "offset": N         shift by N days (e.g. 4th thu +1)
+      any dict form may add "move": {"sun": -1} off a weekday: on a Sunday one day earlier (King's Day)
       any form may be wrapped: {"years": {"2026": "11-14"}, "default": <spec>}
     """
     if isinstance(spec, dict) and "years" in spec:
@@ -76,7 +85,7 @@ def resolve_date(spec: Any, year: int) -> dt.date:
     if "easter" in spec:
         d = easter(year) + dt.timedelta(days=int(spec["easter"]))
     elif "nth" in spec:
-        month, wd, nth = int(spec["month"]), WEEKDAYS[str(spec["weekday"])[:3].lower()], int(spec["nth"])
+        month, wd, nth = int(spec["month"]), _weekday(spec["weekday"]), int(spec["nth"])
         if nth > 0:
             first = dt.date(year, month, 1)
             d = first + dt.timedelta(days=(wd - first.weekday()) % 7 + 7 * (nth - 1))
@@ -84,9 +93,18 @@ def resolve_date(spec: Any, year: int) -> dt.date:
             nxt = dt.date(year + (month == 12), month % 12 + 1, 1)
             last = nxt - dt.timedelta(days=1)
             d = last - dt.timedelta(days=(last.weekday() - wd) % 7)
+    elif "month" in spec and "day" in spec:
+        d = dt.date(year, int(spec["month"]), int(spec["day"]))
+        if "weekday" in spec:
+            d += dt.timedelta(days=(_weekday(spec["weekday"]) - d.weekday()) % 7)
     else:
         raise ValueError(f"bad date spec {spec!r}")
-    return d + dt.timedelta(days=int(spec.get("offset", 0)))
+    d += dt.timedelta(days=int(spec.get("offset", 0)))
+    for wd, shift in (spec.get("move") or {}).items():
+        if d.weekday() == _weekday(wd):
+            d += dt.timedelta(days=int(shift))
+            break
+    return d
 
 
 def event_window(ev: dict[str, Any], year: int) -> tuple[dt.date, dt.date, dt.date, dt.date]:
@@ -114,20 +132,15 @@ LEVELS = {
 }
 
 
-def event_level(ev: dict[str, Any], today: dt.date) -> Optional[int]:
-    """
-    None when the event is not running. Prime day(s) → PRIME_LEVEL (8).
-    The run-up climbs from lead_min to lead_max (levels, default 1..7), non-linear:
-    progress ** curve, so the first days stay light and it builds up faster near the prime day.
-    After the prime day it fades out the same way.
-    """
+def _event_state(ev: dict[str, Any], today: dt.date) -> Optional[tuple[int, bool]]:
+    """(level, on a prime day) or None when the event is not running (see event_level)."""
     # Events can wrap into the next year (e.g. new year), so check last year's occurrence too.
     for year in (today.year, today.year - 1):
         start, p1, p2, end = event_window(ev, year)
         if not (start <= today <= end):
             continue
         if p1 <= today <= p2:
-            return PRIME_LEVEL
+            return max(1, min(DEMO_LEVEL - 1, int(ev.get("prime_level", PRIME_LEVEL)))), True
         lo = float(ev.get("lead_min", 1))
         hi = float(ev.get("lead_max", PRIME_LEVEL - 1))
         curve = float(ev.get("curve", 2.0))
@@ -139,8 +152,20 @@ def event_level(ev: dict[str, Any], today: dt.date) -> Optional[int]:
         else:
             span = (end - p2).days - 1
             progress = (end - today).days / span if span > 0 else 1.0
-        return max(1, min(PRIME_LEVEL - 1, round(lo + (hi - lo) * max(0.0, min(1.0, progress)) ** curve)))
+        return max(1, min(PRIME_LEVEL - 1, round(lo + (hi - lo) * max(0.0, min(1.0, progress)) ** curve))), False
     return None
+
+
+def event_level(ev: dict[str, Any], today: dt.date) -> Optional[int]:
+    """
+    None when the event is not running. Prime day(s) → PRIME_LEVEL (8), or the event's
+    "prime_level" (a sub-event's day that should stand out but not go full blown).
+    The run-up climbs from lead_min to lead_max (levels, default 1..7), non-linear:
+    progress ** curve, so the first days stay light and it builds up faster near the prime day.
+    After the prime day it fades out the same way.
+    """
+    st = _event_state(ev, today)
+    return st[0] if st else None
 
 
 def configured_level(cfg: dict[str, Any], calendar_level: int) -> int:
@@ -155,16 +180,62 @@ def configured_level(cfg: dict[str, Any], calendar_level: int) -> int:
         return calendar_level
 
 
+# Event names: "<family>" or "<family>-<sub>". A sub-event ("sinterklaas-intocht") takes theme,
+# type and priority from its family's main event ("sinterklaas") unless it sets its own, and a
+# date in it may be {"of": "start"|"date"|"end"}: the main event's spec for that. On the days a
+# sub-event is on (it wins from its family's main event on the same footing), the engine gets
+# its name in the manifest ("event"), so a theme can do something special that day.
+INHERIT = ("theme", "type", "priority")
+
+
+def event_family(ev_or_id: Any) -> str:
+    eid = ev_or_id if isinstance(ev_or_id, str) else str(ev_or_id.get("id", ""))
+    return eid.split("-", 1)[0].lower()
+
+
+def event_names(ev: dict[str, Any]) -> set[str]:
+    """The names that refer to this event: its id, its family and its type."""
+    return {str(ev.get("id", "")).lower(), event_family(ev), str(ev.get("type", "")).lower()} - {""}
+
+
 def load_events() -> list[dict[str, Any]]:
     try:
         data = json.loads(EVENTS_PATH.read_text(encoding="utf-8"))
-        return [e for e in data.get("events", []) if isinstance(e, dict)]
+        events = [dict(e) for e in data.get("events", []) if isinstance(e, dict) and e.get("id")]
     except Exception:
         return []
+    main = {str(e["id"]).lower(): e for e in events if "-" not in str(e["id"])}
+    for ev in events:
+        parent = main.get(event_family(ev)) if "-" in str(ev["id"]) else None
+        if parent is None:
+            ev.setdefault("theme", ev["id"])
+            ev.setdefault("type", ev["id"])
+            continue
+        for k in INHERIT:
+            if k not in ev and k in parent:
+                ev[k] = parent[k]
+        ev.setdefault("theme", parent.get("theme", parent["id"]))
+        ev.setdefault("type", parent.get("type", parent["id"]))
+        for k in ("start", "date", "end"):
+            spec = ev.get(k)
+            if isinstance(spec, dict) and "of" in spec:
+                ev[k] = parent[spec["of"]]
+    return events
 
 
-WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-CLOSED_AHEAD_DAYS = 90          # a closed day shows a season whose prime day is that close
+def _disabled(cfg: dict[str, Any]) -> set[str]:
+    return {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])}
+
+
+def find_event(name: str, events: Optional[list[dict[str, Any]]] = None) -> Optional[dict[str, Any]]:
+    """The event a name refers to: its id, else the family's main event (or first of the family)."""
+    name = name.strip().lower()
+    events = load_events() if events is None else events
+    for ev in events:
+        if str(ev["id"]).lower() == name:
+            return ev
+    fam = [ev for ev in events if event_family(ev) == name or str(ev.get("type", "")).lower() == name]
+    return fam[0] if fam else None
 
 
 def closed_today(cfg: dict[str, Any], today: dt.date) -> bool:
@@ -173,49 +244,70 @@ def closed_today(cfg: dict[str, Any], today: dt.date) -> bool:
     return WEEKDAYS[today.weekday()] in days
 
 
-def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, float]]:
-    """(theme_name, level) for today, honouring config switches, or None. On a closed day
-    (themes_closed_days) with the level on auto: the season on now or coming up next (prime day
-    within CLOSED_AHEAD_DAYS) in full (PRIME_LEVEL), whatever the maximum - nobody but us to see it."""
+def pick_event(cfg: dict[str, Any], today: dt.date) -> Optional[dict[str, Any]]:
+    """{"theme", "level", "event"} for today, honouring config switches, or None. "event" is the
+    event id ("sinterklaas-intocht") or "" when the theme is forced by folder name.
+    themes_force: an event id or family (that event's theme and name) or a theme folder.
+    themes_disabled_types: event types, families or single event ids to leave out.
+    On a closed day (themes_closed_days) with the level on auto: the season on now or coming up
+    next (prime day within CLOSED_AHEAD_DAYS) in full (PRIME_LEVEL), whatever the maximum -
+    nobody but us to see it. Overlaps: a prime day wins, then priority, then level, then a
+    sub-event over its family's main event."""
+    events = load_events()
     force = str(cfg.get("themes_force") or "").strip()
     if force:
         lvl = configured_level(cfg, PRIME_LEVEL)
-        return (force, lvl) if lvl > 0 else None
+        if lvl <= 0:
+            return None
+        if (THEMES_DIR / force / "theme.json").exists() and not any(str(e["id"]).lower() == force.lower() for e in events):
+            return {"theme": force, "level": lvl, "event": ""}
+        ev = find_event(force, events)
+        if ev is not None:
+            return {"theme": str(ev["theme"]), "level": lvl, "event": str(ev["id"])}
+        return {"theme": force, "level": lvl, "event": ""}
 
     if not bool(cfg.get("themes_enabled", True)):
         return None
-    disabled = {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])}
+    disabled = _disabled(cfg)
 
-    best: Optional[tuple[int, int, int, str]] = None
+    best: Optional[tuple] = None
     closed = closed_today(cfg, today) and cfg.get("themes_level", "auto") in (None, "", "auto")
-    soonest: Optional[tuple[int, str]] = None
-    for ev in load_events():
-        if str(ev.get("type", ev.get("id", ""))).lower() in disabled:
+    soonest: Optional[tuple] = None
+    for ev in events:
+        if event_names(ev) & disabled:
             continue
-        if not (THEMES_DIR / str(ev.get("theme", ev.get("id"))) / "theme.json").exists():
+        if not (THEMES_DIR / str(ev["theme"]) / "theme.json").exists():
             continue
         try:
-            lvl = event_level(ev, today)
-        except Exception:
+            st = _event_state(ev, today)
+        except Exception as e:
+            print(f"[themes] event {ev.get('id')}: {e!r}")
             continue
-        if lvl is None and closed:
+        if st is None and closed:
             for year in (today.year, today.year + 1):
                 _, p1, p2, _ = event_window(ev, year)
                 if p2 >= today and (p1 - today).days <= CLOSED_AHEAD_DAYS:
-                    soonest = min(soonest or (999, ""), ((p1 - today).days, str(ev.get("theme", ev.get("id")))))
+                    soonest = min(soonest or (999, "", ""), ((p1 - today).days, str(ev["theme"]), str(ev["id"])))
                     break
-        if lvl is None:
+        if st is None:
             continue
-        # Overlaps: a prime day always wins, then higher priority, then higher level.
-        key = (int(lvl >= PRIME_LEVEL), int(ev.get("priority", 0)), lvl, str(ev.get("theme", ev.get("id"))))
+        lvl, prime = st
+        key = (int(prime), int(ev.get("priority", 0)), lvl, int("-" in str(ev["id"])), str(ev["theme"]), str(ev["id"]))
         if best is None or key > best:
             best = key
     if closed and (best or soonest):
-        return (best[3] if best else soonest[1], PRIME_LEVEL)
+        return {"theme": best[4], "level": PRIME_LEVEL, "event": best[5]} if best else \
+            {"theme": soonest[1], "level": PRIME_LEVEL, "event": soonest[2]}
     if best is None:
         return None
     lvl = configured_level(cfg, best[2])
-    return (best[3], lvl) if lvl > 0 else None
+    return {"theme": best[4], "level": lvl, "event": best[5]} if lvl > 0 else None
+
+
+def pick_theme(cfg: dict[str, Any], today: dt.date) -> Optional[tuple[str, int]]:
+    """(theme_name, level) for today, or None: pick_event without the event name."""
+    p = pick_event(cfg, today)
+    return (p["theme"], p["level"]) if p else None
 
 
 def today_for(cfg: dict[str, Any]) -> dt.date:
@@ -522,7 +614,8 @@ def build_sprite(theme_dir: Path, name: str, sdef: dict[str, Any], screen_h: int
     return meta
 
 
-def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: bool = False) -> Path:
+def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: bool = False,
+                   event: str = "") -> Path:
     """Prepare all sprites of a theme and write the manifest the Lua engine loads."""
     theme_dir = THEMES_DIR / theme
     tdef = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
@@ -536,6 +629,7 @@ def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: b
             print(f"[themes] sprite {theme}/{name} failed: {e!r}")
     manifest = {
         "theme": theme,
+        "event": event or theme,     # the calendar event: "sinterklaas" or a day of it, "sinterklaas-intocht"
         "level": int(level),
         "screen": [screen_w, screen_h],
         "sprites": sprites,
@@ -875,9 +969,9 @@ class ThemeController:
                 self.send("script-message", "theme-overscan", json.dumps(ov))
 
             # Theme
-            pick = pick_theme(self.cfg, today_for(self.cfg))
+            pick = pick_event(self.cfg, today_for(self.cfg))
             text = bool(self.cfg.get("themes_text", False))
-            key = (pick[0], pick[1], w, h, text) if pick else None
+            key = (pick["theme"], pick["level"], pick["event"], w, h, text) if pick else None
             if key == self._loaded_key:
                 return
             self._loaded_key = key
@@ -885,12 +979,12 @@ class ThemeController:
                 self.send("script-message", "theme-off")
                 self.log("themes: no active theme")
                 return
-            theme, level = pick
-            manifest = build_manifest(theme, level, w, h, text)
+            theme, level, event = pick["theme"], pick["level"], pick["event"]
+            manifest = build_manifest(theme, level, w, h, text, event)
             if self.room:
                 self.room.announce()
             self.send("script-message", "theme-load", str(manifest))
-            self.log(f"themes: loaded {theme} level={level}")
+            self.log(f"themes: loaded {theme} level={level} event={event or '-'}")
         except Exception as e:
             self.log(f"themes: refresh failed: {e!r}")
         finally:
@@ -904,5 +998,6 @@ if __name__ == "__main__":
     days = int(sys.argv[2]) if len(sys.argv) > 2 else 21
     for n in range(days):
         d = start + dt.timedelta(days=n)
-        p = pick_theme({}, d)
-        print(d.isoformat(), d.strftime("%a"), f"{p[0]:<12} {p[1]} " + "#" * (p[1] * 4) if p else "-")
+        p = pick_event({}, d)
+        print(d.isoformat(), d.strftime("%a"),
+              f"{p['theme']:<12} {p['level']} {p['event']:<24} " + "#" * (p["level"] * 4) if p else "-")

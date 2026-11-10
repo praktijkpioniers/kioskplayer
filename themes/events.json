@@ -1,10 +1,19 @@
 {
   "_doc": [
-    "Seasonal event calendar. Dates: 'MM-DD', {'month':11,'weekday':'thu','nth':4,'offset':1}, {'easter':-47},",
-    "or {'years': {'2026': '11-14'}, 'default': <spec>} for dates that differ per year.",
-    "date = (first) prime day; prime_days = how many prime days; start/end or lead_days/after_days = run-up/fade-out.",
-    "The run-up climbs from level lead_min to lead_max (default 1..7) as progress**curve; prime day(s) = level 8.",
-    "type is what players can switch off (config themes_disabled_types). Events whose theme folder has no theme.json are skipped."
+    "Seasonal event calendar. Each event: id, theme (folder, default = id), type (what players can switch off, default = id).",
+    "Names: '<family>' or '<family>-<sub>'. A sub-event (sinterklaas-intocht) takes theme/type/priority from its family's main event",
+    "(sinterklaas) unless it sets its own; a date in it may be {'of': 'start'|'date'|'end'} = the main event's. On its days the engine",
+    "gets its name as manifest 'event', so the theme can do something special. Config themes_force / themes_disabled_types take a",
+    "family ('sinterklaas': all of it), a single id ('sinterklaas-intocht') or a type.",
+    "Dates: 'MM-DD', {'month':4,'day':27}, {'month':11,'weekday':'thu','nth':4} (nth=-1: last),",
+    "{'month':11,'day':12,'weekday':'sat'} (first Saturday on or after 11-12), {'easter':-47};",
+    "dict forms take 'offset': N days and 'move': {'sun': -1} (on a Sunday a day earlier);",
+    "{'years': {'2026': '11-14'}, 'default': <spec>} for dates set per year.",
+    "date = (first) prime day; prime_days = how many prime days; prime_level = the level on them (default 8);",
+    "start/end or lead_days/after_days = run-up/fade-out. Windows may run over new year.",
+    "The run-up climbs from level lead_min to lead_max (default 1..7) as progress**curve.",
+    "Overlaps: a prime day wins, then higher priority, then higher level, then a sub-event over its main event.",
+    "Events whose theme folder has no theme.json are skipped. Check: python3 tools/calendar_check.py"
   ],
   "events": [
     {
@@ -39,8 +48,8 @@
         },
         "default": {
           "month": 11,
-          "weekday": "sat",
-          "nth": 2
+          "day": 12,
+          "weekday": "sat"
         }
       },
       "date": "12-05",
@@ -48,6 +57,18 @@
       "lead_max": 7,
       "curve": 1.5,
       "priority": 1
+    },
+    {
+      "id": "sinterklaas-intocht",
+      "date": {
+        "of": "start"
+      },
+      "prime_level": 6,
+      "_note": "the arrival by steamboat (national: 2026 Grave, 11-14); a Saturday, usually the first on or after 11-12, announced each year"
+    },
+    {
+      "id": "sinterklaas-pakjesavond",
+      "date": "12-05"
     },
     {
       "id": "christmas",
@@ -60,6 +81,79 @@
       "lead_min": 1,
       "lead_max": 7,
       "curve": 1.5
+    },
+    {
+      "id": "newyear",
+      "type": "newyear",
+      "theme": "newyear",
+      "date": "12-31",
+      "prime_days": 2,
+      "lead_days": 3,
+      "lead_min": 2,
+      "lead_max": 5,
+      "curve": 1.5,
+      "priority": 1
+    },
+    {
+      "id": "valentine",
+      "type": "valentine",
+      "theme": "valentine",
+      "date": "02-14",
+      "lead_days": 3,
+      "lead_min": 1,
+      "lead_max": 3,
+      "priority": -1
+    },
+    {
+      "id": "carnaval",
+      "type": "carnaval",
+      "theme": "carnaval",
+      "date": {
+        "easter": -50
+      },
+      "prime_days": 4,
+      "lead_days": 7,
+      "lead_min": 2,
+      "lead_max": 7,
+      "curve": 1.5,
+      "_note": "Saturday to Tuesday before Ash Wednesday"
+    },
+    {
+      "id": "carnaval-opening",
+      "date": "11-11",
+      "lead_days": 0,
+      "prime_level": 5,
+      "priority": -1,
+      "_note": "11-11 at 11:11, the season opening: loses to St Maarten the same day"
+    },
+    {
+      "id": "easter",
+      "type": "easter",
+      "theme": "easter",
+      "date": {
+        "easter": 0
+      },
+      "prime_days": 2,
+      "lead_days": 10,
+      "lead_min": 1,
+      "lead_max": 6,
+      "curve": 1.5
+    },
+    {
+      "id": "kingsday",
+      "type": "kingsday",
+      "theme": "kingsday",
+      "date": {
+        "month": 4,
+        "day": 27,
+        "move": {
+          "sun": -1
+        }
+      },
+      "lead_days": 3,
+      "lead_min": 2,
+      "lead_max": 5,
+      "_note": "on a Sunday the day before"
     }
   ]
 }

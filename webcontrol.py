@@ -283,6 +283,9 @@ def render_page(cfg: dict, msg: str = "") -> str:
         for d in themes.WEEKDAYS
     )
     theme_names = sorted(p.parent.name for p in themes.THEMES_DIR.glob("*/theme.json"))
+    # days of an event that the theme can show differently ("sinterklaas-intocht") can be previewed too
+    theme_names += [str(ev["id"]) for ev in themes.load_events()
+                    if "-" in str(ev["id"]) and str(ev.get("theme")) in theme_names]
     cur_force = str(cfg.get("themes_force") or "")
     force_opts_html = '<option value="">(follow calendar)</option>' + "".join(
         f'<option value="{esc(n)}" {"selected" if n == cur_force else ""}>{esc(n)}</option>' for n in theme_names
@@ -299,10 +302,11 @@ def render_page(cfg: dict, msg: str = "") -> str:
         for n in range(1, themes.PRIME_LEVEL + 1)
     )
     try:
-        active = themes.pick_theme(cfg, themes.today_for(cfg))
+        active = themes.pick_event(cfg, themes.today_for(cfg))
     except Exception:
         active = None
-    active_txt = f"{active[0]} (level {active[1]}: {themes.LEVELS.get(active[1], '')})" if active else "none"
+    active_txt = (f"{active['theme']}" + (f" - {active['event']}" if active["event"] not in ("", active["theme"]) else "")
+                  + f" (level {active['level']}: {themes.LEVELS.get(active['level'], '')})") if active else "none"
     watermark_enabled = bool(cfg.get("watermark_enabled", True))
     wm_pos = str(cfg.get("watermark_position", "top-right"))
     wm_pos_opts_html = "".join(
@@ -914,7 +918,9 @@ class Handler(BaseHTTPRequestHandler):
         cfg["themes_enabled"] = (str(get("themes_enabled", str) or "1").strip() == "1")
         types_on = {t.lower() for t in data.get("theme_type_on", [])}
         all_types = {str(ev.get("type", ev.get("id", ""))).lower() for ev in themes.load_events()}
-        cfg["themes_disabled_types"] = sorted(all_types - types_on)
+        # entries that are no type box (a single event like "sinterklaas-intocht") stay as they were
+        keep = {str(t).lower() for t in (cfg.get("themes_disabled_types") or [])} - all_types
+        cfg["themes_disabled_types"] = sorted((all_types - types_on) | keep)
         cfg["themes_force"] = (data.get("themes_force", [""])[0] or "").strip()
         lvl_raw = (data.get("themes_level", ["auto"])[0] or "auto").strip()
         cfg["themes_level"] = lvl_raw if lvl_raw == "auto" else max(0, min(themes.DEMO_LEVEL, int(lvl_raw))) if lvl_raw.isdigit() else "auto"
