@@ -1,0 +1,33 @@
+{
+ "_doc": "Sinterklaas on Ozosnel: tools/bake/ride.py composites the rider (kaykit.py sint_ride.json, baked at 443 px = 147.7 px per unit, into ~/.cache) onto the horse (horse.py). Rebake: see IDEAS.md (themes/sinterklaas).",
+ "horse": "themes/sinterklaas/anim/horse",
+ "rider": "~/.cache/kioskplayer/bake/sint_ride",
+ "seat": 0.1,
+ "clips": {
+  "walk": {
+   "horse": "walk",
+   "rider": "ride"
+  },
+  "trot": {
+   "horse": "trot",
+   "rider": "ride"
+  },
+  "idle": {
+   "horse": "idle",
+   "rider": "ride_front"
+  },
+  "wave": {
+   "horse": "idle",
+   "rider": "ride_wave",
+   "length": "rider"
+  },
+  "graze": {
+   "horse": "graze",
+   "rider": "ride_front"
+  },
+  "shake": {
+   "horse": "shake",
+   "rider": "ride_front"
+  }
+ }
+}

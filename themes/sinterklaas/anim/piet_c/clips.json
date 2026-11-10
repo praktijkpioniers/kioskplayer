@@ -1,0 +1,74 @@
+{
+ "view": "front",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Rogue.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.4000836149567649
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 6,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "wave": {
+   "files": "wave_*.png",
+   "count": 21,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "hop": {
+   "files": "hop_*.png",
+   "count": 15,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "throw": {
+   "files": "throw_*.png",
+   "count": 17,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "pick": {
+   "files": "pick_*.png",
+   "count": 16,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "run": {
+   "files": "run_*.png",
+   "count": 10,
+   "fps": 12.0,
+   "loop": true,
+   "stride": 1.6108145671231406
+  }
+ },
+ "unit_px": 147.69230769230768,
+ "origin_px": [
+  147.61904761904762,
+  384
+ ]
+}

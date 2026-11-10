@@ -1,0 +1,258 @@
+{
+ "_doc": "Written by tools/bake/piet_variants.py from piet.json - edit that, not this. A Piet (roetveegpiet: an ordinary face with a few smudges of soot from the chimney - no make-up, no caricature). KayKit Adventurers (CC0) Rogue, cape hidden; a doublet and hose in two colours, puffed sleeves, a white ruff collar, a beret with a feather (props). Colour variants: piet_b.json, piet_c.json (written by the same recipe with other colours, see tools/bake/piet_variants.py).",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Rogue.glb",
+ "hide": [
+  "Icosphere",
+  "Rogue_Cape",
+  "1H_Crossbow",
+  "2H_Crossbow",
+  "Knife",
+  "Knife_Offhand",
+  "Throwable"
+ ],
+ "recolor": {
+  "rogue_texture": {
+   "0,0": "#f0c7a8",
+   "1,0": "#8a3b1c",
+   "0,1": "#2e8a3e",
+   "1,1": "#e85a9a",
+   "5,2": "#2e8a3e",
+   "5,0": "#e85a9a",
+   "6,0": "#1f6029",
+   "3,0": "#8a3b1c",
+   "3,2": "#2a2030",
+   "7,1": "#e85a9a"
+  }
+ },
+ "outline": 0.008,
+ "bone_scale": {
+  "head": 0.85
+ },
+ "frame": {
+  "x": [
+   -1.0,
+   1.1
+  ],
+  "h": 2.6
+ },
+ "props_rest": true,
+ "props": [
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0,
+    0,
+    -0.02
+   ],
+   "size": [
+    0.44,
+    0.12
+   ],
+   "axis": "z",
+   "color": "#f6f4ef"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0,
+    0,
+    0.07
+   ],
+   "size": [
+    0.36,
+    0.07
+   ],
+   "axis": "z",
+   "color": "#e6e2da"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0.05,
+    0.02,
+    0.84
+   ],
+   "size": [
+    0.5,
+    0.09
+   ],
+   "axis": "z",
+   "rot": [
+    0,
+    -12,
+    0
+   ],
+   "color": "#2e8a3e"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0.05,
+    0.02,
+    0.88
+   ],
+   "size": [
+    0.42,
+    0.42,
+    0.16
+   ],
+   "rot": [
+    0,
+    -12,
+    0
+   ],
+   "color": "#2e8a3e"
+  },
+  {
+   "bone": "head",
+   "shape": "cone",
+   "at": [
+    0.42,
+    0.2,
+    1.0
+   ],
+   "size": [
+    0.09,
+    0.9
+   ],
+   "rot": [
+    0,
+    62,
+    0
+   ],
+   "color": "#e85a9a"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0.27,
+    -0.47,
+    0.42
+   ],
+   "size": [
+    0.1,
+    0.06,
+    0.035
+   ],
+   "color": "#5e5450",
+   "rot": [
+    0,
+    -15,
+    0
+   ]
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    -0.2,
+    -0.47,
+    0.66
+   ],
+   "size": [
+    0.08,
+    0.06,
+    0.03
+   ],
+   "color": "#5e5450",
+   "rot": [
+    0,
+    10,
+    0
+   ]
+  },
+  {
+   "bone": "upperarm.l",
+   "shape": "sphere",
+   "at": [
+    0.12,
+    0,
+    0
+   ],
+   "size": [
+    0.18,
+    0.16,
+    0.16
+   ],
+   "color": "#2e8a3e"
+  },
+  {
+   "bone": "upperarm.r",
+   "shape": "sphere",
+   "at": [
+    -0.12,
+    0,
+    0
+   ],
+   "size": [
+    0.18,
+    0.16,
+    0.16
+   ],
+   "color": "#2e8a3e"
+  }
+ ],
+ "clips": {
+  "walk": {
+   "action": "Walking_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  },
+  "idle": {
+   "action": "Idle",
+   "yaw": 15,
+   "loop": true,
+   "step": 2
+  },
+  "turn_front": {
+   "action": "Idle",
+   "yaw": [
+    90,
+    15
+   ],
+   "frames": 6
+  },
+  "turn_side": {
+   "action": "Idle",
+   "yaw": [
+    15,
+    90
+   ],
+   "frames": 6
+  },
+  "wave": {
+   "action": "Cheer",
+   "yaw": 15,
+   "step": 2
+  },
+  "hop": {
+   "action": "Jump_Full_Short",
+   "yaw": 15,
+   "step": 2
+  },
+  "throw": {
+   "action": "Throw",
+   "yaw": 40,
+   "step": 2
+  },
+  "pick": {
+   "action": "PickUp",
+   "yaw": 90,
+   "step": 2
+  },
+  "run": {
+   "action": "Running_A",
+   "yaw": 90,
+   "loop": true,
+   "stride": "auto",
+   "step": 2
+  }
+ }
+}

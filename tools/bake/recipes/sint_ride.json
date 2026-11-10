@@ -1,0 +1,289 @@
+{
+ "_doc": "Sinterklaas on his horse: sint.json sitting (Sit_Chair_Idle), for tools/bake/ride.py, which puts him on the horse (horse.py) at its saddle track. Written by hand from sint.json: keep the look in step. Bake at size 443 (3.0 units tall at 147.7 px per unit, as the horse).",
+ "model": "../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "parts": [],
+ "hide": [
+  "Icosphere",
+  "Mage_Hat",
+  "Spellbook",
+  "Spellbook_open",
+  "1H_Wand"
+ ],
+ "recolor": {
+  "mage_texture": {
+   "0,1": "#c8141e",
+   "2,1": "#9e0f17",
+   "3,0": "#e2b23a",
+   "5,0": "#7a1016",
+   "4,0": "#f4f1ea",
+   "7,1": "#f4f1ea",
+   "3,2": "#5a1414",
+   "2,2": "#e2b23a",
+   "5,1": "#d9a62e",
+   "3,1": "#f0c850",
+   "6,2": "#e8bc40",
+   "7,2": "#f6f3ee",
+   "1,0": "#f4f4f2",
+   "0,0": "#f2c9ad"
+  }
+ },
+ "outline": 0.008,
+ "bone_scale": {
+  "head": 0.8,
+  "upperleg.l": [
+   1,
+   1.2,
+   1
+  ],
+  "upperleg.r": [
+   1,
+   1.2,
+   1
+  ],
+  "lowerleg.l": [
+   1,
+   1.2,
+   1
+  ],
+  "lowerleg.r": [
+   1,
+   1.2,
+   1
+  ]
+ },
+ "frame": {
+  "x": [
+   -1.5,
+   1.5
+  ],
+  "h": 3.0
+ },
+ "props": [
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.3,
+    0.14
+   ],
+   "size": [
+    0.36,
+    0.2,
+    0.32
+   ],
+   "color": "#f7f7f5"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.42,
+    0.42
+   ],
+   "size": [
+    0.24,
+    0.08,
+    0.07
+   ],
+   "color": "#f7f7f5"
+  },
+  {
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.02,
+    1.16
+   ],
+   "size": [
+    0.38,
+    0.26,
+    0.64
+   ],
+   "color": "#c8141e"
+  },
+  {
+   "bone": "head",
+   "shape": "cylinder",
+   "at": [
+    0,
+    -0.02,
+    0.86
+   ],
+   "size": [
+    0.43,
+    0.14
+   ],
+   "axis": "z",
+   "color": "#e2b23a"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.31,
+    1.2
+   ],
+   "size": [
+    0.06,
+    0.04,
+    0.34
+   ],
+   "color": "#e2b23a"
+  },
+  {
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.31,
+    1.24
+   ],
+   "size": [
+    0.22,
+    0.04,
+    0.06
+   ],
+   "color": "#e2b23a"
+  }
+ ],
+ "clips": {
+  "ride": {
+   "action": "Sit_Chair_Idle",
+   "yaw": 90,
+   "loop": true,
+   "step": 2,
+   "hold": {
+    "from": "Unarmed_Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.r": [
+     0,
+     0,
+     -25
+    ],
+    "upperleg.l": [
+     30,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     30,
+     0,
+     0
+    ]
+   },
+   "track": {
+    "hips": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  "ride_front": {
+   "action": "Sit_Chair_Idle",
+   "yaw": 60,
+   "loop": true,
+   "step": 2,
+   "hold": {
+    "from": "Unarmed_Idle",
+    "frame": 0,
+    "bones": [
+     "upperarm.r",
+     "lowerarm.r",
+     "wrist.r",
+     "hand.r"
+    ]
+   },
+   "turn": {
+    "upperarm.r": [
+     0,
+     0,
+     -25
+    ],
+    "upperleg.l": [
+     30,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     30,
+     0,
+     0
+    ]
+   },
+   "track": {
+    "hips": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  "ride_wave": {
+   "action": "Cheer",
+   "yaw": 75,
+   "step": 2,
+   "hold": [
+    {
+     "from": "Unarmed_Idle",
+     "frame": 0,
+     "bones": [
+      "upperarm.r",
+      "lowerarm.r",
+      "wrist.r",
+      "hand.r"
+     ]
+    },
+    {
+     "from": "Sit_Chair_Idle",
+     "frame": 0,
+     "bones": [
+      "hips",
+      "upperleg.l",
+      "lowerleg.l",
+      "foot.l",
+      "upperleg.r",
+      "lowerleg.r",
+      "foot.r"
+     ]
+    }
+   ],
+   "turn": {
+    "upperarm.r": [
+     0,
+     0,
+     -25
+    ],
+    "upperleg.l": [
+     30,
+     0,
+     0
+    ],
+    "upperleg.r": [
+     30,
+     0,
+     0
+    ]
+   },
+   "track": {
+    "hips": [
+     0,
+     0,
+     0
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,238 @@
+{
+ "_doc": [
+  "Sinterklaas (see themes/halloween/theme.json for the keys). Calm: the run-up is three weeks (arrival 11-14 .. pakjesavond 12-05),",
+  "so levels 1-7 are mostly decor and a Piet now and then; Sint himself from level 3; level 8 = pakjesavond.",
+  "Pieten are roetveegpieten: ordinary faces with a few smudges of soot (tools/bake/recipes/piet.json).",
+  "Ideas and preview keys: IDEAS.md, ideas.csv."
+ ],
+ "sprites": {
+  "sint3d": {
+   "anim": "anim/sint",
+   "unit": 0.115
+  },
+  "piet3d": {
+   "anim": "anim/piet",
+   "unit": 0.115
+  },
+  "piet_b3d": {
+   "anim": "anim/piet_b",
+   "unit": 0.115
+  },
+  "piet_c3d": {
+   "anim": "anim/piet_c",
+   "unit": 0.115
+  },
+  "piet_d3d": {
+   "anim": "anim/piet_d",
+   "unit": 0.115
+  },
+  "sint_horse3d": {
+   "anim": "anim/sint_horse",
+   "unit": 0.085
+  },
+  "horse3d": {
+   "anim": "anim/horse",
+   "unit": 0.085
+  }
+ },
+ "elements": [
+  {
+   "_doc": "a Piet walks in, does a thing or two (waves, hops, throws pepernoten), walks on (to the screen next door in a room)",
+   "type": "performer",
+   "family": "piet",
+   "sprites": [
+    "piet3d",
+    "piet_b3d",
+    "piet_c3d",
+    "piet_d3d"
+   ],
+   "min": 1,
+   "max": 4,
+   "full": 4,
+   "every": [
+    240,
+    480
+   ],
+   "max_active": 1,
+   "enter": [
+    "walk"
+   ],
+   "exit": [
+    "walk"
+   ],
+   "acts": [
+    "wave",
+    "hop",
+    "throw",
+    "idle"
+   ],
+   "n_acts": [
+    1,
+    2
+   ],
+   "idle": [
+    1.5,
+    3
+   ],
+   "say": true,
+   "joke_chance": 0.3,
+   "walk_on": 0.5,
+   "video_min": 7,
+   "group": [
+    "piet",
+    "walker"
+   ]
+  },
+  {
+   "type": "performer",
+   "family": "piet",
+   "sprites": [
+    "piet3d",
+    "piet_b3d",
+    "piet_c3d",
+    "piet_d3d"
+   ],
+   "min": 5,
+   "full": 8,
+   "every": [
+    90,
+    200
+   ],
+   "max_active": [
+    1,
+    2
+   ],
+   "enter": [
+    "walk"
+   ],
+   "exit": [
+    "walk"
+   ],
+   "acts": [
+    "wave",
+    "hop",
+    "throw",
+    "idle"
+   ],
+   "n_acts": [
+    1,
+    3
+   ],
+   "idle": [
+    1.5,
+    3
+   ],
+   "say": true,
+   "joke_chance": 0.3,
+   "walk_on": 0.5,
+   "video_min": 7,
+   "group": [
+    "piet",
+    "walker"
+   ]
+  },
+  {
+   "_doc": "Sint walks in with his crozier, turns to us, waves or nods, walks on",
+   "type": "performer",
+   "family": "sint",
+   "sprite": "sint3d",
+   "min": 3,
+   "full": 8,
+   "every": [
+    600,
+    1200
+   ],
+   "max_active": 1,
+   "enter": [
+    "walk"
+   ],
+   "exit": [
+    "walk"
+   ],
+   "acts": [
+    "wave",
+    "nod",
+    "idle"
+   ],
+   "n_acts": [
+    1,
+    2
+   ],
+   "idle": [
+    2,
+    4
+   ],
+   "speed": 0.9,
+   "say": true,
+   "joke_chance": 0.2,
+   "walk_on": 0.4,
+   "video_min": 8,
+   "group": [
+    "sint",
+    "walker"
+   ]
+  },
+  {
+   "_doc": "Sint on Ozosnel (tools/bake/horse.py + ride.py): rides in, stops, waves (the horse grazes, tosses its head), rides on - to the screen next door in a room",
+   "type": "performer",
+   "family": "sint",
+   "sprite": "sint_horse3d",
+   "min": 2,
+   "full": 8,
+   "every": [
+    700,
+    1400
+   ],
+   "max_active": 1,
+   "enter": [
+    "walk"
+   ],
+   "exit": [
+    "walk"
+   ],
+   "acts": [
+    "wave",
+    "graze",
+    "shake",
+    "idle"
+   ],
+   "n_acts": [
+    1,
+    2
+   ],
+   "idle": [
+    2,
+    4
+   ],
+   "say": true,
+   "joke_chance": 0.2,
+   "walk_on": 0.6,
+   "video_min": 8,
+   "group": [
+    "sint",
+    "walker"
+   ]
+  }
+ ],
+ "shouts": [
+  "Hoi!",
+  "Pepernoten!",
+  "Heb jij je schoen al gezet?",
+  "Waar is de Sint?",
+  "Dag allemaal!",
+  "Wat een mooi museum!",
+  "Zie ginds komt de stoomboot!",
+  "Ik zoek de schoorsteen...",
+  "Brr, koud op het dak!",
+  "Sinterklaas kapoentje...",
+  "Wie zoet is krijgt lekkers!",
+  "Hebben jullie Ozosnel gezien?"
+ ],
+ "jokes": [
+  "Waarom gaat Piet door de schoorsteen? Omdat de deur op slot zat!",
+  "Welke letter eet Piet het liefst? De chocoladeletter!",
+  "Wat doet Piet met een pepernoot op het dak? Hij laat hem rollen!",
+  "Zelfs de Waterlinie houdt de stoomboot niet tegen!",
+  "Waarom is Ozosnel zo snel? Hij heeft vier hoefijzers en geen rem!"
+ ]
+}
