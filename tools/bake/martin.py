@@ -27,11 +27,54 @@ RED = "#c4232b"
 # in the *_w clips only
 PONCHO = [{"name": "poncho", "bone": "chest", "shape": "cone", "at": [0, 0, 0.1], "size": [0.5, 0.55], "color": RED}]
 CAPE_PART = {"model": G + "Knight.glb", "meshes": ["Knight_Cape"]}
+# the miracle: the half he is handed doubles on him into a whole mantle, as big as St Martin's own was
+# (names with "poncho": dropped where PONCHO is - only on in the *_w clips)
+MANTLE = [
+    {"name": "poncho_sh", "bone": "chest", "shape": "sphere", "at": [0, 0.08, 0.3], "size": [0.6, 0.44, 0.22], "color": RED},
+    {"name": "poncho_back", "bone": "chest", "shape": "cone", "at": [0, 0.24 + math.sin(math.radians(12)) * 0.7,
+                                                                       0.36 - math.cos(math.radians(12)) * 0.7],
+     "size": [0.66, 1.4], "rot": [12, 0, 0], "color": RED},
+    {"name": "poncho_brooch", "bone": "chest", "shape": "sphere", "at": [-0.36, -0.14, 0.3], "size": [0.09, 0.06, 0.09], "color": "#f0c040"},
+]
+# the mantle worn wrapped round, walking off (walk_w/idle_w): shoulders to shins, the hem swinging with the body,
+# sleeves to the elbow, a fold down the front where it closes; sitting (sit_w/stand_w) it hangs as a cape (poncho_back)
+ROBE_DARK = "#a81c24"
+ROBE = [
+    {"name": "robe_body", "bone": "chest", "shape": "cone", "at": [0, 0.02, -0.255], "size": [0.56, 1.07, 0.4], "color": RED},
+    {"name": "robe_hem", "bone": "chest", "shape": "cone", "at": [0, 0.02, -0.74], "size": [0.575, 0.07, 0.56], "color": ROBE_DARK},
+    {"name": "robe_fold", "bone": "chest", "shape": "cube", "at": [-0.12, -0.47, -0.3], "size": [0.05, 0.05, 0.95],
+     "rot": [-8, 0, 0], "color": ROBE_DARK},
+    {"name": "robe_sleeve_l", "bone": "upperarm.l", "shape": "cylinder", "at": [0.12, 0, 0], "size": [0.12, 0.28], "axis": "x", "color": RED},
+    {"name": "robe_sleeve_r", "bone": "upperarm.r", "shape": "cylinder", "at": [-0.12, 0, 0], "size": [0.12, 0.28], "axis": "x", "color": RED},
+]
+MANTLE = MANTLE + ROBE
+# the robe torn in half (the chain: a robed beggar gives half to the next one sitting there), random either way -
+# V: torn lengthwise, a narrow strip from one shoulder, full length, open in front (the bare front shows);
+# H: torn across, the top half - a short wrap to the hips
+ROBE_V = [
+    {"name": "robeV_body", "bone": "chest", "shape": "cone", "at": [0, 0.2, -0.255], "size": [0.4, 1.07, 0.3], "color": RED},
+    {"name": "robeV_hem", "bone": "chest", "shape": "cone", "at": [0, 0.2, -0.74], "size": [0.415, 0.07, 0.4], "color": ROBE_DARK},
+    {"name": "robeV_sh", "bone": "chest", "shape": "sphere", "at": [0.2, 0.1, 0.24], "size": [0.3, 0.38, 0.2], "color": RED},
+    {"name": "robeV_sleeve", "bone": "upperarm.l", "shape": "cylinder", "at": [0.12, 0, 0], "size": [0.12, 0.28], "axis": "x", "color": RED},
+]
+ROBE_H = [
+    {"name": "robeH_body", "bone": "chest", "shape": "cone", "at": [0, 0.02, -0.035], "size": [0.5, 0.63, 0.4], "color": RED},
+    {"name": "robeH_hem", "bone": "chest", "shape": "cone", "at": [0, 0.02, -0.33], "size": [0.515, 0.07, 0.5], "color": ROBE_DARK},
+    {"name": "robeH_fold", "bone": "chest", "shape": "cube", "at": [-0.12, -0.45, -0.05], "size": [0.05, 0.05, 0.55],
+     "rot": [-8, 0, 0], "color": ROBE_DARK},
+    {"name": "robeH_sleeve_l", "bone": "upperarm.l", "shape": "cylinder", "at": [0.12, 0, 0], "size": [0.12, 0.28], "axis": "x", "color": RED},
+    {"name": "robeH_sleeve_r", "bone": "upperarm.r", "shape": "cylinder", "at": [-0.12, 0, 0], "size": [0.12, 0.28], "axis": "x", "color": RED},
+]
+HALF_ROBES = ROBE_V + ROBE_H
+# what a clip shows of the mantle: drop lists by state
+ROBE_DROP = {"none": ["poncho", "robe", "Knight_Cape"], "cape": ["robe"],
+             "full": ["poncho_back", "robeV", "robeH", "loin", "blanket"],      # (in the robe: the old blanket gone)
+             "v": ["poncho_back", "poncho_sh", "robe_", "robeH", "blanket"], "h": ["poncho_back", "robe_", "robeV", "blanket"]}
 SIT_ARM = {"upperarm.r": [0, 0, 60], "lowerarm.r": [0, 0, 10]}
 
 
 def beggar_clips(walk="Walking_C", walk_speed=0.7):
-    W = ["poncho", "Knight_Cape"]          # (dropped where not wrapped)
+    W = ["poncho", "robe", "Knight_Cape"]  # (dropped where not wrapped)
     return {
         "walk": {"action": walk, "yaw": 90, "loop": True, "stride": "auto", "step": 3, "speed": walk_speed, "drop": W},
         "idle": {"action": "Idle", "yaw": 15, "loop": True, "frames": 8, "step": 5, "drop": W},
@@ -40,10 +83,10 @@ def beggar_clips(walk="Walking_C", walk_speed=0.7):
                 "turn": {"head": [12, 0, 0], "spine": [10, 0, 0]}},
         "reach": {"action": "Sit_Floor_Idle", "yaw": 40, "frames": 8, "step": 3, "drop": W, "turn": SIT_ARM, "ramp": [0, 1]},
         "stand": {"action": "Sit_Floor_StandUp", "yaw": 40, "step": 3, "drop": W},
-        "sit_w": {"action": "Sit_Floor_Idle", "yaw": 30, "loop": True, "frames": 8, "step": 5},
-        "stand_w": {"action": "Sit_Floor_StandUp", "yaw": 40, "step": 3},
-        "walk_w": {"action": "Walking_A", "yaw": 90, "loop": True, "stride": "auto", "step": 3},
-        "idle_w": {"action": "Cheer", "yaw": 15, "step": 3},
+        "sit_w": {"action": "Sit_Floor_Idle", "yaw": 30, "loop": True, "frames": 8, "step": 5, "drop": ["robe"]},
+        "stand_w": {"action": "Sit_Floor_StandUp", "yaw": 40, "step": 3, "drop": ["robe"]},
+        "walk_w": {"action": "Walking_A", "yaw": 90, "loop": True, "stride": "auto", "step": 3, "drop": ROBE_DROP["full"]},
+        "idle_w": {"action": "Cheer", "yaw": 15, "step": 3, "drop": ROBE_DROP["full"]},
     }
 
 
@@ -68,14 +111,15 @@ def plume():
 CLOAK = {0: (0.62, 1.3, 14), 1: (0.5, 0.9, 12), 2: (0.36, 0.5, 9)}
 
 
-def cloak(stage):
-    if stage not in CLOAK:
+def cloak(stage, table=None):
+    table = table or CLOAK
+    if stage not in table:
         return []
-    r, ln, tilt = CLOAK[stage]
+    r, ln, tilt = table[stage]
     t = math.radians(tilt)
     top = (0.12, 0.36)                                   # (y, z) where it hangs from, behind the neck
     return [
-        {"name": "cloak_m", "bone": "chest", "shape": "sphere", "at": [0, 0.1, 0.3], "size": [0.5, 0.38, 0.18], "color": RED},
+        {"name": "cloak_m", "bone": "chest", "shape": "sphere", "at": [0, 0.1, 0.3], "size": [max(0.5, r * 0.75), 0.38, 0.18], "color": RED},
         {"name": "cloak_b", "bone": "chest", "shape": "cone",
          "at": [0, top[0] + 0.12 + math.sin(t) * ln / 2, top[1] - math.cos(t) * ln / 2], "size": [r, ln], "rot": [tilt, 0, 0],
          "color": RED},
@@ -112,10 +156,8 @@ def martin(stage):
         for n, c in beggar_clips(walk="Walking_A", walk_speed=0.8).items():
             c = dict(c)
             c["drop"] = sorted(set(c.get("drop", []) + ["blade"]))
-            if n.endswith("_w"):
-                c["show"] = ["Knight_Cape"]     # (the piece the next St Martin gave him)
             clips[n] = c
-        poncho = PONCHO
+        poncho = MANTLE                  # (the piece the next St Martin gives him: a whole mantle on him)
         # (no helmet while sitting in the cold? he keeps it: you see it's him)
     return {
         "_doc": f"St Martin, cloak stage {stage} (0 full .. 3 none); generated by tools/bake/martin.py - edit there",
@@ -202,12 +244,12 @@ def pteruges(c):
 
 
 def martin_roman(stage, look):
-    c = look_colors(look)
+    c = look_colors("B" if look == "D" else look)
     hide = ["Icosphere", "1H_Sword", "2H_Sword", "1H_Sword_Offhand", "Badge_Shield", "Rectangle_Shield", "Round_Shield",
             "Spike_Shield", "Knight_Helmet", "Knight_Cape", "Knight_ArmLeft", "Knight_ArmRight", "Knight_LegLeft",
             "Knight_LegRight", "Barbarian_Hat", "Barbarian_Cape", "Barbarian_Body", "Barbarian_Head", "1H_Axe",
             "1H_Axe_Offhand", "2H_Axe", "Mug", "Barbarian_Round_Shield"]
-    props = (roman_helmet(c) if look != "C" else []) + pteruges(c) + cloak(stage) + [
+    props = (roman_helmet(c) if look != "C" else []) + pteruges(c) + cloak(stage, CLOAK_D if look == "D" else None) + [
         {"name": "brooch", "bone": "chest", "shape": "sphere", "at": [-0.34, -0.12, 0.3], "size": [0.09, 0.06, 0.09], "color": "#f0c040"}
         ] * (stage < 3) + [
         {"name": "scabbard", "bone": "hips", "shape": "cube", "at": [0.46, -0.05, -0.3], "size": [0.07, 0.1, 0.8], "rot": [-25, 0, 0], "color": "#5a3a20"},
@@ -227,12 +269,15 @@ def martin_roman(stage, look):
     r.update({
         "_doc": f"St Martin look {look}, cloak stage {stage} (0 full .. 3 none); generated by tools/bake/martin.py - edit there",
         "parts": [{"model": G + "Barbarian.glb", "meshes": ["Barbarian_ArmLeft", "Barbarian_ArmRight", "Barbarian_LegLeft", "Barbarian_LegRight"]}],
-        "hide": hide, "props": props + (PONCHO if stage == 3 else []),
+        "hide": hide, "props": props + (MANTLE if stage == 3 else []),
         "recolor": {
             "knight_texture": {"3,0": c["plate"], "7,0": c["edge"], "6,0": c["dark"], "4,0": c["edge"], "7,1": "#6a4424",
                                "2,1": "#6a4424", "1,1": c["edge"], "0,0": SKIN_M, "1,0": "#3a2618" if look == "C" else "#5a3a22"},
             BAR: {"6,0": SKIN_M, "3,2": SKIN_M, "1,1": "#6a4424", "2,1": "#7a5230", "7,1": "#7a5230", "7,2": "#6a4424", "3,0": "#7a5230"}},
     })
+    if look == "D":
+        r["bone_scale"] = D_SCALE
+        r["frame"] = {"x": [-1.7, 1.7], "h": 3.4}
     return r
 
 
@@ -308,7 +353,7 @@ RAGS = {
 
 def beggar_rags(name):
     body, face, recolor, extra = RAGS[name]
-    parts = ([{"model": G + face[0] + ".glb", "meshes": [face[1]]}] if face else []) + [CAPE_PART]
+    parts = [{"model": G + face[0] + ".glb", "meshes": [face[1]]}] if face else []
     hide = ["Icosphere", "1H_Axe", "1H_Axe_Offhand", "2H_Axe", "Mug", "Barbarian_Round_Shield", "Barbarian_Hat",
             "Barbarian_Cape", "Spellbook", "Spellbook_open", "1H_Wand", "2H_Staff", "Mage_Hat", "Mage_Cape"]
     if face and face[0] != body:
@@ -316,13 +361,78 @@ def beggar_rags(name):
     return {"_doc": f"St Maarten {name} (rags, after the legend); generated by tools/bake/martin.py - edit there",
             "model": G + body + ".glb", "parts": parts, "hide": hide, "recolor": recolor, "outline": 0.01,
             "props_rest": True, "frame": {"x": [-1.5, 1.5], "h": 2.9},
-            "mesh_scale": {"Knight_Cape": [1.3, 1.6, 1.5]},
-            "props": extra + BOWL + PONCHO, "clips": rag_clips()}
+            "props": extra + BOWL + MANTLE + HALF_ROBES, "clips": rag_clips()}
+
+
+def unkempt_hair(col):
+    """Bare-headed, the hair a tangle: a mop over the crown, hanging to the neck at the back, lumps sticking out."""
+    out = [{"name": "hair_cap", "bone": "head", "shape": "sphere", "at": [0, 0.08, 0.66], "size": [0.57, 0.53, 0.32], "color": col},
+           {"name": "hair_back", "bone": "head", "shape": "sphere", "at": [0, 0.26, 0.42], "size": [0.5, 0.3, 0.4], "color": col}]
+    for i, (x, y, z, r) in enumerate([(0.3, 0.05, 0.86, 0.13), (-0.28, 0.12, 0.86, 0.14), (0.05, 0.3, 0.9, 0.15),
+                                       (-0.12, -0.24, 0.9, 0.12), (0.2, -0.2, 0.9, 0.11), (0.5, 0.16, 0.5, 0.12),
+                                       (-0.5, 0.2, 0.52, 0.12), (0.0, 0.48, 0.5, 0.14), (0.26, 0.42, 0.24, 0.11),
+                                       (-0.24, 0.44, 0.22, 0.12), (0.52, -0.02, 0.62, 0.1), (-0.52, -0.04, 0.66, 0.1),
+                                       (0.04, -0.34, 0.82, 0.13), (-0.16, -0.3, 0.8, 0.11)]):
+        out.append({"name": "hair_%d" % i, "bone": "head", "shape": "sphere", "at": [x, y, z], "size": [r, r * 0.9, r * 0.8],
+                    "rot": [i * 23 % 40, 0, i * 37 % 60], "color": col})
+    return out
+
+
+def loincloth(col, dark):
+    """A ragged cloth wrapped round the hips (over the model's belt ridge), a rope at the top, a torn hem."""
+    out = [{"name": "loin_wrap", "bone": "hips", "shape": "cone", "at": [0, 0.0, 0.15], "size": [0.42, 0.2, 0.41], "color": col},
+           {"name": "loin_rope", "bone": "hips", "shape": "cylinder", "at": [0, 0.0, 0.25], "size": [0.43, 0.05], "axis": "z", "color": dark}]
+    n = 8
+    for i in range(n):
+        a = 2 * math.pi * i / n + 0.3
+        ln = 0.04 + 0.03 * ((i * 5) % 3)
+        out.append({"name": "loin_%d" % i, "bone": "hips", "shape": "cube",
+                    "at": [0.4 * math.sin(a), 0.36 * math.cos(a), 0.06 - ln / 2], "size": [0.12, 0.04, ln],
+                    "rot": [0, 0, -math.degrees(a)], "color": dark if i % 3 == 0 else col})
+    return out
+
+
+BARE_SKIN = "#d9a882"
+
+
+def beggar_bare():
+    """The legend's beggar: hardly anything on - bare head (a tangle of hair), bare chest, arms, legs and
+    feet, a short torn loincloth; thin arms and legs. Wrapped (*_w clips): the whole red mantle."""
+    sk = BARE_SKIN
+    bar = {c: sk for c in ("6,0", "0,0", "7,0", "0,1", "3,2", "7,1", "1,1", "7,2", "3,0", "2,1", "2,2", "1,2",
+                           "0,2", "4,0", "5,0", "4,1", "5,1", "6,1")}
+    bar.update({"1,0": "#8c6a50"})          # beard and eyebrows: stubble
+    hide = ["Icosphere", "1H_Axe", "1H_Axe_Offhand", "2H_Axe", "Mug", "Barbarian_Round_Shield", "Barbarian_Hat",
+            "Barbarian_Cape"]
+    thin = [0.82, 1, 0.82]
+    return {"_doc": "St Maarten beggar_bare (the legend's nearly naked beggar); generated by tools/bake/martin.py - edit there",
+            "model": G + "Barbarian.glb", "hide": hide, "recolor": {BAR: bar}, "outline": 0.01,
+            "props_rest": True, "frame": {"x": [-1.5, 1.5], "h": 2.9},
+            "bone_scale": {"upperarm.l": thin, "upperarm.r": thin, "upperleg.l": thin, "upperleg.r": thin,
+                           "spine": [0.86, 1, 0.84], "head": [1 / 0.86, 1, 1 / 0.84]},     # a thin body, the head kept
+            "props": unkempt_hair("#4a3c30") + loincloth("#a39478", "#7d705a") + BOWL + MANTLE + HALF_ROBES, "clips": rag_clips()}
+
+
+def chain_clips():
+    """The chain (a robed beggar passes half on): tear the robe with the hands, hand a half over, walk on in the
+    other half (V or H); the second time he hands the last piece over and sits down bare (sit_down)."""
+    turn = {"upperarm.l": [0, 0, -55], "upperarm.r": [0, 0, 55], "lowerarm.l": [0, 0, -25], "lowerarm.r": [0, 0, 25]}
+    give = {"upperarm.r": [0, 0, 55]}
+    cl = {"tear_w": {"action": "Idle", "yaw": 55, "frames": 10, "step": 3, "turn": turn, "ramp": [0, 1], "drop": ROBE_DROP["full"]}}
+    for k in ("v", "h"):
+        cl["give_" + k] = {"action": "Idle", "yaw": 55, "frames": 10, "step": 3, "turn": give, "ramp": [0, 1], "drop": ROBE_DROP[k]}
+        cl["walk_" + k] = {"action": "Walking_A", "yaw": 90, "loop": True, "stride": "auto", "step": 3, "drop": ROBE_DROP[k]}
+    cl["give_0"] = {"action": "Idle", "yaw": 55, "frames": 10, "step": 3, "turn": give, "ramp": [0, 1], "drop": ROBE_DROP["none"]}
+    return cl
 
 
 def rag_clips():
-    """beggar_clips, with the lap corner, bowl and the stick on the ground only sitting, the stick in the hand otherwise."""
+    """beggar_clips, with the lap corner, bowl and the stick on the ground only sitting, the stick in the hand otherwise,
+    and the chain's clips."""
     cl = beggar_clips()
+    for n, c in cl.items():       # (the half robes only in their own clips)
+        c["drop"] = sorted(set(c.get("drop", [])) | {"robeV", "robeH"})
+    cl.update(chain_clips())
     for n, c in cl.items():
         d = set(c.get("drop", []))
         d.update(["cane"] if n in SITTING else ["lap_corner", "bowl", "stick_g"])
@@ -330,7 +440,11 @@ def rag_clips():
     return cl
 
 
-LOOKS = ["A", "B", "C"]
+LOOKS = ["A", "B", "C", "D"]
+# D: B's kit on a grown man - a smaller head, longer legs and body, a bigger mantle
+D_SCALE = {"head": 0.74, "spine": [1, 1.12, 1], "upperleg.l": [1, 1.22, 1], "upperleg.r": [1, 1.22, 1],
+           "lowerleg.l": [1, 1.18, 1], "lowerleg.r": [1, 1.18, 1]}
+CLOAK_D = {0: (0.72, 1.5, 16), 1: (0.58, 1.05, 13), 2: (0.42, 0.62, 10)}
 
 
 def all_recipes():
@@ -338,6 +452,7 @@ def all_recipes():
     r.update({f"martin_{lk}_{s}": martin_roman(s, lk) for lk in LOOKS for s in range(4)})
     r.update({n: beggar(n) for n in BEGGARS})
     r.update({n: beggar_rags(n) for n in RAGS})
+    r["beggar_bare"] = beggar_bare()
     return r
 
 

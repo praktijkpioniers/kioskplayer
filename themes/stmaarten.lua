@@ -22,6 +22,7 @@ local S = {}
 local E                         -- the engine API (see install)
 local groups = {}               -- kid groups on this screen, by id
 local sure_until = 0            -- (preview) meetings certain till then
+local chain_now = nil           -- (preview) Alt+F8: the next robed beggar passing one sitting gives for sure
 local martin_hint = nil         -- where the last St Martin sat down: the next one comes that way
 
 local function rnd(a, b) return a + math.random() * (b - a) end
@@ -172,10 +173,21 @@ function S.beggar(el, spr, h)
     a.v = walk_v(spr) * 0.8
     a.dir = (h and h.dir) or (math.random() < 0.5 and 1 or -1)
     a.ttl = rnd(range(el.stay, 150))
-    local function go_off(warm)
-        local side = a.x < W / 2 and -1 or 1
+    a.hops = h and tonumber(h.hops) or 0
+    local chain = {}
+    for _, m in ipairs(S.meet or {}) do if m.who == "chain" then chain = m end end
+    -- a.robe: what he has on walking off - "w" the whole mantle, "v"/"h" the half left after giving (V: torn
+    -- lengthwise, H: across); he walks off towards a.off and over to the screen next door
+    local function walk_clip()
+        local c = a.robe == "w" and "walk_w" or a.robe and ("walk_" .. a.robe) or "walk"
+        return C[c] and c or (a.robe and "walk_w" or "walk")
+    end
+    local function go_off(warm, side)
+        side = side or (a.x < W / 2 and -1 or 1)
+        if warm and not a.robe then a.robe = "w" end
+        a.off, a.passed = side, a.passed or {}
         local edge = side < 0 and -u * 1.5 or W + u * 1.5
-        a.steps[#a.steps + 1] = { clip = warm and "walk_w" or "walk", walk_to = edge, v = a.v * (warm and 1.4 or 1),
+        a.steps[#a.steps + 1] = { clip = walk_clip(), walk_to = edge, v = a.v * (warm and 1.4 or 1), off = true,
                                   on_end = function() a.dead = true end }
     end
     local function sit_here()
@@ -185,6 +197,10 @@ function S.beggar(el, spr, h)
     if h and h.seated then
         a.x = tonumber(h.x) or W / 2
         sit_here()
+    elseif h and h.robe then            -- (robed, from the screen next door: walking on through)
+        a.dir, a.warm, a.robe = h.dir == 1 and 1 or -1, true, h.robe
+        a.x = E.walk_in_x(h, a.v * 1.4, 0.4 * u)
+        go_off(true, a.dir)
     else
         local sit_x = tonumber(h and h.sit_x) or E.free_x(0.2 * W, 0.8 * W)
         a.x = sit_x < W / 2 and -u or W + u            -- (in from the nearer side)
@@ -210,14 +226,78 @@ function S.beggar(el, spr, h)
             a.steps = { { clip = "reach", on_end = nil }, { clip = "reach", reverse = true } }
         end
     end
-    function a.receive()        -- the piece of cloak: wrapped in it, warm, up and away
-        a.warm = true
-        a.steps = { { clip = "reach" }, { clip = "sit_w", dur = rnd(3, 5) },
+    function a.receive(side)    -- the piece of cloak: wrapped in it, warm, up and away (side: which way)
+        a.warm, a.robe = true, "w"
+        -- the miracle: the half he's handed doubles on him into a whole mantle - a glow, sparkles round him
+        local function miracle()
+            local M = E.M()
+            fx(M.sprites.flare, a.x, H - 0.9 * u, 0.9)
+            for k = 0, 6 do
+                local ang = k * 0.9
+                fx(M.sprites.spark, a.x + math.cos(ang) * 0.55 * u, H - (0.6 + 0.35 * math.sin(ang) + 0.1 * k) * u,
+                   0.5 + 0.12 * k, function(x, y) return x, y - 0.015 * u end)
+            end
+        end
+        a.steps = { { clip = "reach" }, { clip = "sit_w", dur = rnd(3, 5), on_start = miracle },
                     { clip = "stand_w", on_start = function() a.sitting = false end },
                     { clip = "idle_w" } }
-        go_off(true)
+        go_off(true, side)
+    end
+    -- the chain: walking off robed he passes one sitting in the cold - sometimes (S.meet "chain") he stops,
+    -- tears the robe in two with his hands and gives half; on the other it doubles into a whole robe (the
+    -- miracle again) and they go off different ways. The second time he gives the last piece and sits down
+    -- bare where he is: a beggar again
+    local function chain_give(b)
+        b.claimed = a
+        local side = b.x > a.x and 1 or -1
+        local stand = b.x - side * (chain.stand or 1.05) * u
+        local last = a.robe ~= "w"
+        local k = last and a.robe or (math.random() < 0.5 and "v" or "h")
+        local function hand()
+            local cl = E.M().sprites.cloth
+            fly(cl, a.x + side * 0.45 * u, H - 1.0 * u, b.x, H - 0.7 * u, 0.9, function()
+                if not b.dead then b.receive(-a.off) end
+            end)
+        end
+        a.steps = { { clip = walk_clip(), walk_to = stand } }
+        if not last then
+            a.steps[#a.steps + 1] = { clip = C.tear_w and "tear_w" or "idle_w", face = side, on_end = function()
+                a.robe = k
+                fx(E.M().sprites.spark, a.x + side * 0.3 * u, H - 0.9 * u, 0.4)
+            end }
+        end
+        a.steps[#a.steps + 1] = { clip = C["give_" .. k] and "give_" .. k or "reach", face = side,
+                                  on_start = last and hand or nil, on_end = (not last) and hand or nil }
+        if last then
+            a.steps[#a.steps + 1] = { clip = C.give_0 and "give_0" or "idle", reverse = true, on_start = function() a.robe = nil end }
+            a.steps[#a.steps + 1] = { clip = "sit_down", on_end = function()
+                a.warm, a.off, a.claimed, a.listening = false, nil, nil, nil
+                a.ttl = rnd(range(el.stay, 150))
+                sit_here()
+            end }
+        else
+            go_off(true, a.off)
+        end
     end
     function a.update(dt, t)
+        local s1 = a.steps[1]
+        if a.robe and a.off and s1 and s1.off then
+            -- walking off robed: one sitting in the cold just ahead?
+            for _, b in ipairs(others("beggar")) do
+                local d = (b.x - a.x) * a.off
+                if b ~= a and not a.passed[b] and b.sitting and not b.warm and not b.claimed and not b.listening
+                    and not b.steps[1] and d > 1.2 * u and d < (chain.near or 3) * u then
+                    a.passed[b] = true
+                    if chain_now or math.random() < (chain.chance or 0.4) then
+                        chain_now = nil
+                        chain_give(b)
+                        break
+                    end
+                end
+            end
+            if a.steps[1] == s1 then E.walk_out(a, a.x, a.off, 0.4 * u, { robe = a.robe }) end
+        end
+        if a.claimed and (a.claimed.dead or (a.sat_t and now() - a.sat_t > a.ttl + 90)) then a.claimed = nil end
         local frame = run_steps(a, dt)
         local mirror = a.dir < 0
         local dx = 0
@@ -225,7 +305,7 @@ function S.beggar(el, spr, h)
             if a.sitting then
                 frame = clip_frame(spr, a.warm and "sit_w" or "sit", t)
                 if not a.warm then dx = (math.floor(t * 14) % 2) * 2 - 1 end      -- shivering
-                if now() - a.sat_t > a.ttl and not a.claimed and not a.listening then
+                if now() - a.sat_t > a.ttl and ((not a.claimed and not a.listening) or now() - a.sat_t > a.ttl + 90) then
                     a.sitting = false
                     a.steps = { { clip = "stand" } }
                     go_off(false)
@@ -247,7 +327,7 @@ end
 
 -- el.looks = { v1 = {stage sprites}, A = {...}, ... } and el.look picks one (theme.json: a one-line switch);
 -- without them el.stages
-local LOOK_ORDER = { "v1", "A", "B", "C" }
+local LOOK_ORDER = { "v1", "A", "B", "C", "D" }
 local function stage_sprite(el, s)
     local names = (el.looks and el.looks[el.look or ""]) or el.stages or {}
     return E.M().sprites[names[s + 1] or ""]
@@ -434,7 +514,7 @@ local function new_group(id, dir, el)
         if g.mode == "sing" and g.sing_end and n >= g.sing_end and not g.join then
             g.mode, g.react_t = "react", n
             if g.target and g.target.react and not g.target.dead then g.target.react(g) else g.resume() end
-        elseif g.mode == "react" and n - g.react_t > 25 then
+        elseif g.mode == "react" and n - g.react_t > 10 then   -- (nobody idles long: walk on)
             g.resume()
         elseif g.join and (g.join.mode == "walk" or not groups[g.join.id]) then
             g.resume()
@@ -453,6 +533,8 @@ S.meet = {
     -- a child with an unlit lantern meets one whose lantern is lit (any child just ahead, going the same
     -- way): they hold the lanterns together and a spark jumps across (usual), or POOF - a flare, smoke,
     -- two sooty faces, a laugh (poof), or the lit one goes out as the other lights (swap: it runs after)
+    -- a beggar walking off in his robe passes one sitting in the cold: he tears it and gives half (the chain)
+    { who = "chain", chance = 0.4, near = 3.0, stand = 1.05 },
     { who = "light", chance = 0.8, near = 3.8, stand = 2.1, poof = 0.2, swap = 0.1 },
 }
 local function meet_cfg(who)
@@ -748,7 +830,9 @@ local function new_kid(el, spr, g, x, lantern)
                 moving, a.singing = false, false            -- (two of them lighting a lantern: wait)
             else
                 -- sing / react: the first walks to its place, the others close up behind
-                if not ahead then
+                if not g.stop_x then
+                    g.resume()                              -- (handed over mid-song: no place here, walk on)
+                elseif not ahead then
                     local d = (g.stop_x - a.x) * g.dir
                     moving = d > 2
                     if not moving and g.mode == "sing" and not g.sing_end then
@@ -1497,6 +1581,19 @@ function S.install(api)
         end
     end)
     mp.add_forced_key_binding("F8", "stm-beggar", function() force("beggar") end)
+    mp.add_forced_key_binding("Alt+F8", "stm-chain", function()             -- a robed beggar passes one sitting
+        local bel = beggar_el()
+        if not bel then return end
+        if #free_beggars() == 0 then
+            local bs = E.free_sprite(bel)
+            local b = bs and S.beggar(bel, bs, { seated = true, x = E.W() * rnd(0.55, 0.75), dir = -1 })
+            if b then E.add(b, bel) end
+        end
+        chain_now = true
+        local bs = E.free_sprite(bel)
+        local w = bs and S.beggar(bel, bs, { robe = math.random() < 0.3 and "v" or "w", dir = 1, lead = 0 })
+        if w then E.add(w, bel) end
+    end)
     mp.add_forced_key_binding("Shift+F6", "stm-light", function()          -- the lighting gag
         sure_until = now() + 60
         force_unlit = true

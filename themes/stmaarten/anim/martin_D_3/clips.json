@@ -1,0 +1,109 @@
+{
+ "view": "front",
+ "model": "../../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Knight.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 9,
+   "fps": 6.4,
+   "loop": true,
+   "stride": 0.2975552945452578
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "cut": {
+   "files": "cut_*.png",
+   "count": 13,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "give": {
+   "files": "give_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sit_down": {
+   "files": "sit_down_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sit": {
+   "files": "sit_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "reach": {
+   "files": "reach_*.png",
+   "count": 8,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "stand": {
+   "files": "stand_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sit_w": {
+   "files": "sit_w_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "stand_w": {
+   "files": "stand_w_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "walk_w": {
+   "files": "walk_w_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.2975552945452578
+  },
+  "idle_w": {
+   "files": "idle_w_*.png",
+   "count": 14,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 94.11764705882354,
+ "origin_px": [
+  160.0,
+  320
+ ]
+}

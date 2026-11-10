@@ -254,18 +254,140 @@
    "color": "#a87a38"
   },
   {
-   "name": "poncho",
+   "name": "poncho_sh",
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    0,
+    0.08,
+    0.3
+   ],
+   "size": [
+    0.6,
+    0.44,
+    0.22
+   ],
+   "color": "#c4232b"
+  },
+  {
+   "name": "poncho_back",
    "bone": "chest",
    "shape": "cone",
    "at": [
     0,
-    0,
-    0.1
+    0.3855381835724315,
+    -0.3247033205136639
    ],
    "size": [
-    0.5,
-    0.55
+    0.66,
+    1.4
    ],
+   "rot": [
+    12,
+    0,
+    0
+   ],
+   "color": "#c4232b"
+  },
+  {
+   "name": "poncho_brooch",
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    -0.36,
+    -0.14,
+    0.3
+   ],
+   "size": [
+    0.09,
+    0.06,
+    0.09
+   ],
+   "color": "#f0c040"
+  },
+  {
+   "name": "robe_body",
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0,
+    0.02,
+    -0.255
+   ],
+   "size": [
+    0.56,
+    1.07,
+    0.4
+   ],
+   "color": "#c4232b"
+  },
+  {
+   "name": "robe_hem",
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0,
+    0.02,
+    -0.74
+   ],
+   "size": [
+    0.575,
+    0.07,
+    0.56
+   ],
+   "color": "#a81c24"
+  },
+  {
+   "name": "robe_fold",
+   "bone": "chest",
+   "shape": "cube",
+   "at": [
+    -0.12,
+    -0.47,
+    -0.3
+   ],
+   "size": [
+    0.05,
+    0.05,
+    0.95
+   ],
+   "rot": [
+    -8,
+    0,
+    0
+   ],
+   "color": "#a81c24"
+  },
+  {
+   "name": "robe_sleeve_l",
+   "bone": "upperarm.l",
+   "shape": "cylinder",
+   "at": [
+    0.12,
+    0,
+    0
+   ],
+   "size": [
+    0.12,
+    0.28
+   ],
+   "axis": "x",
+   "color": "#c4232b"
+  },
+  {
+   "name": "robe_sleeve_r",
+   "bone": "upperarm.r",
+   "shape": "cylinder",
+   "at": [
+    -0.12,
+    0,
+    0
+   ],
+   "size": [
+    0.12,
+    0.28
+   ],
+   "axis": "x",
    "color": "#c4232b"
   }
  ],
@@ -280,7 +402,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ]
   },
   "idle": {
@@ -292,7 +415,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ]
   },
   "turn_front": {
@@ -350,7 +474,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ]
   },
   "sit": {
@@ -362,7 +487,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ],
    "turn": {
     "head": [
@@ -385,7 +511,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ],
    "turn": {
     "upperarm.r": [
@@ -411,7 +538,8 @@
    "drop": [
     "Knight_Cape",
     "blade",
-    "poncho"
+    "poncho",
+    "robe"
    ]
   },
   "sit_w": {
@@ -421,10 +549,8 @@
    "frames": 8,
    "step": 5,
    "drop": [
-    "blade"
-   ],
-   "show": [
-    "Knight_Cape"
+    "blade",
+    "robe"
    ]
   },
   "stand_w": {
@@ -432,10 +558,8 @@
    "yaw": 40,
    "step": 3,
    "drop": [
-    "blade"
-   ],
-   "show": [
-    "Knight_Cape"
+    "blade",
+    "robe"
    ]
   },
   "walk_w": {
@@ -445,10 +569,12 @@
    "stride": "auto",
    "step": 3,
    "drop": [
-    "blade"
-   ],
-   "show": [
-    "Knight_Cape"
+    "blade",
+    "blanket",
+    "loin",
+    "poncho_back",
+    "robeH",
+    "robeV"
    ]
   },
   "idle_w": {
@@ -456,10 +582,12 @@
    "yaw": 15,
    "step": 3,
    "drop": [
-    "blade"
-   ],
-   "show": [
-    "Knight_Cape"
+    "blade",
+    "blanket",
+    "loin",
+    "poncho_back",
+    "robeH",
+    "robeV"
    ]
   }
  }

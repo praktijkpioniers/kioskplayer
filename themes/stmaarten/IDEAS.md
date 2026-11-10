@@ -13,6 +13,18 @@ piece over; the beggar wraps it round, stands up and walks off. Four stages of c
 left he sits down in the cold: now he is a beggar, and a new St Martin comes along for him.
 One Martin per room.
 
+The piece he hands over doubles on the beggar into a whole red robe (the miracle: a flare, sparks).
+The barest beggar (a ragged loincloth, stubble, unkempt hair) walks off in it, shoulders to shins.
+
+## The chain
+A beggar walking off in his robe passes one sitting in the cold (here or on the screen next door):
+sometimes (S.meet "chain", 0.4) he stops, tears the robe in two with his hands and gives half. On the
+other it grows into a whole robe (the same miracle) and they go off different ways; the giver walks
+on in his half (V: lengthwise, open in front; H: across, a short wrap - random). With a half he can
+give once more; then he has nothing left and sits down bare: a beggar again. Endless, like Martin's.
+Nobody stays: a sitting beggar gets up after his time (a claim that never came lapses), the robed
+walk off. Preview Alt+F8.
+
 ## The moon
 The moon hangs top left for a few minutes. Then it sinks, warming to lantern colour, onto the bare
 stick of a child who lost their lantern, or it flies loose; if it misses, the child chases it to the

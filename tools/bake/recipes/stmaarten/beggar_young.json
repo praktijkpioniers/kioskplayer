@@ -115,6 +115,7 @@
    "speed": 0.7,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ]
   },
@@ -126,6 +127,7 @@
    "step": 5,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ]
   },
@@ -135,6 +137,7 @@
    "step": 3,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ]
   },
@@ -146,6 +149,7 @@
    "step": 5,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ],
    "turn": {
@@ -168,6 +172,7 @@
    "step": 3,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ],
    "turn": {
@@ -193,6 +198,7 @@
    "step": 3,
    "drop": [
     "poncho",
+    "robe",
     "Knight_Cape"
    ]
   },
@@ -201,24 +207,44 @@
    "yaw": 30,
    "loop": true,
    "frames": 8,
-   "step": 5
+   "step": 5,
+   "drop": [
+    "robe"
+   ]
   },
   "stand_w": {
    "action": "Sit_Floor_StandUp",
    "yaw": 40,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "robe"
+   ]
   },
   "walk_w": {
    "action": "Walking_A",
    "yaw": 90,
    "loop": true,
    "stride": "auto",
-   "step": 3
+   "step": 3,
+   "drop": [
+    "poncho_back",
+    "robeV",
+    "robeH",
+    "loin",
+    "blanket"
+   ]
   },
   "idle_w": {
    "action": "Cheer",
    "yaw": 15,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "poncho_back",
+    "robeV",
+    "robeH",
+    "loin",
+    "blanket"
+   ]
   }
  }
 }

@@ -863,6 +863,26 @@
    "anim": "anim/martin_C_3",
    "unit": 0.1
   },
+  "martin_D_0": {
+   "anim": "anim/martin_D_0",
+   "unit": 0.1
+  },
+  "martin_D_1": {
+   "anim": "anim/martin_D_1",
+   "unit": 0.1
+  },
+  "martin_D_2": {
+   "anim": "anim/martin_D_2",
+   "unit": 0.1
+  },
+  "martin_D_3": {
+   "anim": "anim/martin_D_3",
+   "unit": 0.1
+  },
+  "beggar_bare": {
+   "anim": "anim/beggar_bare",
+   "unit": 0.1
+  },
   "beggar_rags_old": {
    "anim": "anim/beggar_rags_old",
    "unit": 0.1
@@ -1439,6 +1459,9 @@
    "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",
    "type": "beggar",
    "sprites": [
+    "beggar_bare",
+    "beggar_bare",
+    "beggar_bare",
     "beggar_rags_old",
     "beggar_rags_woman",
     "beggar_rags_young"
@@ -1512,9 +1535,15 @@
      "martin_C_1",
      "martin_C_2",
      "martin_C_3"
+    ],
+    "D": [
+     "martin_D_0",
+     "martin_D_1",
+     "martin_D_2",
+     "martin_D_3"
     ]
    },
-   "look": "B"
+   "look": "D"
   },
   {
    "_doc": "the church: now and then the bell rings and the door opens; the beggars go in out of the cold, then somebody comes out (St Martin most likely when there's none); a child may fetch a beggar and take him (fetch = chance per service)",

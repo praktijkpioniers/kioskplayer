@@ -71,6 +71,48 @@
    "fps": 8.0,
    "loop": false,
    "stride": 0.0
+  },
+  "tear_w": {
+   "files": "tear_w_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "give_v": {
+   "files": "give_v_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "walk_v": {
+   "files": "walk_v_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27391961216926575
+  },
+  "give_h": {
+   "files": "give_h_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "walk_h": {
+   "files": "walk_h_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27391961216926575
+  },
+  "give_0": {
+   "files": "give_0_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
  "unit_px": 110.3448275862069,
