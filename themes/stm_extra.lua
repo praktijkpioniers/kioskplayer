@@ -284,7 +284,7 @@ function X.house(el, spr, grumpy, at)
             if a.rise <= 0 then a.dead = true return false end
         elseif a.rise < 1 then
             a.rise = math.min(1, a.rise + dt / 1.5)
-        elseif not a.busy and now() - a.t0 > a.ttl then
+        elseif (not a.busy and now() - a.t0 > a.ttl) or (S and S.bld_due and S.bld_due(a, not a.busy)) then
             a.going = true
         end
         a.tc = a.tc + dt
@@ -347,7 +347,7 @@ function X.spawn_bonfire(el, spr)
             a.rise = a.rise - dt / 2
             if a.rise <= 0 then a.dead = true return false end
         elseif a.rise < 1 then a.rise = math.min(1, a.rise + dt / 2)
-        elseif not a.busy and now() - a.t0 > a.ttl then a.going = true end
+        elseif (not a.busy and now() - a.t0 > a.ttl) or (S and S.bld_due and S.bld_due(a, not a.busy)) then a.going = true end
         local frame = clip_frame(spr, "burn", t)
         local l = layer(spr, frame, false, a.x, E.H(), 0, (1 - ease(a.rise)) * spr.h * 0.8)
         return true, l.x, l.y, l.frame, l.variant

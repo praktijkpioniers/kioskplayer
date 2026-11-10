@@ -128,13 +128,21 @@ local function relic(spr, x, owner)
             gone_t = t + rnd(3, 8)
         end
         if gone_t and t > gone_t then a.gone = true; E.leave(a) end
-        if gone_t and t > gone_t then E.leave(a) end
         local fr = spr.frames > 1 and math.floor(tt * math.max(spr.fps or 8, 1)) or 0
         return true, x - spr.w / 2, E.H() - spr.h, fr, false
     end
     E.add(a)
     mine[#mine + 1] = a
 end
+
+-- a building (church, school, house, bonfire): time to sink? Its act done (a.act_done), it stays
+-- 30-60 s more; and not over 200 s on a screen at all (230 s while someone's still at the door: idle false)
+local function bld_due(a, idle)
+    if a.act_done and not a.done_at then a.done_at = now() + rnd(30, 60) end
+    if idle and a.done_at and now() > a.done_at then return true end
+    return now() - (a.t0 or now()) > (idle and 200 or 230)
+end
+S.bld_due = bld_due
 
 -- a one-off effect at (x, y) (its middle): the sprite's frames over dur, growing by grow (a spark,
 -- a flare, a puff of smoke); follow() may move it along
@@ -1461,7 +1469,8 @@ function S.church(el, spr, h)
             if a.rise <= 0 then a.dead = true return false end
         elseif a.rise < 1 then
             a.rise = math.min(1, a.rise + dt / 1.5)
-        elseif state == "idle" and now() - a.t0 > a.ttl and #queue == 0 then
+        elseif bld_due(a, state == "idle" and #queue == 0)
+               or (state == "idle" and now() - a.t0 > a.ttl and #queue == 0) then
             a.going = true
         end
         -- the service: bell, open, in they go, somebody comes out, shut
@@ -1652,7 +1661,8 @@ function S.school(el, spr, h)
             if a.rise <= 0 then a.dead = true return false end
         elseif a.rise < 1 then
             a.rise = math.min(1, a.rise + dt / 1.5)
-        elseif state == "idle" and now() - a.t0 > a.ttl and #queue == 0 and not file then
+        elseif bld_due(a, state == "idle" and #queue == 0 and not file)
+               or (state == "idle" and now() - a.t0 > a.ttl and #queue == 0 and not file) then
             a.going = true
         end
         if a.rise >= 1 and not a.going then
