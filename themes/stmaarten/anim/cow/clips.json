@@ -1,0 +1,36 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 10,
+   "fps": 8,
+   "loop": true,
+   "stride": 0.375
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4,
+   "loop": true
+  },
+  "swish": {
+   "files": "swish_*.png",
+   "count": 16,
+   "fps": 10,
+   "loop": false
+  },
+  "moo": {
+   "files": "moo_*.png",
+   "count": 17,
+   "fps": 8,
+   "loop": false
+  }
+ },
+ "unit_px": 95,
+ "origin_px": [
+  200,
+  290
+ ]
+}

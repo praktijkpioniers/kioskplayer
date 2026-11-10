@@ -1,0 +1,60 @@
+{
+ "view": "front",
+ "model": "../../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Rogue_Hooded.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 13,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27313744525114697
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "ring": {
+   "files": "ring_*.png",
+   "count": 16,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "shrug": {
+   "files": "shrug_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sulk": {
+   "files": "sulk_*.png",
+   "count": 13,
+   "fps": 5.6,
+   "loop": true,
+   "stride": 0.27313744525114697
+  }
+ },
+ "unit_px": 110.3448275862069,
+ "origin_px": [
+  165.5,
+  320
+ ]
+}

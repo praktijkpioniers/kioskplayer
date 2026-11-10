@@ -1,0 +1,17 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "burn": {
+   "files": "burn_*.png",
+   "count": 10,
+   "fps": 10,
+   "loop": true
+  }
+ },
+ "unit_px": 75,
+ "origin_px": [
+  130,
+  290
+ ]
+}

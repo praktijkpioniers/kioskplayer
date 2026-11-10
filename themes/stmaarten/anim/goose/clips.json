@@ -1,0 +1,30 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 6,
+   "fps": 8,
+   "loop": true,
+   "stride": 0.1375
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 6,
+   "fps": 4,
+   "loop": true
+  },
+  "honk": {
+   "files": "honk_*.png",
+   "count": 10,
+   "fps": 10,
+   "loop": false
+  }
+ },
+ "unit_px": 90,
+ "origin_px": [
+  70,
+  140
+ ]
+}

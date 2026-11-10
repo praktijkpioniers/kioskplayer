@@ -1,0 +1,65 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "idle": {
+   "files": "idle_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": true
+  },
+  "ring": {
+   "files": "ring_*.png",
+   "count": 5,
+   "fps": 8,
+   "loop": false
+  },
+  "open": {
+   "files": "open_*.png",
+   "count": 12,
+   "fps": 10,
+   "loop": false
+  },
+  "offer": {
+   "files": "offer_*.png",
+   "count": 6,
+   "fps": 6,
+   "loop": true
+  },
+  "dark": {
+   "files": "dark_*.png",
+   "count": 4,
+   "fps": 8,
+   "loop": false
+  },
+  "dark_idle": {
+   "files": "dark_idle_*.png",
+   "count": 1,
+   "fps": 1,
+   "loop": true
+  },
+  "peek": {
+   "files": "peek_*.png",
+   "count": 10,
+   "fps": 6,
+   "loop": false
+  }
+ },
+ "unit_px": 69.16666666666667,
+ "origin_px": [
+  73.0,
+  552
+ ],
+ "door_px": [
+  73.0,
+  538
+ ],
+ "bell_px": [
+  130,
+  440
+ ],
+ "size_px": [
+  300,
+  560
+ ]
+}

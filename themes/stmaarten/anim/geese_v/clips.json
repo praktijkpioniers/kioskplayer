@@ -1,0 +1,12 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "fly": {
+   "files": "fly_*.png",
+   "count": 8,
+   "fps": 10,
+   "loop": true
+  }
+ }
+}

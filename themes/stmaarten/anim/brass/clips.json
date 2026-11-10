@@ -1,0 +1,46 @@
+{
+ "view": "front",
+ "model": "../../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Rogue.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27391961216926575
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "play": {
+   "files": "play_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27391961216926575
+  }
+ },
+ "unit_px": 110.3448275862069,
+ "origin_px": [
+  165.5,
+  320
+ ]
+}

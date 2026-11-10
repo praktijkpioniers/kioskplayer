@@ -1,0 +1,23 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "sail": {
+   "files": "sail_*.png",
+   "count": 8,
+   "fps": 6,
+   "loop": true
+  },
+  "bump": {
+   "files": "bump_*.png",
+   "count": 4,
+   "fps": 8,
+   "loop": false
+  }
+ },
+ "unit_px": 100,
+ "origin_px": [
+  210,
+  320
+ ]
+}

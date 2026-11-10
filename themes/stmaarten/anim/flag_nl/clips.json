@@ -1,0 +1,17 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "wave": {
+   "files": "wave_*.png",
+   "count": 8,
+   "fps": 8,
+   "loop": true
+  }
+ },
+ "unit_px": 80,
+ "origin_px": [
+  20,
+  216
+ ]
+}
