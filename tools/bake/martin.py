@@ -65,7 +65,7 @@ def plume():
 
 # the red cloak per stage: (radius at the hem, length, tilt): a mantle on the shoulders and a cone hanging
 # from them, tilted back so it stands out behind him from the side (props on the chest bone: +y = his back)
-CLOAK = {0: (0.46, 1.3, 16), 1: (0.38, 0.9, 13), 2: (0.3, 0.5, 9)}
+CLOAK = {0: (0.62, 1.3, 14), 1: (0.5, 0.9, 12), 2: (0.36, 0.5, 9)}
 
 
 def cloak(stage):
@@ -75,7 +75,7 @@ def cloak(stage):
     t = math.radians(tilt)
     top = (0.12, 0.36)                                   # (y, z) where it hangs from, behind the neck
     return [
-        {"name": "cloak_m", "bone": "chest", "shape": "sphere", "at": [0, 0.1, 0.3], "size": [0.4, 0.36, 0.17], "color": RED},
+        {"name": "cloak_m", "bone": "chest", "shape": "sphere", "at": [0, 0.1, 0.3], "size": [0.5, 0.38, 0.18], "color": RED},
         {"name": "cloak_b", "bone": "chest", "shape": "cone",
          "at": [0, top[0] + 0.12 + math.sin(t) * ln / 2, top[1] - math.cos(t) * ln / 2], "size": [r, ln], "rot": [tilt, 0, 0],
          "color": RED},
@@ -239,14 +239,52 @@ def martin_roman(stage, look):
 RAG = {"rope": "#9a8558", "oat": "#c9b994", "beige": "#b5a383", "grey": "#8f8270", "dark": "#6f6555", "blanket": "#7c705e"}
 
 
-def blanket(col):
-    return [{"name": "blanket", "bone": "chest", "shape": "sphere", "at": [0, 0.1, 0.12], "size": [0.62, 0.44, 0.18], "color": col},
-            {"name": "blanket_b", "bone": "chest", "shape": "cone", "at": [0, 0.3, -0.25], "size": [0.42, 0.8], "rot": [10, 0, 0], "color": col}]
+def blanket(col, fold):
+    """An old blanket thrown over the shoulders and hanging down the back like a cape (two halves with a
+    fold down the middle, the edges falling forward over the upper arms); sitting, a corner over the knees."""
+    t, ln = math.radians(10), 1.0
+    return [
+        {"name": "blanket_sh", "bone": "chest", "shape": "sphere", "at": [0, 0.12, 0.16], "size": [0.56, 0.4, 0.21], "color": col},
+        {"name": "blanket_b", "bone": "chest", "shape": "cone", "at": [0, 0.24 + math.sin(t) * ln / 2, 0.28 - math.cos(t) * ln / 2],
+         "size": [0.5, ln], "rot": [10, 0, 0], "color": col},
+        {"name": "blanket_fold", "bone": "chest", "shape": "cone", "at": [0.1, 0.3 + math.sin(t) * 0.4, 0.2 - math.cos(t) * 0.4],
+         "size": [0.22, 0.8], "rot": [12, -6, 0], "color": fold},
+        {"name": "lap_corner", "bone": "hips", "shape": "cube", "at": [0.05, -0.42, 0.02], "size": [0.62, 0.5, 0.05], "rot": [0, 0, 28], "color": col},
+    ]
 
 
-def headscarf(col):
-    return [{"name": "scarf_top", "bone": "head", "shape": "sphere", "at": [0, 0.12, 0.62], "size": [0.6, 0.58, 0.55], "color": col},
-            {"name": "scarf_tail", "bone": "head", "shape": "cone", "at": [0, 0.48, 0.15], "size": [0.3, 0.6], "rot": [160, 0, 0], "color": col}]
+def headscarf(col, dark):
+    """A cloth over the hair, framing the face, knotted under the chin; the back hangs over the neck."""
+    return [
+        {"name": "scarf_dome", "bone": "head", "shape": "sphere", "at": [0, 0.1, 0.6], "size": [0.6, 0.58, 0.56], "color": col},
+        {"name": "scarf_side_l", "bone": "head", "shape": "sphere", "at": [0.37, 0.0, 0.27], "size": [0.13, 0.3, 0.3], "color": col},
+        {"name": "scarf_side_r", "bone": "head", "shape": "sphere", "at": [-0.37, 0.0, 0.27], "size": [0.13, 0.3, 0.3], "color": col},
+        {"name": "scarf_chin", "bone": "head", "shape": "cube", "at": [0, -0.08, 0.02], "size": [0.9, 0.36, 0.1], "color": col},
+        {"name": "scarf_knot", "bone": "head", "shape": "sphere", "at": [0, -0.4, -0.02], "size": [0.11, 0.08, 0.09], "color": dark},
+        {"name": "scarf_end_a", "bone": "head", "shape": "cube", "at": [0.08, -0.34, -0.18], "size": [0.09, 0.04, 0.24], "rot": [0, 14, 0], "color": dark},
+        {"name": "scarf_end_b", "bone": "head", "shape": "cube", "at": [-0.08, -0.33, -0.17], "size": [0.09, 0.04, 0.2], "rot": [0, -18, 0], "color": col},
+        {"name": "scarf_back", "bone": "head", "shape": "sphere", "at": [0, 0.4, 0.12], "size": [0.42, 0.16, 0.32], "color": col},
+        {"name": "scarf_bun", "bone": "head", "shape": "sphere", "at": [0, 0.5, 0.22], "size": [0.34, 0.32, 0.36], "color": col},
+    ]
+
+
+def walking_stick():
+    """The old man's crooked stick: in his right hand (cane_*) walking, on the ground beside him (stick_g*) sitting."""
+    W = "#7a5530"
+    return [
+        {"name": "cane_top", "bone": "handslot.r", "shape": "cylinder", "at": [0, -0.06, 0], "size": [0.045, 0.22], "axis": "y", "color": W},
+        {"name": "cane_a", "bone": "handslot.r", "shape": "cube", "at": [-0.28, 0, 0.02], "size": [0.56, 0.07, 0.07], "rot": [0, 6, 0], "color": W},
+        {"name": "cane_b", "bone": "handslot.r", "shape": "cube", "at": [-0.78, 0, -0.03], "size": [0.48, 0.065, 0.065], "rot": [0, -8, 0], "color": W},
+        {"name": "stick_ga", "bone": "root", "shape": "cube", "at": [0.62, -0.1, 0.04], "size": [0.07, 0.6, 0.07], "rot": [0, 0, 8], "color": W},
+        {"name": "stick_gb", "bone": "root", "shape": "cube", "at": [0.66, -0.62, 0.04], "size": [0.065, 0.5, 0.065], "rot": [0, 0, -6], "color": W},
+    ]
+
+
+BOWL = [  # a wooden bowl on the ground in front of him, sitting only
+    {"name": "bowl_o", "bone": "root", "shape": "sphere", "at": [0.2, -1.05, 0.1], "size": [0.21, 0.21, 0.1], "color": "#8a5a30"},
+    {"name": "bowl_i", "bone": "root", "shape": "sphere", "at": [0.2, -1.05, 0.16], "size": [0.16, 0.16, 0.05], "color": "#4a2e18"},
+]
+SITTING = ("sit", "reach", "sit_w")
 
 
 RAGS = {
@@ -255,16 +293,16 @@ RAGS = {
                         {BAR: {"6,0": "#e3b896", "0,0": "#e3b896", "1,0": "#e4e0d8", "2,0": "#cfcac0", "2,1": RAG["rope"],
                                "7,0": RAG["oat"], "0,1": RAG["grey"], "3,2": RAG["beige"], "7,1": "#e3b896",
                                "1,1": RAG["grey"], "7,2": RAG["beige"], "3,0": RAG["dark"]}},
-                        blanket(RAG["blanket"])),
+                        blanket(RAG["blanket"], "#6c6150") + walking_stick()),
     "beggar_rags_woman": ("Mage", ("Mage", "Mage_Head"),
                           {"mage_texture": {"0,1": RAG["oat"], "1,1": RAG["beige"], "7,1": RAG["grey"], "2,1": RAG["rope"],
                                             "1,2": RAG["grey"], "5,0": RAG["beige"], "1,3": RAG["dark"], "0,0": "#d9a074"}},
-                          headscarf("#a89a7c") + blanket("#6f6a60")),
+                          headscarf("#6f8099", "#56647a") + blanket("#6f6a60", "#605b52")),
     "beggar_rags_young": ("Barbarian", ("Knight", "Knight_Head"),
                           {BAR: {"6,0": "#c08a62", "0,0": "#c08a62", "2,1": RAG["rope"], "7,0": RAG["beige"], "0,1": RAG["oat"],
                                  "3,2": "#c08a62", "7,1": "#c08a62", "1,1": RAG["grey"], "7,2": RAG["oat"], "3,0": RAG["dark"]},
                            "knight_texture": {"0,0": "#c08a62", "1,0": "#2e2420", "2,0": "#2e2420"}},
-                          []),
+                          blanket("#5f6a58", "#525c4c")),
 }
 
 
@@ -279,7 +317,17 @@ def beggar_rags(name):
             "model": G + body + ".glb", "parts": parts, "hide": hide, "recolor": recolor, "outline": 0.01,
             "props_rest": True, "frame": {"x": [-1.5, 1.5], "h": 2.9},
             "mesh_scale": {"Knight_Cape": [1.3, 1.6, 1.5]},
-            "props": extra + PONCHO, "clips": beggar_clips()}
+            "props": extra + BOWL + PONCHO, "clips": rag_clips()}
+
+
+def rag_clips():
+    """beggar_clips, with the lap corner, bowl and the stick on the ground only sitting, the stick in the hand otherwise."""
+    cl = beggar_clips()
+    for n, c in cl.items():
+        d = set(c.get("drop", []))
+        d.update(["cane"] if n in SITTING else ["lap_corner", "bowl", "stick_g"])
+        c["drop"] = sorted(d)
+    return cl
 
 
 LOOKS = ["A", "B", "C"]

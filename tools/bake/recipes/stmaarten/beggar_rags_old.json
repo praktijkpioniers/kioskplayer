@@ -59,18 +59,18 @@
  },
  "props": [
   {
-   "name": "blanket",
+   "name": "blanket_sh",
    "bone": "chest",
    "shape": "sphere",
    "at": [
     0,
-    0.1,
-    0.12
+    0.12,
+    0.16
    ],
    "size": [
-    0.62,
-    0.44,
-    0.18
+    0.56,
+    0.4,
+    0.21
    ],
    "color": "#7c705e"
   },
@@ -80,12 +80,12 @@
    "shape": "cone",
    "at": [
     0,
-    0.3,
-    -0.25
+    0.32682408883346514,
+    -0.21240387650610398
    ],
    "size": [
-    0.42,
-    0.8
+    0.5,
+    1.0
    ],
    "rot": [
     10,
@@ -93,6 +93,179 @@
     0
    ],
    "color": "#7c705e"
+  },
+  {
+   "name": "blanket_fold",
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.1,
+    0.3694592710667721,
+    -0.1939231012048832
+   ],
+   "size": [
+    0.22,
+    0.8
+   ],
+   "rot": [
+    12,
+    -6,
+    0
+   ],
+   "color": "#6c6150"
+  },
+  {
+   "name": "lap_corner",
+   "bone": "hips",
+   "shape": "cube",
+   "at": [
+    0.05,
+    -0.42,
+    0.02
+   ],
+   "size": [
+    0.62,
+    0.5,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    28
+   ],
+   "color": "#7c705e"
+  },
+  {
+   "name": "cane_top",
+   "bone": "handslot.r",
+   "shape": "cylinder",
+   "at": [
+    0,
+    -0.06,
+    0
+   ],
+   "size": [
+    0.045,
+    0.22
+   ],
+   "axis": "y",
+   "color": "#7a5530"
+  },
+  {
+   "name": "cane_a",
+   "bone": "handslot.r",
+   "shape": "cube",
+   "at": [
+    -0.28,
+    0,
+    0.02
+   ],
+   "size": [
+    0.56,
+    0.07,
+    0.07
+   ],
+   "rot": [
+    0,
+    6,
+    0
+   ],
+   "color": "#7a5530"
+  },
+  {
+   "name": "cane_b",
+   "bone": "handslot.r",
+   "shape": "cube",
+   "at": [
+    -0.78,
+    0,
+    -0.03
+   ],
+   "size": [
+    0.48,
+    0.065,
+    0.065
+   ],
+   "rot": [
+    0,
+    -8,
+    0
+   ],
+   "color": "#7a5530"
+  },
+  {
+   "name": "stick_ga",
+   "bone": "root",
+   "shape": "cube",
+   "at": [
+    0.62,
+    -0.1,
+    0.04
+   ],
+   "size": [
+    0.07,
+    0.6,
+    0.07
+   ],
+   "rot": [
+    0,
+    0,
+    8
+   ],
+   "color": "#7a5530"
+  },
+  {
+   "name": "stick_gb",
+   "bone": "root",
+   "shape": "cube",
+   "at": [
+    0.66,
+    -0.62,
+    0.04
+   ],
+   "size": [
+    0.065,
+    0.5,
+    0.065
+   ],
+   "rot": [
+    0,
+    0,
+    -6
+   ],
+   "color": "#7a5530"
+  },
+  {
+   "name": "bowl_o",
+   "bone": "root",
+   "shape": "sphere",
+   "at": [
+    0.2,
+    -1.05,
+    0.1
+   ],
+   "size": [
+    0.21,
+    0.21,
+    0.1
+   ],
+   "color": "#8a5a30"
+  },
+  {
+   "name": "bowl_i",
+   "bone": "root",
+   "shape": "sphere",
+   "at": [
+    0.2,
+    -1.05,
+    0.16
+   ],
+   "size": [
+    0.16,
+    0.16,
+    0.05
+   ],
+   "color": "#4a2e18"
   },
   {
    "name": "poncho",
@@ -119,8 +292,11 @@
    "step": 3,
    "speed": 0.7,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "idle": {
@@ -130,8 +306,11 @@
    "frames": 8,
    "step": 5,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit_down": {
@@ -139,8 +318,11 @@
    "yaw": 40,
    "step": 3,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit": {
@@ -150,8 +332,9 @@
    "frames": 8,
    "step": 5,
    "drop": [
-    "poncho",
-    "Knight_Cape"
+    "Knight_Cape",
+    "cane",
+    "poncho"
    ],
    "turn": {
     "head": [
@@ -172,8 +355,9 @@
    "frames": 8,
    "step": 3,
    "drop": [
-    "poncho",
-    "Knight_Cape"
+    "Knight_Cape",
+    "cane",
+    "poncho"
    ],
    "turn": {
     "upperarm.r": [
@@ -197,8 +381,11 @@
    "yaw": 40,
    "step": 3,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit_w": {
@@ -206,24 +393,42 @@
    "yaw": 30,
    "loop": true,
    "frames": 8,
-   "step": 5
+   "step": 5,
+   "drop": [
+    "cane"
+   ]
   },
   "stand_w": {
    "action": "Sit_Floor_StandUp",
    "yaw": 40,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   },
   "walk_w": {
    "action": "Walking_A",
    "yaw": 90,
    "loop": true,
    "stride": "auto",
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   },
   "idle_w": {
    "action": "Cheer",
    "yaw": 15,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   }
  }
 }

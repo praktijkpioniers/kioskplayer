@@ -61,54 +61,172 @@
  },
  "props": [
   {
-   "name": "scarf_top",
+   "name": "scarf_dome",
    "bone": "head",
-   "shape": "sphere",
-   "at": [
-    0,
-    0.12,
-    0.62
-   ],
-   "size": [
-    0.6,
-    0.58,
-    0.55
-   ],
-   "color": "#a89a7c"
-  },
-  {
-   "name": "scarf_tail",
-   "bone": "head",
-   "shape": "cone",
-   "at": [
-    0,
-    0.48,
-    0.15
-   ],
-   "size": [
-    0.3,
-    0.6
-   ],
-   "rot": [
-    160,
-    0,
-    0
-   ],
-   "color": "#a89a7c"
-  },
-  {
-   "name": "blanket",
-   "bone": "chest",
    "shape": "sphere",
    "at": [
     0,
     0.1,
+    0.6
+   ],
+   "size": [
+    0.6,
+    0.58,
+    0.56
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_side_l",
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0.37,
+    0.0,
+    0.27
+   ],
+   "size": [
+    0.13,
+    0.3,
+    0.3
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_side_r",
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    -0.37,
+    0.0,
+    0.27
+   ],
+   "size": [
+    0.13,
+    0.3,
+    0.3
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_chin",
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0,
+    -0.08,
+    0.02
+   ],
+   "size": [
+    0.9,
+    0.36,
+    0.1
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_knot",
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    -0.4,
+    -0.02
+   ],
+   "size": [
+    0.11,
+    0.08,
+    0.09
+   ],
+   "color": "#56647a"
+  },
+  {
+   "name": "scarf_end_a",
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    0.08,
+    -0.34,
+    -0.18
+   ],
+   "size": [
+    0.09,
+    0.04,
+    0.24
+   ],
+   "rot": [
+    0,
+    14,
+    0
+   ],
+   "color": "#56647a"
+  },
+  {
+   "name": "scarf_end_b",
+   "bone": "head",
+   "shape": "cube",
+   "at": [
+    -0.08,
+    -0.33,
+    -0.17
+   ],
+   "size": [
+    0.09,
+    0.04,
+    0.2
+   ],
+   "rot": [
+    0,
+    -18,
+    0
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_back",
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    0.4,
     0.12
    ],
    "size": [
-    0.62,
-    0.44,
-    0.18
+    0.42,
+    0.16,
+    0.32
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "scarf_bun",
+   "bone": "head",
+   "shape": "sphere",
+   "at": [
+    0,
+    0.5,
+    0.22
+   ],
+   "size": [
+    0.34,
+    0.32,
+    0.36
+   ],
+   "color": "#6f8099"
+  },
+  {
+   "name": "blanket_sh",
+   "bone": "chest",
+   "shape": "sphere",
+   "at": [
+    0,
+    0.12,
+    0.16
+   ],
+   "size": [
+    0.56,
+    0.4,
+    0.21
    ],
    "color": "#6f6a60"
   },
@@ -118,12 +236,12 @@
    "shape": "cone",
    "at": [
     0,
-    0.3,
-    -0.25
+    0.32682408883346514,
+    -0.21240387650610398
    ],
    "size": [
-    0.42,
-    0.8
+    0.5,
+    1.0
    ],
    "rot": [
     10,
@@ -131,6 +249,79 @@
     0
    ],
    "color": "#6f6a60"
+  },
+  {
+   "name": "blanket_fold",
+   "bone": "chest",
+   "shape": "cone",
+   "at": [
+    0.1,
+    0.3694592710667721,
+    -0.1939231012048832
+   ],
+   "size": [
+    0.22,
+    0.8
+   ],
+   "rot": [
+    12,
+    -6,
+    0
+   ],
+   "color": "#605b52"
+  },
+  {
+   "name": "lap_corner",
+   "bone": "hips",
+   "shape": "cube",
+   "at": [
+    0.05,
+    -0.42,
+    0.02
+   ],
+   "size": [
+    0.62,
+    0.5,
+    0.05
+   ],
+   "rot": [
+    0,
+    0,
+    28
+   ],
+   "color": "#6f6a60"
+  },
+  {
+   "name": "bowl_o",
+   "bone": "root",
+   "shape": "sphere",
+   "at": [
+    0.2,
+    -1.05,
+    0.1
+   ],
+   "size": [
+    0.21,
+    0.21,
+    0.1
+   ],
+   "color": "#8a5a30"
+  },
+  {
+   "name": "bowl_i",
+   "bone": "root",
+   "shape": "sphere",
+   "at": [
+    0.2,
+    -1.05,
+    0.16
+   ],
+   "size": [
+    0.16,
+    0.16,
+    0.05
+   ],
+   "color": "#4a2e18"
   },
   {
    "name": "poncho",
@@ -157,8 +348,11 @@
    "step": 3,
    "speed": 0.7,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "idle": {
@@ -168,8 +362,11 @@
    "frames": 8,
    "step": 5,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit_down": {
@@ -177,8 +374,11 @@
    "yaw": 40,
    "step": 3,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit": {
@@ -188,8 +388,9 @@
    "frames": 8,
    "step": 5,
    "drop": [
-    "poncho",
-    "Knight_Cape"
+    "Knight_Cape",
+    "cane",
+    "poncho"
    ],
    "turn": {
     "head": [
@@ -210,8 +411,9 @@
    "frames": 8,
    "step": 3,
    "drop": [
-    "poncho",
-    "Knight_Cape"
+    "Knight_Cape",
+    "cane",
+    "poncho"
    ],
    "turn": {
     "upperarm.r": [
@@ -235,8 +437,11 @@
    "yaw": 40,
    "step": 3,
    "drop": [
+    "Knight_Cape",
+    "bowl",
+    "lap_corner",
     "poncho",
-    "Knight_Cape"
+    "stick_g"
    ]
   },
   "sit_w": {
@@ -244,24 +449,42 @@
    "yaw": 30,
    "loop": true,
    "frames": 8,
-   "step": 5
+   "step": 5,
+   "drop": [
+    "cane"
+   ]
   },
   "stand_w": {
    "action": "Sit_Floor_StandUp",
    "yaw": 40,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   },
   "walk_w": {
    "action": "Walking_A",
    "yaw": 90,
    "loop": true,
    "stride": "auto",
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   },
   "idle_w": {
    "action": "Cheer",
    "yaw": 15,
-   "step": 3
+   "step": 3,
+   "drop": [
+    "bowl",
+    "lap_corner",
+    "stick_g"
+   ]
   }
  }
 }
