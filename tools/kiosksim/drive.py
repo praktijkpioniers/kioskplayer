@@ -2,7 +2,7 @@
 """
 Drive the kiosksim mpv over IPC.
 
-    drive.py <level> <idle|video> [delay ...]   load the Halloween theme at a level, screenshot
+    drive.py <level> <idle|video> [delay ...]   load a theme ($KIOSKSIM_THEME, default halloween) at a level, screenshot
                                                 after each delay (shot0.png, shot1.png, ...)
     drive.py key <key> [...]                    press keys (preview keys: 1-9 0 v t f w c, SPACE)
     drive.py catsheet                           the prowler cat in fixed poses for 60 s (catsheet.png)
@@ -55,7 +55,7 @@ def main() -> None:
     import themes
     level, mode = int(sys.argv[1]), sys.argv[2]
     w, h = c.prop("osd-width"), c.prop("osd-height")
-    man = themes.build_manifest("halloween", level, w, h)
+    man = themes.build_manifest(os.environ.get("KIOSKSIM_THEME", "halloween"), level, w, h)
     wm = themes.build_watermark({"watermark_image": "themes/watermark/default.png"}, h)
     c.cmd(["script-message", "watermark", json.dumps(wm)])
     c.cmd(["script-message", "theme-load", str(man)])
