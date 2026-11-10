@@ -209,7 +209,7 @@ if SHELL:
 # props: simple shapes riding on a bone (neck bolts), placed in the rest pose relative to the
 # bone's head: {"bone": "head", "at": [x, y, z], "shape": "cylinder", "size": [radius, length],
 # "axis": "x", "color": "#..."}  (or "shape": "cube", "size": [sx, sy, sz]; "shape": "sphere",
-# "size": [rx, ry, rz]; "shape": "cone", "size": [radius, length], pointing up; both turned by
+# "size": [rx, ry, rz]; "shape": "cone", "size": [radius, length], pointing up; these three turned by
 # "rot": [x, y, z] degrees). Named "prop<i>" (so a clip's "only": ["prop"] takes them), or
 # "name": e.g. "Knight_ArmLeft_stitch" to go with that mesh in "only"/"drop" (a piece flying off)
 # "props_rest": true attaches them to the bones in the rest pose (where "at" is measured); without
@@ -224,6 +224,7 @@ for i, pr in enumerate(R.get("props", [])):
         bpy.ops.mesh.primitive_cube_add(size=1, location=at)
         o = bpy.context.object
         o.scale = pr["size"]
+        o.rotation_euler = [math.radians(v) for v in pr.get("rot", [0, 0, 0])]
     elif pr["shape"] in ("cone", "sphere"):
         if pr["shape"] == "cone":
             r, ln = pr["size"]

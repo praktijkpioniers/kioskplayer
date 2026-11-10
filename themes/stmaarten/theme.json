@@ -104,7 +104,7 @@
     "lantern/carry_round_orange_6.png",
     "lantern/carry_round_orange_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_orange": {
@@ -132,7 +132,7 @@
     "lantern/carry_round_red_6.png",
     "lantern/carry_round_red_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_red": {
@@ -160,7 +160,7 @@
     "lantern/carry_round_yellow_6.png",
     "lantern/carry_round_yellow_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_yellow": {
@@ -188,7 +188,7 @@
     "lantern/carry_round_blue_6.png",
     "lantern/carry_round_blue_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_blue": {
@@ -216,7 +216,7 @@
     "lantern/carry_round_green_6.png",
     "lantern/carry_round_green_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_green": {
@@ -244,7 +244,7 @@
     "lantern/carry_round_pink_6.png",
     "lantern/carry_round_pink_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_pink": {
@@ -272,7 +272,7 @@
     "lantern/carry_round_purple_6.png",
     "lantern/carry_round_purple_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_round_purple": {
@@ -300,7 +300,7 @@
     "lantern/carry_star_orange_6.png",
     "lantern/carry_star_orange_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_orange": {
@@ -328,7 +328,7 @@
     "lantern/carry_star_red_6.png",
     "lantern/carry_star_red_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_red": {
@@ -356,7 +356,7 @@
     "lantern/carry_star_yellow_6.png",
     "lantern/carry_star_yellow_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_yellow": {
@@ -384,7 +384,7 @@
     "lantern/carry_star_blue_6.png",
     "lantern/carry_star_blue_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_blue": {
@@ -412,7 +412,7 @@
     "lantern/carry_star_green_6.png",
     "lantern/carry_star_green_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_green": {
@@ -440,7 +440,7 @@
     "lantern/carry_star_pink_6.png",
     "lantern/carry_star_pink_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_pink": {
@@ -468,7 +468,7 @@
     "lantern/carry_star_purple_6.png",
     "lantern/carry_star_purple_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_star_purple": {
@@ -496,7 +496,7 @@
     "lantern/carry_house_orange_6.png",
     "lantern/carry_house_orange_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_orange": {
@@ -524,7 +524,7 @@
     "lantern/carry_house_red_6.png",
     "lantern/carry_house_red_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_red": {
@@ -552,7 +552,7 @@
     "lantern/carry_house_yellow_6.png",
     "lantern/carry_house_yellow_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_yellow": {
@@ -580,7 +580,7 @@
     "lantern/carry_house_blue_6.png",
     "lantern/carry_house_blue_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_blue": {
@@ -608,7 +608,7 @@
     "lantern/carry_house_green_6.png",
     "lantern/carry_house_green_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_green": {
@@ -636,7 +636,7 @@
     "lantern/carry_house_pink_6.png",
     "lantern/carry_house_pink_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_pink": {
@@ -664,7 +664,7 @@
     "lantern/carry_house_purple_6.png",
     "lantern/carry_house_purple_7.png"
    ],
-   "height": 0.1,
+   "height": 0.143,
    "fps": 8
   },
   "stand_house_purple": {
@@ -814,6 +814,66 @@
    ],
    "height": 0.02,
    "fps": 4
+  },
+  "martin_A_0": {
+   "anim": "anim/martin_A_0",
+   "unit": 0.1
+  },
+  "martin_A_1": {
+   "anim": "anim/martin_A_1",
+   "unit": 0.1
+  },
+  "martin_A_2": {
+   "anim": "anim/martin_A_2",
+   "unit": 0.1
+  },
+  "martin_A_3": {
+   "anim": "anim/martin_A_3",
+   "unit": 0.1
+  },
+  "martin_B_0": {
+   "anim": "anim/martin_B_0",
+   "unit": 0.1
+  },
+  "martin_B_1": {
+   "anim": "anim/martin_B_1",
+   "unit": 0.1
+  },
+  "martin_B_2": {
+   "anim": "anim/martin_B_2",
+   "unit": 0.1
+  },
+  "martin_B_3": {
+   "anim": "anim/martin_B_3",
+   "unit": 0.1
+  },
+  "martin_C_0": {
+   "anim": "anim/martin_C_0",
+   "unit": 0.1
+  },
+  "martin_C_1": {
+   "anim": "anim/martin_C_1",
+   "unit": 0.1
+  },
+  "martin_C_2": {
+   "anim": "anim/martin_C_2",
+   "unit": 0.1
+  },
+  "martin_C_3": {
+   "anim": "anim/martin_C_3",
+   "unit": 0.1
+  },
+  "beggar_rags_old": {
+   "anim": "anim/beggar_rags_old",
+   "unit": 0.1
+  },
+  "beggar_rags_woman": {
+   "anim": "anim/beggar_rags_woman",
+   "unit": 0.1
+  },
+  "beggar_rags_young": {
+   "anim": "anim/beggar_rags_young",
+   "unit": 0.1
   }
  },
  "elements": [
@@ -843,19 +903,19 @@
    "anchor": "top-right",
    "places": [
     [
-     0.015,
+     0.17,
      0.0
     ],
     [
-     0.075,
+     0.225,
      0.0
     ],
     [
-     0.135,
+     0.28,
      0.0
     ],
     [
-     0.195,
+     0.335,
      0.0
     ]
    ],
@@ -933,7 +993,8 @@
     5,
     30
    ],
-   "video_min": 8
+   "video_min": 8,
+   "spacing": 3.0
   },
   {
    "_doc": "a lantern procession: a line of children",
@@ -989,7 +1050,7 @@
     7
    ],
    "speed": 0.75,
-   "spacing": 2.0,
+   "spacing": 3.2,
    "min": 5,
    "full": 8,
    "every": [
@@ -1004,13 +1065,12 @@
    "video_min": 8
   },
   {
-   "_doc": "beggars sitting in the cold",
+   "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",
    "type": "beggar",
    "sprites": [
-    "beggar_old",
-    "beggar_woman",
-    "beggar_young",
-    "beggar_hood"
+    "beggar_rags_old",
+    "beggar_rags_woman",
+    "beggar_rags_young"
    ],
    "stay": [
     120,
@@ -1033,7 +1093,7 @@
    "video_min": 8
   },
   {
-   "_doc": "St Martin sharing his cloak (stages: full, half, a quarter, none)",
+   "_doc": "St Martin sharing his cloak (stages: full, half, a quarter, none). \"look\" picks the outfit: v1 (first try), A gold cuirass + plumed helmet, B silver cuirass + plumed helmet, C bareheaded (Shift+F5 cycles it live)",
    "type": "martin",
    "sprite": "martin_0",
    "stages": [
@@ -1055,7 +1115,34 @@
     15,
     60
    ],
-   "video_min": 8
+   "video_min": 8,
+   "looks": {
+    "v1": [
+     "martin_0",
+     "martin_1",
+     "martin_2",
+     "martin_3"
+    ],
+    "A": [
+     "martin_A_0",
+     "martin_A_1",
+     "martin_A_2",
+     "martin_A_3"
+    ],
+    "B": [
+     "martin_B_0",
+     "martin_B_1",
+     "martin_B_2",
+     "martin_B_3"
+    ],
+    "C": [
+     "martin_C_0",
+     "martin_C_1",
+     "martin_C_2",
+     "martin_C_3"
+    ]
+   },
+   "look": "A"
   }
  ]
 }

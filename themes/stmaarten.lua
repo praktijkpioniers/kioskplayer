@@ -223,10 +223,14 @@ end
 
 -- ── St Martin ───────────────────────────────────────────────────────────────
 
+-- el.looks = { v1 = {stage sprites}, A = {...}, ... } and el.look picks one (theme.json: a one-line switch);
+-- without them el.stages
+local LOOK_ORDER = { "v1", "A", "B", "C" }
 local function stage_sprite(el, s)
-    local names = el.stages or {}
+    local names = (el.looks and el.looks[el.look or ""]) or el.stages or {}
     return E.M().sprites[names[s + 1] or ""]
 end
+S.stage_sprite = stage_sprite         -- (stm_extra.lua: the sprite for a stage, in the chosen look)
 
 function S.martin(el, spr, h)
     local W, H = E.W(), E.H()
@@ -435,7 +439,7 @@ local function lantern_sprite(el, name)
         if n and M.sprites[n] then return M.sprites[n], n end
     end
 end
-local GRIP = { 8 / 120, 146 / 150 }      -- the stick's lower end in a carried lantern's frame (lanterns.py)
+local GRIP = { 8 / 220, 185 / 195 }      -- the stick's lower end in a carried lantern's frame (lanterns.py)
 
 local function new_kid(el, spr, g, x, lantern)
     local W, H = E.W(), E.H()
@@ -655,6 +659,24 @@ function S.install(api)
         end
     end)
     mp.add_forced_key_binding("F8", "stm-beggar", function() force("beggar") end)
+    mp.add_forced_key_binding("Shift+F5", "stm-martin-look", function()      -- cycle St Martin's look, live
+        for _, el in ipairs(E.M() and E.M().elements or {}) do
+            if el.type == "martin" and el.looks then
+                local i = 1
+                for k, n in ipairs(LOOK_ORDER) do if n == el.look then i = k end end
+                for _ = 1, #LOOK_ORDER do
+                    i = i % #LOOK_ORDER + 1
+                    if el.looks[LOOK_ORDER[i]] then break end
+                end
+                el.look = LOOK_ORDER[i]
+                for _, a in ipairs(others("martin")) do
+                    local sp = stage_sprite(el, a.stage or 0)
+                    if sp then a.spr = sp end
+                end
+                mp.osd_message("St Martin look " .. el.look, 2)
+            end
+        end
+    end)
     E.spawn.kid, E.spawn.martin, E.spawn.beggar = S.kid, S.martin, S.beggar
 end
 

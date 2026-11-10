@@ -23,9 +23,12 @@ COLOURS = {"orange": (255, 140, 30), "red": (235, 50, 45), "yellow": (255, 215, 
            "green": (70, 200, 90), "pink": (250, 110, 180), "purple": (160, 90, 230)}
 SHAPES = ["round", "star", "house"]
 # carried lantern frame (px at 1x): the grip, the stick, the lantern under its tip
-CW, CH = 120, 150
-GRIP = (8, 146)
-TIP = (78, 40)
+# (the stick held up and forward: the lantern hangs in front of the child at chest/head height, about
+# head-size; themes.py crops nothing off thanks to pinned())
+CW, CH = 220, 195          # (room round the lantern for its whole glow: no hard edge)
+GRIP = (8, 185)
+TIP = (120, 55)
+CARRY_R = 34
 INK = (25, 22, 30, 255)
 
 
@@ -41,9 +44,9 @@ def mix(c, f, to=(255, 255, 255)):
     return tuple(int(c[i] + (to[i] - c[i]) * f) for i in range(3))
 
 
-def lantern_body(shape, col, light):
+def lantern_body(shape, col, light, r=26):
     """The lantern alone, hung from its top middle at (r, 0) of a (2r × 2.3r) box; light 0.85..1.15."""
-    r = 26 * S
+    r = r * S
     w, h = 2 * r + 8 * S, int(2.5 * r)
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -105,10 +108,10 @@ def light_at(k):
     return 1.0 + 0.1 * math.sin(2 * math.pi * k / FRAMES) + 0.05 * math.sin(6 * math.pi * k / FRAMES + 1)
 
 
-def carried(shape, col, k):
+def carried(shape, col, k, lit=True):
     im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
-    lt = light_at(k)
-    body = lantern_body(shape, col, lt)
+    lt = light_at(k) if lit else 0.0
+    body = lantern_body(shape, col if lit else mix(col, 0.55, (45, 35, 40)), lt, CARRY_R)
     sway = 9 * math.sin(2 * math.pi * k / FRAMES)
     tip = (TIP[0] * S, TIP[1] * S)
     # the lantern hangs from the tip, swinging about it
@@ -117,7 +120,8 @@ def carried(shape, col, k):
     big = big.rotate(sway, resample=Image.BICUBIC, center=(body.width, body.height))
     centre = (tip[0] - math.sin(math.radians(sway)) * body.height * 0.5,
               tip[1] + math.cos(math.radians(sway)) * body.height * 0.5)
-    im.alpha_composite(glow(im.size, centre, 40 * S, col, lt))
+    if lit:
+        im.alpha_composite(glow(im.size, centre, 58 * S, col, lt * 1.5))
     im.alpha_composite(big, (tip[0] - body.width, tip[1] - body.height))
     d = ImageDraw.Draw(im)
     d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=INK, width=6 * S)
@@ -127,8 +131,8 @@ def carried(shape, col, k):
 
 def hanging(shape, col, k, string):
     body = lantern_body(shape, col, light_at(k))
-    w = body.width + 50 * S
-    h = string * S + body.height + 10 * S
+    w = body.width + 80 * S
+    h = string * S + body.height + 34 * S
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     sway = 4 * math.sin(2 * math.pi * k / FRAMES)
     big = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -257,6 +261,79 @@ def cloth():
     return im.resize((w // S, h // S), Image.LANCZOS)
 
 
+def spark(k):
+    """A little spark jumping from one lantern to the other (4 frames: a twinkle)."""
+    w = 40 * S
+    im = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    c = w // 2
+    g = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(g).ellipse((c - 14 * S, c - 14 * S, c + 14 * S, c + 14 * S), fill=(255, 220, 120, 150))
+    im.alpha_composite(g.filter(ImageFilter.GaussianBlur(5 * S)))
+    d = ImageDraw.Draw(im)
+    rr = (16, 11, 14, 9)[k % 4] * S
+    for a in range(4):
+        t = math.pi / 4 * (2 * a + (k % 2))
+        d.line([(c - rr * math.cos(t), c - rr * math.sin(t)), (c + rr * math.cos(t), c + rr * math.sin(t))],
+               fill=(255, 250, 200, 255), width=2 * S)
+    d.ellipse((c - 4 * S, c - 4 * S, c + 4 * S, c + 4 * S), fill=(255, 255, 240, 255))
+    return im.resize((w // S, w // S), Image.LANCZOS)
+
+
+def flare(k):
+    """The POOF: a big flare of flame (k 0..3 growing), then smoke (puff)."""
+    w = 120 * S
+    im = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    c = w // 2
+    f = (0.45, 0.8, 1.0, 0.85)[k % 4]
+    g = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(g)
+    for rad, col in ((56, (255, 140, 30, 170)), (40, (255, 200, 60, 220)), (22, (255, 250, 210, 255))):
+        r = rad * f * S
+        d.ellipse((c - r, c - r * 1.15, c + r, c + r * 0.85), fill=col)
+    im.alpha_composite(g.filter(ImageFilter.GaussianBlur(4 * S)))
+    return pinned(im.resize((w // S, w // S), Image.LANCZOS))
+
+
+def puff(k):
+    """A grey puff of smoke (4 frames: spreading, fading)."""
+    w = 140 * S
+    im = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    f = 0.55 + 0.15 * k
+    al = (230, 210, 170, 110)[k % 4]
+    for i, (dx, dy, r) in enumerate([(0, 0, 30), (-26, 8, 22), (26, 6, 24), (-12, -20, 22), (16, -22, 20), (0, 20, 20)]):
+        g = 120 + 15 * (i % 3)
+        R = r * f * S
+        x, y = w // 2 + dx * f * S, w // 2 + dy * f * S
+        d.ellipse((x - R, y - R, x + R, y + R), fill=(g, g, g + 5, al), outline=(70, 70, 75, al), width=2 * S)
+    return pinned(im.filter(ImageFilter.GaussianBlur(S)).resize((w // S, w // S), Image.LANCZOS))
+
+
+def soot():
+    """Sooty face and frizzy hair: an overlay over a kid's head (the head's middle at the frame's middle)."""
+    w = 90 * S
+    im = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    c = w // 2
+    rnd = __import__("random").Random(11)
+    for i in range(46):                                   # frizz: wiry black zigzags out of the top of the head
+        a = math.pi * (1.05 + 0.9 * i / 45)
+        x0, y0 = c + 30 * S * math.cos(a), c + 6 * S + 30 * S * math.sin(a)
+        pts = [(x0, y0)]
+        for j in range(4):
+            ln = rnd.uniform(4, 7) * S
+            aa = a + rnd.uniform(-0.7, 0.7)
+            pts.append((pts[-1][0] + ln * math.cos(aa), pts[-1][1] + ln * math.sin(aa)))
+        d.line(pts, fill=(30, 26, 26, 255), width=int(1.6 * S))
+    g = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(g)
+    for _ in range(14):                                   # soot smudges on the face
+        x, y, r = c + rnd.uniform(-20, 20) * S, c + rnd.uniform(-2, 22) * S, rnd.uniform(5, 10) * S
+        gd.ellipse((x - r, y - r, x + r, y + r), fill=(35, 30, 30, 120))
+    im.alpha_composite(g.filter(ImageFilter.GaussianBlur(3 * S)))
+    return pinned(im.resize((w // S, w // S), Image.LANCZOS))
+
+
 def main():
     ld, pd = os.path.join(OUT, "lantern"), os.path.join(OUT, "prop")
     os.makedirs(ld, exist_ok=True)
@@ -265,6 +342,8 @@ def main():
         for name, col in COLOURS.items():
             for k in range(FRAMES):
                 carried(shape, col, k).save(os.path.join(ld, f"carry_{shape}_{name}_{k}.png"), optimize=True)
+                if k == 0:     # unlit: dark paper, no glow, one frame (a child waiting for a light)
+                    carried(shape, col, k, lit=False).save(os.path.join(ld, f"unlit_{shape}_{name}.png"), optimize=True)
                 standing(shape, col, k).save(os.path.join(ld, f"stand_{shape}_{name}_{k}.png"), optimize=True)
     for i, (shape, name, string) in enumerate([("round", "orange", 40), ("star", "yellow", 70), ("round", "red", 25),
                                                 ("house", "blue", 55), ("round", "green", 80), ("star", "pink", 35)]):
@@ -275,6 +354,11 @@ def main():
         note(k).save(os.path.join(pd, f"note_{k}.png"), optimize=True)
         coin(k).save(os.path.join(pd, f"coin_{k}.png"), optimize=True)
     sweet().save(os.path.join(pd, "sweet.png"), optimize=True)
+    for k in range(4):
+        spark(k).save(os.path.join(pd, f"spark_{k}.png"), optimize=True)
+        flare(k).save(os.path.join(pd, f"flare_{k}.png"), optimize=True)
+        puff(k).save(os.path.join(pd, f"puff_{k}.png"), optimize=True)
+    soot().save(os.path.join(pd, "soot.png"), optimize=True)
     fruit("mandarin").save(os.path.join(pd, "mandarin.png"), optimize=True)
     fruit("apple").save(os.path.join(pd, "apple.png"), optimize=True)
     present().save(os.path.join(pd, "present.png"), optimize=True)

@@ -1,0 +1,81 @@
+{
+ "view": "front",
+ "model": "../../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 13,
+   "fps": 5.6,
+   "loop": true,
+   "stride": 0.27313744525114697
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "sit_down": {
+   "files": "sit_down_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sit": {
+   "files": "sit_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "reach": {
+   "files": "reach_*.png",
+   "count": 8,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "stand": {
+   "files": "stand_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "sit_w": {
+   "files": "sit_w_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "stand_w": {
+   "files": "stand_w_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "walk_w": {
+   "files": "walk_w_*.png",
+   "count": 9,
+   "fps": 8.0,
+   "loop": true,
+   "stride": 0.27391961216926575
+  },
+  "idle_w": {
+   "files": "idle_w_*.png",
+   "count": 14,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 110.3448275862069,
+ "origin_px": [
+  165.5,
+  320
+ ]
+}
