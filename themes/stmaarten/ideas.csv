@@ -10,8 +10,8 @@ Martin,Cuts his cloak with his sword and hands the piece to a beggar who wraps i
 Martin,No cloak left: sits down in the cold and is a beggar himself; a new St Martin comes for him,done,sit_down_cold -> ex-beggar + martin element forced,F5
 Beggar,Four beggars sit and shiver; wrapped in the red cloth they stand up cheered and walk off,done,spawn.beggar,F8
 Decor,Moon top left; lanterns hanging on a line top right,done,decor elements,
-Church,Church whose door opens: beggars go in; Martin / beggar / rich man / child comes out,todo,,
-Church,Kid leads a beggar to church,todo,,
+Church,Church whose door opens: beggars go in; Martin / beggar / rich man / child comes out,done,"element 'church' (S.church; tools/bake/church.py): service, come_out; Martin weighted up when the room has none; rich when an element 'rich' exists",Shift+F8
+Church,Kid leads a beggar to church,done,"church fetch: a child holds out a hand, they walk in together; the child comes out again",Ctrl+F8
 School,Procession led by juf/meester with a big lantern on a pole out of a school and back in,todo,,
 Rich man,Fur coat hat cane: passes beggars nose up; sometimes drops a glinting coin; sung to he pats his pockets,todo,coin prop baked,
 Kids,Lantern catches fire: flame / ash / bare stick / a new lantern handed over,todo,,
@@ -36,3 +36,5 @@ Kids,Unlit lantern (about 1 in 6 kids): meets a lit one; lanterns together and a
 Kids,Lighting gone wrong: POOF - a flare and smoke; both kids sooty with frizzy hair; they blink and laugh,done,meeting 'light' poof 0.2,Shift+F6
 Kids,Lighting swap: the lit one goes out as the other lights; it looks at its dark lantern and runs after the other,done,meeting 'light' swap 0.1,Shift+F6
 Moon,The moon cycle: a lantern slips off a stick and flies up to become the moon; the moon sinks or flies loose and lands on a lightless child's stick,done,"element 'moon' (S.moon): stay, moonless, loose, miss",Ctrl+F5 down / Ctrl+F6 up
+Beggar,"Rags polish: a real headscarf knotted under the chin; blankets over the shoulders like a cape (a corner over the knees sitting); the old man's crooked stick; a wooden bowl in front while sitting",done,"martin.py blanket(), headscarf(), walking_stick(), BOWL, rag_clips()",F8
+Martin,The cloak wider so it shows beside him from the front,done,martin.py CLOAK,F5

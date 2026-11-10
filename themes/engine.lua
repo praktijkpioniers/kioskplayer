@@ -6382,12 +6382,14 @@ if hooks.stm and hooks.stm.install then
 end
 -- St Maarten, the side cast (stm_extra.lua: houses, the cow, geese, a bonfire, teenagers, the island
 -- story, the 11:11 parade), on the same API plus: ids taken low first (drawn behind), hand_over
+hooks.stm_extras = {     -- (a field, not a local: the main chunk is at the 200-locals limit)
+    ids_low_first = function(on) table.sort(free_ids, on and function(p, q) return p > q end or nil) end,
+    hand_over = hand_over,
+}
+if hooks.stm and hooks.stm.extras then hooks.stm.extras(hooks.stm_extras) end     -- (the church: drawn behind)
 hooks.stm_x = load_module("stm_extra.lua")
 if hooks.stm_x and hooks.stm_x.install and hooks.stm and hooks.stm.api then
-    hooks.stm_x.install(hooks.stm.api, hooks.stm, {
-        ids_low_first = function(on) table.sort(free_ids, on and function(p, q) return p > q end or nil) end,
-        hand_over = hand_over,
-    })
+    hooks.stm_x.install(hooks.stm.api, hooks.stm, hooks.stm_extras)
 end
 local cat_next = {}  -- element name -> time the next cat may come
 local cat_dir        -- (preview key) the next cat walks this way

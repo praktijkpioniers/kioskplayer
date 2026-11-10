@@ -948,6 +948,217 @@ function S.moon(el, spr, h)
     return a
 end
 
+-- ── the church ──────────────────────────────────────────────────────────────
+-- A village church stands a while (drawn behind the walkers, like stm_extra's houses). Now and then
+-- the bell rings and the door opens: the beggars sitting about get up and go in, out of the cold. Then
+-- somebody comes out: St Martin (most likely when there's none in the room), a beggar, a child with a
+-- lantern, or the rich man (an element "rich", when there is one). A child may also fetch a beggar
+-- and take him to church: they go in together; the child comes out again later.
+-- Clips (tools/bake/church.py): idle, bell (loop), open (backwards: shut), opened (loop).
+
+local X2                              -- the engine's extras (ids_low_first)
+function S.extras(x) X2 = x end
+local church_now, church_until = nil, 0    -- (preview) Shift+F8: the service now; Ctrl+F8: a child fetches a beggar
+
+local function el_of(t)
+    for _, e in ipairs(E.M().elements) do if e.type == t and E.elements()[e] then return e end end
+end
+
+local function free_beggars()
+    local out = {}
+    for _, b in ipairs(others("beggar")) do
+        if b.sitting and not b.warm and not b.claimed and not b.listening and not b.steps[1] then out[#out + 1] = b end
+    end
+    return out
+end
+
+-- somebody coming out of the door at x, walking towards dir
+local function come_out(x, dir, kid_back)
+    local W = E.W()
+    local room = E.room()
+    if kid_back then
+        local kel = kid_back.el
+        local k = S.kid(kel, kid_back.spr, { grp = tostring(math.random(1, 1e9)), dir = dir, at = x,
+                                             lantern = kid_back.lantern })
+        if k and E.add(k, kel) then mp.msg.info("[church] out: the child again") return end
+    end
+    local opts = {}
+    local mel, bel, kel, rel = el_of("martin"), beggar_el(), el_of("kid"), el_of("rich")
+    local no_martin = not room.taken["chr:martin"] and #others("martin") == 0
+    if mel and no_martin then opts[#opts + 1] = { "martin", 5 } end
+    if bel then opts[#opts + 1] = { "beggar", 1.5 } end
+    if kel then opts[#opts + 1] = { "kid", 1.5 } end
+    if rel and E.spawn.rich then opts[#opts + 1] = { "rich", 1.5 } end
+    local sum = 0
+    for _, o in ipairs(opts) do sum = sum + o[2] end
+    local r, who = math.random() * sum, nil
+    for _, o in ipairs(opts) do r = r - o[2]; if r <= 0 then who = o[1] break end end
+    mp.msg.info("[church] out: " .. tostring(who))
+    if who == "martin" then
+        local m = S.martin(mel, nil, { at = x, dir = dir, stage = 0 })
+        if m then E.add(m, mel) end
+    elseif who == "beggar" then
+        local bs = E.free_sprite(bel)
+        local sit_x = math.max(0.12 * W, math.min(0.88 * W, x + dir * rnd(0.15, 0.3) * W))
+        local b = bs and S.beggar(bel, bs, { sit_x = sit_x })
+        if b then b.x, b.dir = x, dir; E.add(b, bel) end
+    elseif who == "kid" then
+        local ks = E.free_sprite(kel)
+        local k = ks and S.kid(kel, ks, { grp = tostring(math.random(1, 1e9)), dir = dir, at = x })
+        if k then E.add(k, kel) end
+    elseif who == "rich" then
+        local rs = E.free_sprite(rel)
+        local a = rs and E.spawn.rich(rel, rs, { at = x, dir = dir })
+        if a then E.add(a, rel) end
+    end
+end
+
+function S.church(el, spr, h)
+    local W, H = E.W(), E.H()
+    if not (spr and spr.clips and spr.clips.open and spr.origin) then return nil end
+    -- (its own schedule: it is added behind the walkers here, so the engine gets nil back)
+    local st = E.elements()[el]
+    local forced = st and st.force
+    if st then st.force = nil end
+    if #others("church") > 0 then
+        if forced and not church_now then church_now, church_until = "service", now() + 25 end
+        return nil
+    end
+    if not forced then
+        if not el._next then el._next = now() + rnd(range(el.delay, 30)) return nil end
+        if now() < el._next then return nil end
+    end
+    el._next = now() + rnd(range(el.every, 400))
+    local x = E.free_x(0.3 * W, 0.7 * W)
+    local a = { el = el, spr = spr, stm = "church", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
+                ttl = rnd(range(el.stay, 240)), unique = false }
+    local u = unit(spr)
+    local state, st_t = "idle", now()
+    local next_service = now() + rnd(range(el.service, 40))
+    local queue = {}                 -- who's going in (they wait at the door till it's open)
+    local kid_back                   -- a child who brought a beggar: comes out again
+    local function play(name, reverse) a.clip, a.rev, a.tc = name, reverse, 0 end
+    local function to_state(s) state, st_t = s, now() end
+    a.open_now = false
+    -- one going in: walks to the door, waits for it, in
+    local function go_in(b, clip_walk, v, then_fn)
+        queue[#queue + 1] = b
+        b.steps[#b.steps + 1] = { clip = clip_walk, walk_to = a.x + (b.x < a.x and -0.15 or 0.15) * u, v = v }
+        b.steps[#b.steps + 1] = { clip = "idle", wait = function() return a.open_now end }
+        b.steps[#b.steps + 1] = { clip = clip_walk, walk_to = a.x, v = v * 0.6, on_end = function()
+            b.dead = true
+            if then_fn then then_fn() end
+        end }
+    end
+    local function call_beggars()
+        for _, b in ipairs(free_beggars()) do
+            b.claimed, b.sitting = a, false
+            b.steps = { { clip = "stand" } }
+            go_in(b, "walk", b.v)
+        end
+    end
+    -- a child takes a beggar to church
+    function a.fetch()
+        local bs = free_beggars()
+        local ks = kids_where(function(k) return k.lantern ~= nil end)
+        if #bs == 0 or #ks == 0 then return false end
+        local b = bs[math.random(#bs)]
+        local k = ks[1]
+        local bd
+        for _, kk in ipairs(ks) do
+            local d = math.abs(kk.x - b.x)
+            if not bd or d < bd then k, bd = kk, d end
+        end
+        local ku = unit(k.spr)
+        local side = b.x > k.x and 1 or -1
+        b.claimed = a
+        k.g.met[b] = true
+        local v = math.min(b.v, k.v_own)
+        k.steps = {
+            { clip = "walk", walk_to = b.x - side * 0.9 * ku, v = k.v_own },
+            { clip = "give", face = side, on_end = function()          -- (holds out a hand: come along)
+                b.sitting = false
+                b.steps = { { clip = "stand" } }
+                go_in(b, "walk", v)
+            end },
+            { clip = "idle", dur = clip_len(b.spr, "stand") + 0.2 },
+        }
+        go_in(k, "walk", v, function() kid_back = { el = k.el, spr = k.spr, lantern = k.lantern and k.lantern.name } end)
+        -- (the child keeps a step ahead of him on the way)
+        k.steps[4].walk_to = a.x + (b.x < a.x and -0.6 or 0.6) * u
+        next_service = math.min(next_service, now() + 1)
+        mp.msg.info("[church] fetch")
+        return true
+    end
+    a.leave = function() a.going = true end
+    function a.update(dt, t)
+        if church_now == "service" and (#free_beggars() > 0 or now() > church_until) then
+            church_now = nil
+            next_service = math.min(next_service, now())
+        elseif church_now == "fetch" and state == "idle" and a.rise >= 1 then
+            if a.fetch() or now() > church_until then church_now = nil end
+        end
+        if a.going then
+            a.rise = a.rise - dt / 1.5
+            if a.rise <= 0 then a.dead = true return false end
+        elseif a.rise < 1 then
+            a.rise = math.min(1, a.rise + dt / 1.5)
+        elseif state == "idle" and now() - a.t0 > a.ttl and #queue == 0 then
+            a.going = true
+        end
+        -- the service: bell, open, in they go, somebody comes out, shut
+        if a.rise >= 1 and not a.going then
+            if state == "idle" and now() >= next_service then
+                to_state("bell"); play("bell")
+                if math.random() < (el.fetch or 0.3) then a.fetch() end
+            elseif state == "bell" and now() - st_t > 3 then
+                call_beggars()
+                to_state("opening"); play("open")
+            elseif state == "opening" and a.clip == "opened" then
+                a.open_now = true
+                to_state("open")
+            elseif state == "open" then
+                local alive = 0
+                for _, b in ipairs(queue) do if not b.dead then alive = alive + 1 end end
+                if (alive == 0 and now() - st_t > 3) or now() - st_t > 25 then
+                    to_state("out")
+                end
+            elseif state == "out" and now() - st_t > 2 then
+                local dir = math.random() < 0.5 and 1 or -1
+                if not kid_back and math.random() < (el.come_out or 0.85) then come_out(a.x, dir, nil) end
+                if kid_back then
+                    local kb = kid_back
+                    kid_back = nil
+                    a.kid_out = { at = now() + 1.6, kb = kb }
+                end
+                to_state("closing")
+            elseif state == "closing" and now() - st_t > 3 and not a.kid_out then
+                a.open_now, queue = false, {}
+                play("open", true)
+                to_state("shut")
+            elseif state == "shut" and now() - st_t > 1 then
+                play("idle")
+                to_state("idle")
+                next_service = now() + rnd(range(el.service, 40))
+            end
+            if a.kid_out and now() >= a.kid_out.at then
+                local kb = a.kid_out.kb
+                a.kid_out = nil
+                come_out(a.x, math.random() < 0.5 and 1 or -1, kb)
+            end
+        end
+        a.tc = a.tc + dt
+        local frame, done = clip_frame(spr, a.clip, a.tc, a.rev)
+        if done and a.clip == "open" and not a.rev then play("opened"); frame = clip_frame(spr, "opened", 0) end
+        local l = layer(spr, frame, false, a.x, H, 0, (1 - ease(a.rise)) * spr.h)
+        return true, l.x, l.y, l.frame, l.variant
+    end
+    if X2 then X2.ids_low_first(true) end
+    local ok = E.add(a, el)
+    if X2 then X2.ids_low_first(false) end
+    return nil
+end
+
 -- ── preview keys ────────────────────────────────────────────────────────────
 
 local function force(t)
@@ -1034,7 +1245,29 @@ function S.install(api)
             end
         end
     end)
+    mp.add_forced_key_binding("Shift+F8", "stm-church", function()          -- the church: the bell, in they go
+        local bel = beggar_el()
+        if bel and #free_beggars() == 0 then
+            local bs = E.free_sprite(bel)
+            local b = bs and S.beggar(bel, bs, nil)
+            if b then E.add(b, bel) end
+        end
+        church_now, church_until = "service", now() + 45      -- (as soon as a beggar sits)
+        force("church")
+    end)
+    mp.add_forced_key_binding("Ctrl+F8", "stm-church-fetch", function()     -- a child takes a beggar to church
+        local bel = beggar_el()
+        if bel and #free_beggars() == 0 then
+            local bs = E.free_sprite(bel)
+            local b = bs and S.beggar(bel, bs, nil)
+            if b then E.add(b, bel) end
+        end
+        church_now, church_until = "fetch", now() + 60
+        force("kid")
+        force("church")
+    end)
     E.spawn.kid, E.spawn.martin, E.spawn.beggar, E.spawn.moon = S.kid, S.martin, S.beggar, S.moon
+    E.spawn.church = S.church
 end
 
 function S.reset() groups = {} end

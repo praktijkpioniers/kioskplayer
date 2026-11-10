@@ -1108,6 +1108,10 @@
   "loose_house_purple": {
    "file": "lantern/loose_house_purple.png",
    "height": 0.117
+  },
+  "church": {
+   "anim": "anim/church",
+   "unit": 0.08
   }
  },
  "elements": [
@@ -1394,6 +1398,31 @@
     ]
    },
    "look": "B"
+  },
+  {
+   "_doc": "the church: now and then the bell rings and the door opens; the beggars go in out of the cold, then somebody comes out (St Martin most likely when there's none); a child may fetch a beggar and take him (fetch = chance per service)",
+   "type": "church",
+   "sprite": "church",
+   "stay": [
+    240,
+    480
+   ],
+   "service": [
+    35,
+    70
+   ],
+   "fetch": 0.35,
+   "come_out": 0.85,
+   "every": [
+    400,
+    800
+   ],
+   "delay": [
+    20,
+    90
+   ],
+   "min": 4,
+   "video_min": 9
   }
  ]
 }

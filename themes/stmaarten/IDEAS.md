@@ -20,6 +20,13 @@ next screen. When the sky has had no moon long enough, a lit lantern slips off a
 floats up, wobbling, to become the new moon (the child is left with a bare stick).
 Preview: **Ctrl+F5** the moon comes down, **Ctrl+F6** a new moon goes up.
 
+## The church
+A village church stands a while (behind the walkers). Now and then the bell rings and the door opens:
+the beggars sitting about get up and go in, out of the cold. Then somebody comes out: St Martin (most
+likely when the room has none), a beggar, a child with a lantern, or the rich man. Sometimes a child
+fetches a beggar first, holds out a hand, and they go in together; the child comes out again.
+Preview: **Shift+F8** the bell and the service, **Ctrl+F8** a child takes a beggar to church.
+
 ## Meetings
 Kids sing for St Martin (sweets for everyone) or for a beggar (one child walks up with a gift:
 a sweet, a mandarin, an apple, a present, or their own lantern left glowing by the beggar).
