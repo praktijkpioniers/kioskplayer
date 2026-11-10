@@ -11,9 +11,10 @@ subs="$dir/test.srt"          # the video's own subtitles when there are (name.n
 for s in "${video%.*}.nl.srt" "${video%.*}.srt"; do [ -f "$s" ] && { subs=$s; break; }; done
 export DISPLAY=${DISPLAY:-:0}
 [ -z "$XAUTHORITY" ] && [ -f /run/user/$(id -u)/gdm/Xauthority ] && export XAUTHORITY=/run/user/$(id -u)/gdm/Xauthority
+# KIOSKSIM_VO="gpu --gpu-context=x11egl": for a virtual display (Xvfb), where plain --vo=gpu falls back to DRM
 # KIOSKSIM_GEOMETRY=WxH+X+Y: a window instead of full screen (several kiosks side by side, multi.py)
 if [ -n "$KIOSKSIM_GEOMETRY" ]; then screen="--geometry=$KIOSKSIM_GEOMETRY --title=${KIOSKSIM_TITLE:-kiosksim}"; else screen=--fs; fi
-exec mpv $screen --no-border --force-window=yes --vo=gpu --hwdec=no --no-osc --idle=yes \
+exec mpv $screen --no-border --force-window=yes --vo=${KIOSKSIM_VO:-gpu} --hwdec=no --no-osc --idle=yes \
     --image-display-duration=inf --loop-file=inf --keep-open=no --cursor-autohide=always \
     --input-conf="$here/input.conf" --input-ipc-server="$dir/mpv.sock" --log-file="$dir/mpv.log" \
     --screenshot-format=png --screenshot-directory="$dir" \
