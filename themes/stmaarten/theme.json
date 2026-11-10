@@ -107,6 +107,36 @@
    "height": 0.143,
    "fps": 8
   },
+  "carry_beet": {
+   "frames": [
+    "lantern/carry_beet_0.png",
+    "lantern/carry_beet_1.png",
+    "lantern/carry_beet_2.png",
+    "lantern/carry_beet_3.png",
+    "lantern/carry_beet_4.png",
+    "lantern/carry_beet_5.png",
+    "lantern/carry_beet_6.png",
+    "lantern/carry_beet_7.png"
+   ],
+   "height": 0.143,
+   "fps": 8
+  },
+  "stand_beet": {
+   "frames": [
+    "lantern/stand_beet_0.png",
+    "lantern/stand_beet_1.png",
+    "lantern/stand_beet_2.png",
+    "lantern/stand_beet_3.png",
+    "lantern/stand_beet_4.png",
+    "lantern/stand_beet_5.png",
+    "lantern/stand_beet_6.png",
+    "lantern/stand_beet_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "unlit_beet": {"file": "lantern/unlit_beet.png", "height": 0.143},
+  "loose_beet": {"file": "lantern/loose_beet.png", "height": 0.117},
   "stand_round_orange": {
    "frames": [
     "lantern/stand_round_orange_0.png",
@@ -1346,7 +1376,8 @@
     "carry_house_pink",
     "carry_house_purple",
     "carry_led",
-    "carry_led"
+    "carry_led",
+    "carry_beet"
    ],
    "notes": [
     "note_0",
@@ -1422,7 +1453,8 @@
     "carry_house_green",
     "carry_house_pink",
     "carry_house_purple",
-    "carry_led"
+    "carry_led",
+    "carry_beet"
    ],
    "notes": [
     "note_0",

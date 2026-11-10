@@ -155,7 +155,7 @@ end
 -- a candle in a paper lantern (not the LED one, not the moon): it can burn, be given away, float up
 local function candle(k)
     local n = k.lantern and k.lantern.name or ""
-    return n:match("^carry_") and n ~= "carry_moon" and n ~= "carry_led" and not k.moonlit
+    return n:match("^carry_") and n ~= "carry_moon" and n ~= "carry_led" and n ~= "carry_beet" and not k.moonlit   -- (a beet doesn't burn)
 end
 
 -- ── beggars ─────────────────────────────────────────────────────────────────
