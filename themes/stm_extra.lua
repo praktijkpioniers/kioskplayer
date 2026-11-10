@@ -220,7 +220,18 @@ function X.house(el, spr, grumpy, at)
     local W, H = E.W(), E.H()
     if not (spr and spr.clips and spr.clips.open) then return nil end
     local u = unit(spr)
-    local x = at or E.free_x(0.22 * W, 0.86 * W)          -- (clear of the Dom and its flag)
+    local x = at
+    if not x then                                     -- (clear of the Dom and its flag, and of a church or school)
+        for _ = 1, 8 do
+            local cx = E.free_x(0.22 * W, 0.86 * W)
+            local clear = true
+            for _, b in ipairs(E.actors()) do
+                if (b.stm == "church" or b.stm == "school") and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
+            end
+            if clear then x = cx break end
+        end
+        if not x then return nil end
+    end
     local a = { el = el, spr = spr, stm = "house", x = x, cx = x, dir = 1, clip = "idle", tc = 0, rise = 0,
                 grumpy = grumpy, ttl = rnd(range(el.stay, 150, 300)), t0 = now(), unique = false }
     local function play(name, reverse, after) a.clip, a.rev, a.tc, a.after = name, reverse, 0, after end

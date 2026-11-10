@@ -1029,7 +1029,16 @@ function S.church(el, spr, h)
         if now() < el._next then return nil end
     end
     el._next = now() + rnd(range(el.every, 400))
-    local x = E.free_x(0.3 * W, 0.7 * W)
+    local x
+    for _ = 1, 8 do                  -- (not where a house stands: stm_extra's houses keep clear of it too)
+        local cx = E.free_x(0.3 * W, 0.7 * W)
+        local clear = true
+        for _, b in ipairs(E.actors()) do
+            if b.stm == "house" and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
+        end
+        if clear then x = cx break end
+    end
+    if not x then el._next = now() + 20 return nil end
     local a = { el = el, spr = spr, stm = "church", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
                 ttl = rnd(range(el.stay, 240)), unique = false }
     local u = unit(spr)
