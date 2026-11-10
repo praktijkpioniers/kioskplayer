@@ -38,7 +38,7 @@ import roombus  # noqa: E402
 import themes  # noqa: E402
 
 BASE_DIR = Path(os.environ.get("KIOSKSIM_DIR", "/tmp/kiosksim"))
-PORT = 47900
+PORT = int(os.environ.get("KIOSKSIM_PORT", 47900))   # (another room on the same machine: another base port)
 SCREEN_W, SCREEN_H = 1920, 1080
 
 
@@ -115,7 +115,7 @@ class Kiosk:
             if w and h:
                 break
             time.sleep(0.1)
-        man = themes.build_manifest("halloween", level, w, h)
+        man = themes.build_manifest(os.environ.get("KIOSKSIM_THEME", "halloween"), level, w, h)
         wm = themes.build_watermark({"watermark_image": "themes/watermark/default.png"}, h)
         self.cmd("script-message", "watermark", json.dumps(wm))
         self.room.announce()
