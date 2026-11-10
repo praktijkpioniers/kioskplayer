@@ -234,11 +234,13 @@ function X.house(el, spr, grumpy, at)
             local clear = true
             for _, b in ipairs(E.actors()) do
                 if (b.stm == "church" or b.stm == "school") and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
+                if b.stm == "beggar" and b.sitting and math.abs(b.x - cx) < 0.08 * W then clear = false end   -- (the door: free)
             end
             if clear then x = cx break end
         end
         if not x then return nil end
     end
+    if S and S.clear_door then S.clear_door(x, 0.07 * W) end     -- (one sitting there anyway: he shuffles aside)
     local a = { el = el, spr = spr, stm = "house", x = x, cx = x, dir = 1, clip = "idle", tc = 0, rise = 0,
                 grumpy = grumpy, ttl = rnd(range(el.stay, 150, 300)), t0 = now(), unique = false }
     local function play(name, reverse, after) a.clip, a.rev, a.tc, a.after = name, reverse, 0, after end

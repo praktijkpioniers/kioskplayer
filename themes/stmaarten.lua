@@ -209,6 +209,13 @@ function S.beggar(el, spr, h)
                     { clip = "sit_down", on_end = sit_here } }
     end
     function a.can_hear() return a.sitting and not a.warm and not a.claimed and not a.listening end
+    function a.shuffle(to_x)    -- (a building rising where he sits: up, a few steps aside, down again)
+        if not a.sitting or a.claimed or a.listening or a.steps[1] then return false end
+        a.sitting = false
+        a.steps = { { clip = "stand" }, { clip = "walk", walk_to = to_x, v = a.v * 0.8 },
+                    { clip = "sit_down", on_end = function() a.sitting = true end } }
+        return true
+    end
     function a.listen(g) a.listening = g end
     function a.react(g)         -- the children sang: one of them brings something
         local kid = g.pick_child(a)
@@ -456,6 +463,7 @@ function S.martin(el, spr, h)
         end
         a.x = a.dir > 0 and -u or W + u
     end
+    a.go = a.dir                             -- (his own way: a turn to a beggar or the children doesn't change it)
     a.hops = h and tonumber(h.hops) or 0
     local function set_stage(s, k)           -- (k: this cut, "v" or "h")
         a.stage = s
@@ -501,7 +509,7 @@ function S.martin(el, spr, h)
                 fly(cl, hx, H - 1.1 * u, b.x, H - 0.7 * u, 0.9, function() b.receive() end)
             end },
             { clip = "idle", dur = 1.2 },
-            { clip = "turn_side", face = a.dir },
+            { clip = "turn_side", face = a.go },
         }
         if a.stage >= 2 then        -- (this was the last piece)
             a.steps[#a.steps].on_end = function() sit_down_cold() end
@@ -527,7 +535,7 @@ function S.martin(el, spr, h)
                 end
             end },
             { clip = "idle", dur = 1.5, on_end = function() a.listening = nil; g.resume() end },
-            { clip = "turn_side", face = a.dir },
+            { clip = "turn_side", face = a.go },
         }
     end
     function a.update(dt, t)
@@ -535,6 +543,7 @@ function S.martin(el, spr, h)
         if a.dead then return false end
         if not frame then
             if a.listening then a.listening = nil end
+            if not a.cold then a.dir = a.go end
             -- on his way: a beggar ahead, sitting in the cold?
             if a.stage < 3 and not a.cold then
                 local best, bd
@@ -1273,6 +1282,20 @@ local function el_of(t)
     for _, e in ipairs(E.M().elements) do if e.type == t and E.elements()[e] then return e end end
 end
 
+-- a building rising at x (a church, a school, a house): nobody sits in front of its door - the beggars
+-- there get up and shuffle aside (S.clear_door: stm_extra.lua's houses too)
+local function clear_door(x, half)
+    local W = E.W()
+    for _, b in ipairs(others("beggar")) do
+        if b.sitting and b.shuffle and math.abs(b.x - x) < half then
+            local side = b.x < x and -1 or 1
+            local to = x + side * (half + 0.03 * W)
+            if to < 0.06 * W or to > 0.94 * W then to = x - side * (half + 0.03 * W) end
+            b.shuffle(to)
+        end
+    end
+end
+S.clear_door = clear_door
 local function free_beggars()
     local out = {}
     for _, b in ipairs(others("beggar")) do
@@ -1344,10 +1367,12 @@ function S.church(el, spr, h)
         local clear = true
         for _, b in ipairs(E.actors()) do
             if (b.stm == "house" or b.stm == "school") and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
+            if b.stm == "beggar" and b.sitting and math.abs(b.x - cx) < 0.1 * W then clear = false end     -- (his door: free)
         end
         if clear then x = cx break end
     end
     if not x then el._next = now() + 20 return nil end
+    clear_door(x, 0.09 * W)
     local a = { el = el, spr = spr, stm = "church", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
                 ttl = rnd(range(el.stay, 240)), unique = false, backdrop = 3 }     -- (behind everyone: engine restack)
     local u = unit(spr)
@@ -1516,10 +1541,12 @@ function S.school(el, spr, h)
         local clear = true
         for _, b in ipairs(E.actors()) do
             if (b.stm == "house" or b.stm == "church") and not b.dead and math.abs(b.x - cx) < 0.25 * W then clear = false end
+            if b.stm == "beggar" and b.sitting and math.abs(b.x - cx) < 0.1 * W then clear = false end     -- (its door: free)
         end
         if clear then x = cx break end
     end
     if not x then el._next = now() + 20 return nil end
+    clear_door(x, 0.09 * W)
     local a = { el = el, spr = spr, stm = "school", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
                 ttl = rnd(range(el.stay, 300)), unique = false, backdrop = 3 }
     local state, st_t = "idle", now()
