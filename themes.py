@@ -17,6 +17,7 @@ import datetime as dt
 import hashlib
 import json
 import math
+import os
 import threading
 import time
 from pathlib import Path
@@ -32,7 +33,8 @@ except Exception:
 THEMES_DIR = Path(__file__).resolve().parent / "themes"
 EVENTS_PATH = THEMES_DIR / "events.json"
 ENGINE_LUA = THEMES_DIR / "engine.lua"
-CACHE_DIR = Path("~/.cache/kioskplayer/sprites").expanduser()
+# KIOSK_SPRITE_CACHE: a cache of its own (several sims side by side would prune each other's atlases)
+CACHE_DIR = Path(os.environ.get("KIOSK_SPRITE_CACHE", "~/.cache/kioskplayer/sprites")).expanduser()
 
 WEEKDAY_NUM = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 WEEKDAYS = list(WEEKDAY_NUM)    # mon..sun (closed days, the web page's boxes)
