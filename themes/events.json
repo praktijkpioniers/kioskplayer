@@ -19,6 +19,17 @@
       "curve": 2.2
     },
     {
+      "id": "stmaarten",
+      "type": "stmaarten",
+      "theme": "stmaarten",
+      "date": "11-11",
+      "lead_days": 1,
+      "after_days": 0,
+      "lead_min": 2,
+      "lead_max": 3,
+      "priority": 2
+    },
+    {
       "id": "sinterklaas",
       "type": "sinterklaas",
       "theme": "sinterklaas",
