@@ -17,4 +17,16 @@ Rich man,Fur coat hat cane: passes beggars nose up; sometimes drops a glinting c
 Kids,Lantern catches fire: flame / ash / bare stick / a new lantern handed over,todo,,
 Kids,LED lantern dies: a shake and it comes back on,todo,,
 Kids,Sugar-beet lantern,todo,,
-Kids,Doorbell children (art by the other St Maarten fork),todo,,
+Kids,Doorbell children: houses (3 fronts) - they ring and sing at the door; the door opens and the resident hands out sweets; a grumpy house switches the light off and peeks through the curtain,done,stm_extra.lua stm_house (meeting 'house'); tools/bake/stm_scenery.py houses,F9 / Shift+F9
+Kids,Kids sing at a cow (de koeien hebben staarten); it swishes and moos back,done,stm_extra.lua stm_cow (meeting 'cow'),F10
+Kids,Sint-Maartensvuur: a bonfire; kids passing gather and sing at it,done,stm_extra.lua stm_bonfire (meeting 'bonfire'),Ctrl+F9
+Kids,Two teenagers without lanterns and a big bag at a door: a turnip - or the light goes off; they shrug and slouch off,done,stm_extra.lua stm_teens,Shift+F12
+St Martin,Geese give him away: he creeps in among them to hide and they all honk at him (the legend),done,stm_extra.lua stm_geese,F11
+Scenery,Utrecht: the Dom tower far off at dusk (St Martin is the city's patron),done,decor dom (scenery/dom.png),
+Scenery,Geese flying south in a V,done,flyer geese_v,Ctrl+F10
+Scenery,Utrecht flag (art baked: anim/flag_utrecht) on the Dom,todo,,
+Island,The island story: Columbus's caravel bumps the island (a coconut drops); Columbus plants a flag with St Martin's cloak (11-11-1493); the Frenchman and the Dutchman pop up on either side; Columbus sails off sheepishly; they squabble - St Martin cuts the island in two like his cloak and hands each a half (no St Martin about: a plain sword slice),done,stm_extra.lua stm_island,F12
+Island,The border walk (1648): back to back; the Dutchman drinks jenever and falls asleep; the Frenchman comes round from the other side and plants his flag past the middle; the Dutchman wakes and shrugs; round the room's screens (one screen: off one side and in at the other),done,stm_extra.lua stm_border,Shift+F10
+Island,St Martin lays a piece of his cloak over the sleeping Dutchman: he sleeps on,done,stm_extra.lua stm_border,Shift+F10
+Island,Maho beach: a jet low overhead (rare),done,flyer jet,Ctrl+F10
+Carnival,11:11: prince carnaval + jester + two trumpets cross the room once with confetti (os.date),done,stm_extra.lua stm_parade,Shift+F11

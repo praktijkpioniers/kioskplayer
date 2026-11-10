@@ -18,6 +18,14 @@ Kids sing for St Martin (sweets for everyone) or for a beggar (one child walks u
 a sweet, a mandarin, an apple, a present, or their own lantern left glowing by the beggar).
 Groups join each other's singing.
 
+## The side cast (stm_extra.lua, theme.extra.json)
+Houses on the doorbell round (a grumpy one turns the light off), a cow and a bonfire to sing at,
+geese that honk St Martin out of hiding, two teenagers without lanterns (a turnip), the Dom of
+Utrecht. Sint Maarten the island: Columbus bumps into it on 11-11-1493, the Frenchman and the
+Dutchman squabble and St Martin cuts it in two like his cloak; the border walk (the Dutchman
+naps, maybe under a piece of cloak); a jet over Maho beach. At 11:11 the carnival parade crosses
+the room once. Keys: F9 (Shift: grumpy), Ctrl+F9, F10, F11, F12, Shift+F10/F11/F12, Ctrl+F10.
+
 ## Still to do
 Church and school nodes, the rich man, the teacher-led school procession, lanterns catching fire,
-LED lantern, sugar-beet lantern, doorbell children (see ideas.csv).
+LED lantern, sugar-beet lantern (see ideas.csv).
