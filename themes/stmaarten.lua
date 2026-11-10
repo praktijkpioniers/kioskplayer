@@ -151,6 +151,12 @@ local function others(stm)
     return list
 end
 
+-- a candle in a paper lantern (not the LED one, not the moon): it can burn, be given away, float up
+local function candle(k)
+    local n = k.lantern and k.lantern.name or ""
+    return n:match("^carry_") and n ~= "carry_moon" and n ~= "carry_led" and not k.moonlit
+end
+
 -- ── beggars ─────────────────────────────────────────────────────────────────
 
 local function beggar_el()
@@ -192,7 +198,7 @@ function S.beggar(el, spr, h)
         local kid = g.pick_child(a)
         if not kid then g.resume() return end
         local gifts = { "sweet", "mandarin", "apple", "present" }
-        if kid.lantern and (kid.lantern.name or ""):match("^carry_") and not kid.moonlit and math.random() < 0.3 then gifts = { "lantern" } end
+        if candle(kid) and math.random() < 0.3 then gifts = { "lantern" } end
         local gift = gifts[math.random(#gifts)]
         kid.errand(a, gift, function()
             a.listening = nil
@@ -456,6 +462,8 @@ end
 
 local force_unlit = false        -- (preview) the next group: one child with an unlit lantern
 local force_bare = false         -- (preview) the next group: one child with a bare stick (the moon comes to it)
+local force_fire = false         -- (preview) the next child crossing the middle: its lantern catches fire
+local force_led = false          -- (preview) the next group: one child with an LED lantern, and it dies
 local function lantern_sprite(el, name, unlit)
     local M = E.M()
     if name and name ~= "" then return M.sprites[name] end
@@ -485,7 +493,7 @@ local function new_kid(el, spr, g, x, lantern)
     a.note = E.M().sprites[(el.notes or {})[math.random(math.max(1, #(el.notes or {})))] or ""]
     g.members[#g.members + 1] = a
     function a.cheer() if not a.steps[1] then a.steps = { { clip = "cheer" } } end end
-    function a.lightless() return a.unlit or a.bare or not a.lantern end
+    function a.lightless() return a.unlit or a.bare or a.dead_led or not a.lantern end
     function a.set_lit(on)            -- light the lantern (carry_*) or let it go out (unlit_*)
         local nm = a.lantern and a.lantern.name or ""
         local base = nm:gsub("^carry_", ""):gsub("^unlit_", "")
@@ -590,6 +598,84 @@ local function new_kid(el, spr, g, x, lantern)
             { clip = "turn_side", face = g.dir, on_end = done },
         }
     end
+    -- ── a lantern's little disasters: the candle sets the paper on fire; the LED one dies ──
+    local function stop_group()
+        local was = g.mode
+        if was == "walk" then g.mode = "light" end       -- (the group waits, as for a lighting)
+        return was
+    end
+    local function go_on(was) if was == "walk" and g.mode == "light" then g.mode = "walk" end end
+    function a.on_fire()
+        local M = E.M()
+        local burn = M.sprites[el.burn or "burn"]
+        if not (burn and M.sprites.stick) then return false end
+        local was = stop_group()
+        a.steps = {
+            { clip = "idle", dur = 0.3, on_start = function() a.lantern, a.lfr0 = burn, now() end },
+            { clip = "turn_front", face = a.dir },
+            { clip = "idle", dur = burn.frames / 4 + 0.2, on_end = function()
+                local lx, ly = a.lantern_at()
+                a.lantern, a.lfr0, a.bare = M.sprites.stick, nil, true
+                relic(M.sprites.ash, lx, a)
+                fx(M.sprites.puff, lx, ly, 1.2)
+            end },
+            { clip = "idle", dur = 1.6 },                  -- (looks at the bare stick)
+        }
+        -- the nearest one in the group brings a new lantern
+        local giver
+        for _, b in ipairs(g.alive()) do
+            if b ~= a and not b.steps[1] and b.lantern and not b.lightless() and
+               (not giver or math.abs(b.x - a.x) < math.abs(giver.x - a.x)) then giver = b end
+        end
+        if giver then
+            local back, side = giver.x, a.x > giver.x and 1 or -1
+            local nm
+            for _ = 1, 6 do
+                local c = (el.lanterns or {})[math.random(math.max(1, #(el.lanterns or {})))]
+                if c and c ~= "carry_led" and M.sprites[c] then nm = c break end
+            end
+            nm = nm or (a.lantern and a.lantern.name)
+            giver.steps = {
+                { clip = "idle", wait = function() return a.bare end },
+                { clip = "idle", dur = 0.8 },
+                { clip = "walk", walk_to = a.x - side * 0.9 * u, v = giver.v_own },
+                { clip = "give", face = side, on_start = function()
+                    local loose = M.sprites["loose_" .. (nm or ""):gsub("^carry_", "")]
+                    local lx, ly = a.lantern_at()
+                    fly(loose, giver.x + side * 0.5 * u, H - 1.3 * u, lx, ly, 0.7, function()
+                        if M.sprites[nm] then a.lantern, a.bare = M.sprites[nm], nil end
+                    end)
+                end },
+                { clip = "skip", walk_to = back, v = giver.v_own * 1.3 },
+                { clip = "turn_side", face = g.dir },
+            }
+            a.steps[#a.steps + 1] = { clip = "idle", wait = function() return not a.bare or not giver.steps[1] end }
+            a.steps[#a.steps + 1] = { clip = "cheer" }
+        end
+        a.steps[#a.steps + 1] = { clip = "turn_side", face = g.dir, on_end = function() go_on(was) end }
+        return true
+    end
+    function a.led_dies()
+        local M = E.M()
+        local off = M.sprites[el.led_off or "led_off"]
+        if not off then return false end
+        local was = stop_group()
+        a.led_on = a.lantern
+        local back_on = math.random() < (el.led_back or 0.8)
+        a.steps = {
+            { clip = "idle", dur = 0.25, on_start = function() a.lantern = off end },
+            { clip = "turn_front", face = a.dir },
+            { clip = "idle", dur = 1.0 },                  -- (looks at it)
+            { clip = "cheer", rate = 1.8, on_start = function() a.shake_t = now() end },     -- (shakes it)
+            { clip = "cheer", rate = 1.8, on_end = function()
+                a.shake_t = nil
+                if back_on then a.lantern = a.led_on else a.dead_led = true end
+            end },
+            { clip = back_on and "cheer" or "idle", dur = back_on and nil or 1.2 },
+            { clip = "turn_side", face = g.dir, on_end = function() go_on(was) end },
+        }
+        return true
+    end
     function a.update(dt, t)
         g.tick(t)
         local W_ = E.W()
@@ -601,6 +687,19 @@ local function new_kid(el, spr, g, x, lantern)
         if not frame and a.unlit and g.mode == "walk" and a.x > 0 and a.x < W_ then
             look_for_light()
             frame = run_steps(a, 0)
+        end
+        if not frame and not a.gag_done and g.mode == "walk" and a.x > 0.25 * W_ and a.x < 0.75 * W_ then
+            a.gag_done = true                             -- (once a screen: the candle may catch fire, the LED die)
+            local nm = a.lantern and a.lantern.name or ""
+            if nm == "carry_led" then
+                if (force_led or math.random() < (el.led_dies or 0.5)) and a.led_dies() then force_led = false end
+            elseif candle(a) and (force_fire or math.random() < (el.fire or 0.03)) then
+                if a.on_fire() then force_fire = false end
+            end
+            frame = run_steps(a, 0)
+        end
+        if a.shake_t then           -- (the LED lantern being shaken: it flickers)
+            a.lantern = (math.floor((now() - a.shake_t) * 9) % 3 == 1) and a.led_on or E.M().sprites[el.led_off or "led_off"]
         end
         local clip, k = a.clip, a.k
         if a.dead then return false end
@@ -689,7 +788,7 @@ local function new_kid(el, spr, g, x, lantern)
             local hy = H - spr.origin[2] + spr.origin[2] + p[2] - math.abs(bob)
             local gx = GRIP[1] * ls.w
             local lx = mirror and (hx - (ls.w - gx)) or (hx - gx)
-            local fr = math.floor(t * 8 + a.ph * 3)
+            local fr = a.lfr0 and math.min(ls.frames - 1, math.floor((now() - a.lfr0) * 4)) or math.floor(t * 8 + a.ph * 3)
             L[2] = { spr = ls, frame = fr, variant = mirror, x = lx, y = hy - GRIP[2] * ls.h }
             a.lc_x = mirror and (lx + ls.w * (1 - LC[1])) or (lx + ls.w * LC[1])
             a.lc_y = hy - GRIP[2] * ls.h + ls.h * LC[2]
@@ -743,6 +842,8 @@ function S.kid(el, spr, h)
     for i = 1, n do unl[i] = math.random() < (el.unlit or 1 / 6) end
     if force_unlit then for i = 1, n do unl[i] = (i == 2) end; force_unlit = false end
     local bare_i = force_bare and 2 or nil
+    local led_i = force_led and 2 or nil
+    if force_led then n = math.max(n, 2) end
     if force_bare then n, force_bare = math.max(n, 2), false end
     local lead = new_kid(el, spr, g, x, lantern_sprite(el, nil, unl[1]))
     local used = { [spr] = true }
@@ -756,7 +857,7 @@ function S.kid(el, spr, h)
         if not s2 then break end
         used[s2] = true
         local k = new_kid(el, s2, g, x - dir * (i - 1) * g.spacing * rnd(1.0, 1.15),
-                          i == bare_i and M.sprites.stick or lantern_sprite(el, nil, unl[i]))
+                          i == bare_i and M.sprites.stick or (i == led_i and M.sprites.carry_led) or lantern_sprite(el, nil, unl[i]))
         E.add(k, el)
     end
     return lead
@@ -809,7 +910,7 @@ function S.moon(el, spr, h)
     if moon_gone_t then
         -- the sky's been empty: a child's lantern goes up to be the moon (no child with a light: not yet)
         if moon_now ~= "up" and now() - moon_gone_t < moonless then return nil end
-        local ks = kids_where(function(k) return k.lantern and not k.lightless() and not k.moonlit end)
+        local ks = kids_where(function(k) return candle(k) and not k.lightless() end)
         if #ks == 0 then return nil end
         kid = ks[math.random(#ks)]
         moon_now = nil
@@ -1274,6 +1375,14 @@ function S.install(api)
         church_now, church_until = "fetch", now() + 60
         force("kid")
         force("church")
+    end)
+    mp.add_forced_key_binding("Ctrl+F7", "stm-fire", function()             -- a lantern catches fire
+        force_fire = true
+        force("kid")
+    end)
+    mp.add_forced_key_binding("Alt+F7", "stm-led", function()               -- an LED lantern dies, is shaken
+        force_led = true
+        force("kid")
     end)
     E.spawn.kid, E.spawn.martin, E.spawn.beggar, E.spawn.moon = S.kid, S.martin, S.beggar, S.moon
     E.spawn.church = S.church

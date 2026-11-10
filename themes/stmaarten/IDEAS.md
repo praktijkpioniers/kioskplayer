@@ -27,6 +27,12 @@ likely when the room has none), a beggar, a child with a lantern, or the rich ma
 fetches a beggar first, holds out a hand, and they go in together; the child comes out again.
 Preview: **Shift+F8** the bell and the service, **Ctrl+F8** a child takes a beggar to church.
 
+## Lantern trouble
+Now and then a candle sets a paper lantern on fire: the child stops and watches it burn; ash falls,
+a bare smoking stick is left, and the nearest friend brings a new lantern. A child with an LED lantern
+(on a black battery stick) sees it die, shakes it, and it flickers back on (or stays dead).
+Preview: **Ctrl+F7** a lantern catches fire, **Alt+F7** the LED lantern dies.
+
 ## Meetings
 Kids sing for St Martin (sweets for everyone) or for a beggar (one child walks up with a gift:
 a sweet, a mandarin, an apple, a present, or their own lantern left glowing by the beggar).

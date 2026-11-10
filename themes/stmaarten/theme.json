@@ -1112,6 +1112,44 @@
   "church": {
    "anim": "anim/church",
    "unit": 0.08
+  },
+  "burn": {
+   "frames": [
+    "lantern/burn_0.png",
+    "lantern/burn_1.png",
+    "lantern/burn_2.png",
+    "lantern/burn_3.png",
+    "lantern/burn_4.png",
+    "lantern/burn_5.png",
+    "lantern/burn_6.png",
+    "lantern/burn_7.png",
+    "lantern/burn_8.png",
+    "lantern/burn_9.png"
+   ],
+   "height": 0.143,
+   "fps": 4
+  },
+  "carry_led": {
+   "frames": [
+    "lantern/carry_led_0.png",
+    "lantern/carry_led_1.png",
+    "lantern/carry_led_2.png",
+    "lantern/carry_led_3.png",
+    "lantern/carry_led_4.png",
+    "lantern/carry_led_5.png",
+    "lantern/carry_led_6.png",
+    "lantern/carry_led_7.png"
+   ],
+   "height": 0.143,
+   "fps": 8
+  },
+  "led_off": {
+   "file": "lantern/led_off.png",
+   "height": 0.143
+  },
+  "ash": {
+   "file": "prop/ash.png",
+   "height": 0.032
   }
  },
  "elements": [
@@ -1220,7 +1258,9 @@
     "carry_house_blue",
     "carry_house_green",
     "carry_house_pink",
-    "carry_house_purple"
+    "carry_house_purple",
+    "carry_led",
+    "carry_led"
    ],
    "notes": [
     "note_0",
@@ -1248,7 +1288,10 @@
    ],
    "video_min": 8,
    "spacing": 3.0,
-   "unlit": 0.167
+   "unlit": 0.167,
+   "fire": 0.03,
+   "led_dies": 0.5,
+   "led_back": 0.8
   },
   {
    "_doc": "a lantern procession: a line of children",
@@ -1291,7 +1334,8 @@
     "carry_house_blue",
     "carry_house_green",
     "carry_house_pink",
-    "carry_house_purple"
+    "carry_house_purple",
+    "carry_led"
    ],
    "notes": [
     "note_0",
@@ -1317,7 +1361,10 @@
     120
    ],
    "video_min": 8,
-   "unlit": 0.167
+   "unlit": 0.167,
+   "fire": 0.03,
+   "led_dies": 0.5,
+   "led_back": 0.8
   },
   {
    "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",

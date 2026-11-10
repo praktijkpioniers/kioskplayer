@@ -393,6 +393,126 @@ def soot():
     return pinned(im.resize((w // S, w // S), Image.LANCZOS))
 
 
+BURN_N = 10
+
+
+def burning(k, n=BURN_N):
+    """A paper lantern catching fire (k 0..n-1): flames lick up from the candle, the paper chars and
+    shrinks, bits of ash fall; at the end only the wire, smoking, on the stick."""
+    f = k / (n - 1)
+    rnd = __import__("random").Random(100 + k)
+    im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
+    tip = (TIP[0] * S, TIP[1] * S)
+    col = COLOURS["orange"]
+    heat = min(1.0, f / 0.3) if f < 0.3 else max(0.0, 1 - (f - 0.3) / 0.45)
+    keep = 1.0 - max(0.0, min(1.0, (f - 0.25) / 0.55))       # how much paper is left
+    centre = (tip[0], tip[1] + int(0.5 * 2.5 * CARRY_R * S))
+    if keep > 0.05:
+        char = mix(col, min(1.0, 0.25 + 0.9 * f), (40, 28, 22))
+        body = lantern_body("round", char, 0.6 + 0.6 * heat, CARRY_R)
+        bw, bh = max(1, int(body.width * (0.45 + 0.55 * keep))), max(1, int(body.height * (0.35 + 0.65 * keep)))
+        body = body.resize((bw, bh), Image.LANCZOS)
+        im.alpha_composite(glow(im.size, centre, 60 * S, (255, 150, 40), 0.8 + 1.4 * heat))
+        im.alpha_composite(body, (tip[0] - bw // 2, tip[1] + int(8 * S * (1 - keep))))
+    d = ImageDraw.Draw(im)
+    # flames: tongues round the burning paper
+    if heat > 0.02:
+        g = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(g)
+        base_y = centre[1] + 0.6 * CARRY_R * S * keep
+        for i in range(7):
+            x = centre[0] + (i - 3) * 9 * S * (0.6 + 0.4 * keep) + rnd.uniform(-3, 3) * S
+            h = (26 + 30 * rnd.random()) * S * heat * (1.25 if i in (2, 3, 4) else 0.85)
+            w = (9 + 4 * rnd.random()) * S * (0.5 + 0.5 * heat)
+            lean = rnd.uniform(-6, 6) * S
+            for sc, c in ((1.0, (255, 110, 20, 230)), (0.66, (255, 200, 60, 240)), (0.33, (255, 250, 210, 255))):
+                hh, ww = h * sc, w * sc
+                gd.polygon([(x - ww, base_y), (x + lean * sc, base_y - hh), (x + ww, base_y),
+                            (x, base_y + ww * 0.6)], fill=c)
+        im.alpha_composite(g.filter(ImageFilter.GaussianBlur(1.5 * S)))
+        d = ImageDraw.Draw(im)
+    # ash falling
+    if f > 0.3:
+        for i in range(int(10 * min(1, (f - 0.3) / 0.4))):
+            x = centre[0] + rnd.uniform(-30, 30) * S
+            y = centre[1] + rnd.uniform(10, 70) * S
+            r = rnd.uniform(1.5, 3.5) * S
+            g_ = rnd.randint(40, 90)
+            d.ellipse((x - r, y - r * 0.6, x + r, y + r * 0.6), fill=(g_, g_, g_, 230))
+    # the stick, the wire (a glowing end at the last), smoke at the end
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=INK, width=6 * S)
+    d.line([(GRIP[0] * S, GRIP[1] * S), tip], fill=(130, 90, 55, 255), width=3 * S)
+    d.line([tip, (tip[0], tip[1] + 10 * S)], fill=INK, width=2 * S)
+    if f > 0.8:
+        d.ellipse((tip[0] - 3 * S, tip[1] + 8 * S, tip[0] + 3 * S, tip[1] + 14 * S), fill=(255, 120, 40, 255))
+        s_ = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        sd = ImageDraw.Draw(s_)
+        for j in range(4):
+            r = (5 + 3 * j) * S
+            sx_, sy_ = tip[0] + j * 9 * S, tip[1] + 4 * S - j * 8 * S
+            sd.ellipse((sx_ - r, sy_ - r, sx_ + r, sy_ + r), fill=(150, 150, 155, 120 - 22 * j))
+        im.alpha_composite(s_.filter(ImageFilter.GaussianBlur(3 * S)))
+    return pinned(im.resize((CW, CH), Image.LANCZOS))
+
+
+def ash():
+    """What's left on the ground: a little grey heap with a glowing bit and the black wire ring."""
+    w, h = 60 * S, 26 * S
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.ellipse((4 * S, 12 * S, w - 4 * S, h + 12 * S), fill=(178, 174, 170, 255), outline=(110, 106, 104, 255), width=S)
+    rnd = __import__("random").Random(5)
+    for _ in range(12):
+        x, y = rnd.uniform(12, 48) * S, rnd.uniform(13, 22) * S
+        g = rnd.randint(70, 150)
+        d.ellipse((x - 2 * S, y - S, x + 2 * S, y + S), fill=(g, g, g, 255))
+    d.ellipse((30 * S, 15 * S, 35 * S, 19 * S), fill=(255, 120, 40, 255))
+    d.arc((14 * S, 9 * S, 34 * S, 21 * S), 180, 360, fill=(40, 36, 40, 255), width=S)
+    return pinned(im.resize((w // S, h // S), Image.LANCZOS))
+
+
+LED = (225, 240, 255)
+
+
+def led(k, on=True):
+    """A shop lantern on an LED stick: a white-blue paper ball, a cool even light (no flicker), a black
+    plastic stick with a battery handle and a little bulb at the tip; off: dark paper, a dead bulb."""
+    im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
+    col = (110, 170, 250)
+    body = lantern_body("round", col if on else mix(col, 0.55, (45, 35, 40)), 1.15 if on else 0.0, CARRY_R)
+    if on:     # (white LED light, not the candle's warm one)
+        g = Image.new("RGBA", body.size, (0, 0, 0, 0))
+        cx, cy = body.width // 2, int(body.height * 0.5)
+        ImageDraw.Draw(g).ellipse((cx - 14 * S, cy - 14 * S, cx + 14 * S, cy + 14 * S), fill=LED + (200,))
+        body.alpha_composite(g.filter(ImageFilter.GaussianBlur(5 * S)))
+    sway = 7 * math.sin(2 * math.pi * k / FRAMES)
+    tip = (TIP[0] * S, TIP[1] * S)
+    big = Image.new("RGBA", (body.width * 2, body.height * 2), (0, 0, 0, 0))
+    big.paste(body, (body.width // 2, body.height))
+    big = big.rotate(sway, resample=Image.BICUBIC, center=(body.width, body.height))
+    centre = (tip[0] - math.sin(math.radians(sway)) * body.height * 0.5,
+              tip[1] + math.cos(math.radians(sway)) * body.height * 0.5)
+    if on:
+        im.alpha_composite(glow(im.size, centre, 58 * S, LED, 1.4))
+    im.alpha_composite(big, (tip[0] - body.width, tip[1] - body.height))
+    d = ImageDraw.Draw(im)
+    gx, gy = GRIP[0] * S, GRIP[1] * S
+    d.line([(gx, gy), tip], fill=INK, width=6 * S)
+    d.line([(gx, gy), tip], fill=(45, 45, 52, 255), width=3 * S)
+    # the battery handle (along the stick, at the grip) with a little switch
+    ang = math.atan2(tip[1] - gy, tip[0] - gx)
+    hl = 30 * S
+    hx, hy = gx + hl * math.cos(ang), gy + hl * math.sin(ang)
+    d.line([(gx, gy), (hx, hy)], fill=INK, width=12 * S)
+    d.line([(gx, gy), (hx, hy)], fill=(30, 30, 36, 255), width=9 * S)
+    sx, sy = gx + 0.6 * hl * math.cos(ang), gy + 0.6 * hl * math.sin(ang)
+    d.ellipse((sx - 3 * S, sy - 3 * S, sx + 3 * S, sy + 3 * S), fill=(220, 50, 50, 255) if on else (90, 40, 40, 255))
+    # the bulb at the tip
+    d.ellipse((tip[0] - 4 * S, tip[1] - 2 * S, tip[0] + 4 * S, tip[1] + 6 * S),
+              fill=(LED + (255,)) if on else (120, 120, 125, 255), outline=INK, width=S)
+    return pinned(im.resize((CW, CH), Image.LANCZOS))
+
+
 def main():
     ld, pd = os.path.join(OUT, "lantern"), os.path.join(OUT, "prop")
     os.makedirs(ld, exist_ok=True)
@@ -425,6 +545,12 @@ def main():
         flare(k).save(os.path.join(pd, f"flare_{k}.png"), optimize=True)
         puff(k).save(os.path.join(pd, f"puff_{k}.png"), optimize=True)
     soot().save(os.path.join(pd, "soot.png"), optimize=True)
+    for k in range(BURN_N):
+        burning(k).save(os.path.join(ld, f"burn_{k}.png"), optimize=True)
+    ash().save(os.path.join(pd, "ash.png"), optimize=True)
+    for k in range(FRAMES):
+        led(k).save(os.path.join(ld, f"carry_led_{k}.png"), optimize=True)
+    led(0, on=False).save(os.path.join(ld, "led_off.png"), optimize=True)
     fruit("mandarin").save(os.path.join(pd, "mandarin.png"), optimize=True)
     fruit("apple").save(os.path.join(pd, "apple.png"), optimize=True)
     present().save(os.path.join(pd, "present.png"), optimize=True)
