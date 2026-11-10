@@ -835,6 +835,7 @@
    "file": "prop/cloth.png",
    "height": 0.045
   },
+  "rich": {"anim": "anim/rich", "unit": 0.1},
   "cloth_v": {"file": "prop/cloth_v.png", "height": 0.072},
   "cloth_h": {"file": "prop/cloth_h.png", "height": 0.029},
   "coin": {
@@ -1523,6 +1524,19 @@
     10,
     60
    ],
+   "video_min": 8
+  },
+  {
+   "_doc": "the rich man (tools/bake/rich.py; stmaarten.lua S.rich): fur coat, top hat, cane - strolls across nose up, snubs the beggars he passes (coin: the chance a coin drops from his pocket all the same, glinting by the beggar); sung to he pats his pockets (pocket_coin: a coin after all). Also comes out of the church. Preview Alt+F6",
+   "type": "rich",
+   "sprites": ["rich"],
+   "coin": 0.3,
+   "pocket_coin": 0.4,
+   "min": 5,
+   "full": 8,
+   "every": [120, 260],
+   "max_active": 1,
+   "delay": [40, 120],
    "video_min": 8
   },
   {

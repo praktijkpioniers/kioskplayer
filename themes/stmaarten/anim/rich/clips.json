@@ -1,0 +1,60 @@
+{
+ "view": "front",
+ "model": "../../models/kaykit-adventurers/addons/kaykit_character_pack_adventures/Characters/gltf/Mage.glb",
+ "clips": {
+  "walk": {
+   "files": "walk_*.png",
+   "count": 9,
+   "fps": 6.4,
+   "loop": true,
+   "stride": 0.38911076978995246
+  },
+  "snub": {
+   "files": "snub_*.png",
+   "count": 9,
+   "fps": 6.4,
+   "loop": true,
+   "stride": 0.38911076978995246
+  },
+  "idle": {
+   "files": "idle_*.png",
+   "count": 8,
+   "fps": 4.8,
+   "loop": true,
+   "stride": 0.0
+  },
+  "turn_front": {
+   "files": "turn_front_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "turn_side": {
+   "files": "turn_side_*.png",
+   "count": 4,
+   "fps": 24.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "pat": {
+   "files": "pat_*.png",
+   "count": 11,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "give": {
+   "files": "give_*.png",
+   "count": 10,
+   "fps": 8.0,
+   "loop": false,
+   "stride": 0.0
+  }
+ },
+ "unit_px": 96.96969696969697,
+ "origin_px": [
+  126.0,
+  320
+ ]
+}

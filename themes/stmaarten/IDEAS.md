@@ -52,6 +52,12 @@ a bare smoking stick is left, and the nearest friend brings a new lantern. A chi
 (on a black battery stick) sees it die, shakes it, and it flickers back on (or stays dead).
 Preview: **Ctrl+F7** a lantern catches fire, **Alt+F7** the LED lantern dies.
 
+## The rich man
+Fur coat, top hat, cane, monocle. He strolls across nose up; passing a beggar he snubs him (chin up,
+head turned away) - and now and then a coin drops from his pocket all the same and glints on the
+ground by the beggar. Sung to, he stops and pats his pockets: nothing, or after all a coin for one of
+the children. Then on to the screen next door. He may also come out of the church. Preview Alt+F6.
+
 ## Meetings
 Kids sing for St Martin (sweets for everyone) or for a beggar (one child walks up with a gift:
 a sweet, a mandarin, an apple, a present, or their own lantern left glowing by the beggar).

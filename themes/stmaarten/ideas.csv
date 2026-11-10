@@ -13,10 +13,9 @@ Decor,Moon top left; lanterns hanging on a line top right,done,decor elements,
 Church,Church whose door opens: beggars go in; Martin / beggar / rich man / child comes out,done,"element 'church' (S.church; tools/bake/church.py): service, come_out; Martin weighted up when the room has none; rich when an element 'rich' exists",Shift+F8
 Church,Kid leads a beggar to church,done,"church fetch: a child holds out a hand, they walk in together; the child comes out again",Ctrl+F8
 School,Procession led by juf/meester with a big lantern on a pole out of a school and back in,done,"element 'school' (S.school; tools/bake/school.py building + juf/meester with the kids' clips; lanterns.py pole()): the class files out behind the teacher (the procession element's children; el.teachers/el.poles) and walks the screens (h.cls); a class walking up to a school goes in",Shift+F7
-Rich man,Fur coat hat cane: passes beggars nose up; sometimes drops a glinting coin; sung to he pats his pockets,todo,coin prop baked,
+Rich man,Fur coat hat cane: passes beggars nose up; sometimes drops a glinting coin; sung to he pats his pockets,done,"tools/bake/rich.py; S.rich (element rich: coin, pocket_coin; S.meet rich); also out of the church",Alt+F6
 Kids,Lantern catches fire: flame / ash / bare stick / a new lantern handed over,done,"kid.on_fire (el.fire, per child per screen); lanterns.py burning(), ash(); the nearest friend brings a new lantern (none: the moon may come for the bare stick)",Ctrl+F7
 Kids,LED lantern dies: a shake and it comes back on,done,"carry_led (lanterns.py led()) in the kids' lantern lists; kid.led_dies (el.led_dies, el.led_back: stays dead sometimes - the moon may come)",Alt+F7
-Kids,Sugar-beet lantern,todo,,
 Kids,Doorbell children: houses (3 fronts) - they ring and sing at the door; the door opens and the resident hands out sweets; a grumpy house switches the light off and peeks through the curtain,done,stm_extra.lua stm_house (meeting 'house'); tools/bake/stm_scenery.py houses,F9 / Shift+F9
 Kids,Kids sing at a cow (de koeien hebben staarten); it swishes and moos back,done,stm_extra.lua stm_cow (meeting 'cow'),F10
 Kids,Sint-Maartensvuur: a bonfire; kids passing gather and sing at it,done,stm_extra.lua stm_bonfire (meeting 'bonfire'),Ctrl+F9

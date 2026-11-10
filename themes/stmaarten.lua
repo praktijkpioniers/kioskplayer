@@ -323,6 +323,97 @@ function S.beggar(el, spr, h)
     return a
 end
 
+-- ── the rich man ────────────────────────────────────────────────────────────
+-- Fur coat, top hat, cane (tools/bake/rich.py): he strolls across nose up, and passing a beggar he snubs
+-- him - chin up, head turned away; now and then a coin drops from his pocket all the same (el.coin), and
+-- glints on the ground by the beggar. Sung to (S.meet "rich") he stops and pats his pockets: nothing -
+-- or after all a coin for one of them (el.pocket_coin). Then on, over to the screen next door.
+-- h.at / h.dir: out of the church door (come_out); h.dir + lead: from the screen next door.
+function S.rich(el, spr, h)
+    local C = spr.clips
+    if not (C and C.walk and spr.origin) then return nil end
+    local W, H = E.W(), E.H()
+    local u = unit(spr)
+    local a = { el = el, spr = spr, stm = "rich", steps = {}, tc = 0, passed = {}, unique = false }
+    a.v = walk_v(spr) * 0.85
+    a.hops = h and tonumber(h.hops) or 0
+    local front = 0.5 * u
+    if h and h.at then
+        a.dir, a.x = (h.dir == -1) and -1 or 1, tonumber(h.at)
+    elseif h then
+        a.dir = h.dir == 1 and 1 or -1
+        a.x = E.walk_in_x(h, a.v, front)
+    else
+        a.dir = math.random() < 0.5 and 1 or -1
+        a.x = a.dir > 0 and -u or W + u
+    end
+    a.go = a.dir                              -- (his way: facing the singers turns him for a while)
+    local M = E.M()
+    local coin = M.sprites[el.coin_sprite or "coin"]
+    local function drop_coin(b)               -- (from his pocket, unnoticed: it rolls by the beggar)
+        local x = b.x + (math.random() < 0.5 and -1 or 1) * rnd(0.25, 0.45) * u
+        fly(coin, a.x, H - 0.75 * u, x, H - 0.05 * u, 0.6, function()
+            if not b.dead then
+                relic(coin, x, b)
+                if b.thank then b.thank() end
+            end
+        end)
+    end
+    function a.can_hear() return not a.steps[1] and not a.listening and not a.heard and a.x > 0.1 * W and a.x < 0.9 * W end
+    function a.listen(g)
+        a.listening, a.heard = g, true
+        local side = g.x0 > a.x and 1 or -1
+        a.steps = { { clip = "turn_front", face = side },
+                    { clip = "idle", wait = function() return not a.listening or a.listening.mode ~= "sing" end } }
+    end
+    function a.react(g)                       -- sung to: he pats his pockets... nothing. Or a coin after all
+        local side = g.x0 > a.x and 1 or -1
+        local kid
+        if math.random() < (el.pocket_coin or 0.4) then
+            for _, k in ipairs(g.singers()) do if not kid or math.abs(k.x - a.x) < math.abs(kid.x - a.x) then kid = k end end
+        end
+        a.steps = { { clip = C.pat and "pat" or "idle", face = side } }
+        if kid then
+            a.steps[#a.steps + 1] = { clip = C.give and "give" or "idle", face = side, on_start = function()
+                fly(coin, a.x + side * 0.4 * u, H - 1.0 * u, kid.x, H - 0.9 * unit(kid.spr), 0.8, function()
+                    if kid.cheer then kid.cheer() end
+                end)
+            end }
+        end
+        a.steps[#a.steps + 1] = { clip = "idle", dur = 1.0, on_end = function() a.listening = nil; g.resume() end }
+        a.steps[#a.steps + 1] = { clip = "turn_side", face = a.go }
+    end
+    function a.update(dt, t)
+        local frame = run_steps(a, dt)
+        if a.dead then return false end
+        if not frame then
+            if a.listening then a.listening = nil end
+            a.dir = a.go
+            a.x = a.x + a.dir * a.v * dt
+            -- a beggar near: nose up, head turned away; a coin may drop all the same
+            local snub = false
+            for _, b in ipairs(others("beggar")) do
+                local d = (b.x - a.x) * a.dir
+                if b.sitting and d > -0.8 * u and d < 1.4 * u then
+                    snub = true
+                    if not a.passed[b] then
+                        a.passed[b] = true
+                        if math.random() < (el.coin or 0.3) then drop_coin(b) end
+                    end
+                end
+            end
+            E.walk_out(a, a.x, a.dir, front, {})
+            if a.x < -u * 2 or a.x > W + u * 2 then return false end
+            frame = clip_frame(a.spr, (snub and C.snub) and "snub" or "walk", t)
+        end
+        local l = layer(a.spr, frame or 0, a.dir < 0, a.x, H)
+        a.cx = a.x
+        return true, l.x, l.y, l.frame, l.variant
+    end
+    a.leave = function() a.heard = true end   -- (he's always on his way out)
+    return a
+end
+
 -- ── St Martin ───────────────────────────────────────────────────────────────
 
 -- el.looks = { v1 = {stage sprites}, A = {...}, ... } and el.look picks one (theme.json: a one-line switch);
@@ -553,6 +644,7 @@ S.meet = {
     -- two sooty faces, a laugh (poof), or the lit one goes out as the other lights (swap: it runs after)
     -- a beggar walking off in his robe passes one sitting in the cold: he tears it and gives half (the chain)
     { who = "chain", chance = 0.4, near = 3.0, stand = 1.05 },
+    { who = "rich", chance = 0.5, near = 3.2, stand = 1.6 },       -- the rich man: they sing, he pats his pockets
     { who = "light", chance = 0.8, near = 3.8, stand = 2.1, poof = 0.2, swap = 0.1 },
 }
 local function meet_cfg(who)
@@ -1611,6 +1703,15 @@ function S.install(api)
         end
     end)
     mp.add_forced_key_binding("F8", "stm-beggar", function() force("beggar") end)
+    mp.add_forced_key_binding("Alt+F6", "stm-rich", function()              -- the rich man strolls past a beggar
+        local bel = beggar_el()
+        if bel and #free_beggars() == 0 then
+            local bs = E.free_sprite(bel)
+            local b = bs and S.beggar(bel, bs, { seated = true, x = E.W() * rnd(0.4, 0.6), dir = -1 })
+            if b then E.add(b, bel) end
+        end
+        force("rich")
+    end)
     mp.add_forced_key_binding("Alt+F8", "stm-chain", function()             -- a robed beggar passes one sitting
         local bel = beggar_el()
         if not bel then return end
@@ -1704,6 +1805,7 @@ function S.install(api)
     E.spawn.kid, E.spawn.martin, E.spawn.beggar, E.spawn.moon = S.kid, S.martin, S.beggar, S.moon
     E.spawn.church = S.church
     E.spawn.school = S.school
+    E.spawn.rich = S.rich
 end
 
 function S.reset() groups = {} end
