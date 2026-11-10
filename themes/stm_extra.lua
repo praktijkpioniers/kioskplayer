@@ -29,7 +29,9 @@
 --     players cross the room once, confetti flying.
 -- Preview keys: F9 a house (and children), Shift+F9 a grumpy house, F10 the cow, F11 geese (and
 -- St Martin), F12 the island story, Shift+F10 the border walk, Shift+F11 the parade, Shift+F12
--- teenagers, Ctrl+F9 a bonfire, Ctrl+F10 the Maho beach jet and the geese flying over.
+-- teenagers, Ctrl+F9 a bonfire, Ctrl+F10 the geese flying over.
+-- Backdrops (a.backdrop = depth, engine restack): the Dom (stm_scenery), houses and the bonfire are
+-- drawn behind every walker; stmaarten.lua's church and school too.
 
 local X = {}
 local E, S, E2                  -- the engine API, stmaarten.lua, the extras
@@ -134,6 +136,7 @@ end
 
 -- one more actor (not counted by the element); back: on a low overlay id, drawn behind the walkers
 local function add(a, el, back)
+    if back then a.backdrop = a.backdrop or 3 end         -- (engine restack: under everyone, always)
     if back then E2.ids_low_first(true) end
     local ok = E.add(a, el)
     if back then E2.ids_low_first(false) end
@@ -344,6 +347,53 @@ function X.spawn_bonfire(el, spr)
         return true, l.x, l.y, l.frame, l.variant
     end
     add(a, el, true)
+    return nil
+end
+
+-- ── a clock's hands at the real (local) time: two actors just over the building (parent.backdrop +
+-- 0.3 / 0.4), the minute hand to the minute, the hour hand in quarter hours; parent.clock_at = {cx,
+-- ground} (set as it draws). Sprite: clips min (60) and hour (48), the building's origin.
+function X.clock_hands(parent, sname)
+    local spr = sprite(sname)
+    if not (spr and spr.clips and spr.clips.min and spr.clips.hour) then return end
+    for i, which in ipairs({ "hour", "min" }) do
+        local a = { el = parent.el, spr = spr, stm = "clock_hand", backdrop = (parent.backdrop or 3) + 0.2 + 0.1 * i,
+                    unique = false }
+        a.leave = function() a.dead = true end
+        function a.update()
+            if a.dead or parent.dead then return false end
+            local at = parent.clock_at
+            if not at then return true, -10 * spr.w, 0, spr.clips[which].start, false end
+            local t = os.date("*t", os.time() + clock_off)
+            local k = which == "min" and t.min or ((t.hour % 12) * 4 + math.floor(t.min / 15))
+            local l = layer(spr, spr.clips[which].start + k, false, at[1], at[2])
+            return true, l.x, l.y, l.frame, l.variant
+        end
+        add(a, parent.el, true)
+    end
+end
+
+-- ── scenery: the Dom and its flag, standing for good, behind everyone (el.depth) ──
+
+function X.scenery(el, spr)
+    if #others("scenery_" .. (el.sprite or "")) > 0 then return nil end
+    local W, H = E.W(), E.H()
+    local p = el.place or { 0, 0 }
+    local a = { el = el, spr = spr, stm = "scenery_" .. (el.sprite or ""), rise = 0, backdrop = el.depth or 1 }
+    a.leave = function() a.going = true end
+    function a.update(dt, t)
+        if a.going then
+            a.rise = a.rise - dt / 2
+            if a.rise <= 0 then a.dead = true return false end
+        elseif a.rise < 1 then a.rise = math.min(1, a.rise + dt / 2) end
+        local frame = spr.clips and clip_frame(spr, next(spr.clips), t) or 0
+        local x = p[1] * W
+        local y = H - spr.h - p[2] * H + (1 - ease(a.rise)) * (spr.h + p[2] * H)
+        a.clock_at = { x, y + spr.h }
+        return true, x, y, frame, el.mirror and true or false
+    end
+    add(a, el, true)
+    if el.hands then X.clock_hands(a, el.hands) end
     return nil
 end
 
@@ -1029,6 +1079,8 @@ function X.install(api, stm, extra)
     E.spawn.stm_house, E.spawn.stm_bonfire = X.spawn_house, X.spawn_bonfire
     E.spawn.stm_cow, E.spawn.stm_geese, E.spawn.stm_teens = X.cow, X.geese, X.teens
     E.spawn.stm_border, E.spawn.stm_island, E.spawn.stm_parade = X.border, X.island, X.parade
+    E.spawn.stm_scenery = X.scenery
+    if S then S.clock_hands = X.clock_hands end       -- (the church's clock)
     local function kids() mp.commandv("keypress", "F6") end
     mp.add_forced_key_binding("F9", "stmx-house", function() X.want_grumpy = false; force("stm_house"); kids() end)
     mp.add_forced_key_binding("Shift+F9", "stmx-house-grumpy", function() X.want_grumpy = true; force("stm_house"); kids() end)
@@ -1041,7 +1093,7 @@ function X.install(api, stm, extra)
     mp.add_forced_key_binding("Shift+F12", "stmx-teens", function() force("stm_teens") end)
     mp.add_forced_key_binding("Ctrl+F10", "stmx-flyers", function()
         for _, el in ipairs(E.M() and E.M().elements or {}) do
-            if el.type == "flyer" and (el.sprite == "jet" or el.sprite == "geese_v") and E.elements()[el] then
+            if el.type == "flyer" and el.sprite == "geese_v" and E.elements()[el] then
                 E.elements()[el].next, E.elements()[el].force = 0, true
             end
         end

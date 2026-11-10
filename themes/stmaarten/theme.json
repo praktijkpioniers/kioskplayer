@@ -1204,6 +1204,10 @@
    ],
    "height": 0.22,
    "fps": 8
+  },
+  "church_hands": {
+   "anim": "anim/church_hands",
+   "unit": 0.08
   }
  },
  "elements": [
@@ -1532,7 +1536,8 @@
     90
    ],
    "min": 4,
-   "video_min": 9
+   "video_min": 9,
+   "hands": "church_hands"
   },
   {
    "_doc": "the school: now and then its door opens and a class comes out on its lantern walk, the juf or meester in front with the big lantern on a pole (class = the procession's children); a class from another screen passing a school goes in there",

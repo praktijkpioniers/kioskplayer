@@ -1,0 +1,23 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/stm_scenery.py",
+ "clips": {
+  "min": {
+   "files": "min_*.png",
+   "count": 60,
+   "fps": 1,
+   "loop": true
+  },
+  "hour": {
+   "files": "hour_*.png",
+   "count": 48,
+   "fps": 1,
+   "loop": true
+  }
+ },
+ "unit_px": 69.16666666666667,
+ "origin_px": [
+  230,
+  792
+ ]
+}

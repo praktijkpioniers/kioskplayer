@@ -50,7 +50,7 @@ Houses on the doorbell round (a grumpy one turns the light off), a cow and a bon
 geese that honk St Martin out of hiding, two teenagers without lanterns (a turnip), the Dom of
 Utrecht. Sint Maarten the island: Columbus bumps into it on 11-11-1493, the Frenchman and the
 Dutchman squabble and St Martin cuts it in two like his cloak; the border walk (the Dutchman
-naps, maybe under a piece of cloak); a jet over Maho beach. At 11:11 the carnival parade crosses
+naps, maybe under a piece of cloak). At 11:11 the carnival parade crosses
 the room once. Keys: F9 (Shift: grumpy), Ctrl+F9, F10, F11, F12, Shift+F10/F11/F12, Ctrl+F10.
 
 ## Still to do

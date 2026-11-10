@@ -6385,6 +6385,32 @@ end
 hooks.stm_extras = {     -- (a field, not a local: the main chunk is at the 200-locals limit)
     ids_low_first = function(on) table.sort(free_ids, on and function(p, q) return p > q end or nil) end,
     hand_over = hand_over,
+    -- backdrops (a.backdrop = a depth: 1 furthest back; the Dom, the church, the school, houses) hold
+    -- the lowest overlay ids, in depth order, so everyone else is drawn in front of them: the i-th
+    -- backdrop swaps ids with whoever holds the i-th lowest id in use (each frame; mostly nothing to do)
+    restack = function()
+        local bd = {}
+        for _, a in ipairs(actors) do if a.backdrop and a.id and not a.ids then bd[#bd + 1] = a end end
+        if #bd == 0 then return end
+        table.sort(bd, function(p, q) return p.backdrop < q.backdrop end)
+        for i, a in ipairs(bd) do
+            local held = {}
+            for _, b in ipairs(actors) do for _, id in ipairs(b.ids or { b.id }) do held[#held + 1] = { b, id } end end
+            table.sort(held, function(p, q) return p[2] < q[2] end)
+            local h = held[i]
+            if h and h[1] ~= a then
+                local b, bid, aid = h[1], h[2], a.id
+                if b.ids then
+                    for k, id in ipairs(b.ids) do if id == bid then b.ids[k] = aid end end
+                    table.sort(b.ids)
+                end
+                if b.id == bid then b.id = aid end
+                a.id = bid
+                hide(aid); hide(bid)
+                a.next_draw, b.next_draw = nil, nil
+            end
+        end
+    end,
 }
 if hooks.stm and hooks.stm.extras then hooks.stm.extras(hooks.stm_extras) end     -- (the church: drawn behind)
 hooks.stm_x = load_module("stm_extra.lua")
@@ -6656,6 +6682,7 @@ local function tick()
     for _, el in ipairs(M.elements) do
         if el.type ~= "decor" and spawn[el.type] and element_on(el) then try_spawn(el, now) end
     end
+    if hooks.stm_extras then hooks.stm_extras.restack() end     -- (St Maarten: the buildings behind everyone)
     -- actors coming over from a neighbour
     local wait = {}
     for _, w in ipairs(handed_in) do

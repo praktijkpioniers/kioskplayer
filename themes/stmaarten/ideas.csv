@@ -28,7 +28,7 @@ Scenery,Utrecht flag flying from the Dom's upper gallery,done,decor flag_utrecht
 Island,The island story: Columbus's caravel bumps the island (a coconut drops); Columbus plants a flag with St Martin's cloak (11-11-1493); the Frenchman and the Dutchman pop up on either side; Columbus sails off sheepishly; they squabble - St Martin cuts the island in two like his cloak and hands each a half (no St Martin about: a plain sword slice),done,stm_extra.lua stm_island,F12
 Island,The border walk (1648): back to back; the Dutchman drinks jenever and falls asleep; the Frenchman comes round from the other side and plants his flag past the middle; the Dutchman wakes and shrugs; round the room's screens (one screen: off one side and in at the other),done,stm_extra.lua stm_border,Shift+F10
 Island,St Martin lays a piece of his cloak over the sleeping Dutchman: he sleeps on,done,stm_extra.lua stm_border,Shift+F10
-Island,Maho beach: a jet low overhead (rare),done,flyer jet,Ctrl+F10
+Island,Maho beach: a jet low overhead (rare),dropped,removed (Rene),
 Carnival,11:11: prince carnaval + jester + two trumpets cross the room once with confetti (os.date),done,stm_extra.lua stm_parade,Shift+F11
 St Martin,Outfit looks to choose from: v1 (first try) / A gold cuirass + plumed helmet / B silver + plumed helmet / C bareheaded; all with pteruges bare knees brooch spatha and a cone cloak that shows from the side,done,"martin.py; theme.json martin element ""look""",Shift+F5 cycles
 Beggar,Rag beggars after the legend (old bearded man / woman in headscarf / young man in a torn tunic) next to the first try,done,"martin.py beggar_rags_*; theme.json beggar ""sprites""",F8
@@ -38,3 +38,4 @@ Kids,Lighting swap: the lit one goes out as the other lights; it looks at its da
 Moon,The moon cycle: a lantern slips off a stick and flies up to become the moon; the moon sinks or flies loose and lands on a lightless child's stick,done,"element 'moon' (S.moon): stay, moonless, loose, miss",Ctrl+F5 down / Ctrl+F6 up
 Beggar,"Rags polish: a real headscarf knotted under the chin; blankets over the shoulders like a cape (a corner over the knees sitting); the old man's crooked stick; a wooden bowl in front while sitting",done,"martin.py blanket(), headscarf(), walking_stick(), BOWL, rag_clips()",F8
 Martin,The cloak wider so it shows beside him from the front,done,martin.py CLOAK,F5
+Scenery,Church and Dom clocks show the real local time (hands their own sprites; buildings always behind the walkers),done,"church_hands/dom_hands (clock_hands in stm_scenery.py); stm_extra X.clock_hands; engine restack (a.backdrop)",

@@ -2,7 +2,7 @@
 """St Maarten scenery and animals, drawn with PIL (no Blender): the standalone pieces.
 
     python3 tools/bake/stm_scenery.py [what ...]     # all when none given
-    what: houses dom bonfire geese_v goose cow jet island flags caravel coconut
+    what: houses dom bonfire geese_v goose cow island flags caravel coconut
 
 Each one is an anim folder themes/stmaarten/anim/<name>/ (clips.json + <clip>_NNNN.png, the format of
 tools/bake/kaykit.py, so themes.py loads it the same way), or a plain PNG under themes/stmaarten/scenery/.
@@ -19,7 +19,6 @@ bonfire      Sint-Maartensvuur: a pile of logs, flickering flames, sparks (burn,
 geese_v      a V of geese flying over (fly, loop), seen from the side and below.
 goose        a white farm goose: walk, idle, honk (the neck up, the beak open, wings out), turn_front.
 cow          a black-and-white Dutch cow (Holstein): walk, idle, swish (the tail), moo (head up, mouth open).
-jet          a big airliner, gear and flaps down, landing low (Maho beach): fly (blinking lights).
 island       Sint Maarten as a cartoon island: island_whole, island_fr (the bigger north part, left),
              island_nl (the south part, right); sand, green hills, a palm. scenery/*.png.
 flags        flag_fr, flag_nl, flag_utrecht (white over red, per bend), flag_columbus (a small red cloak
@@ -118,6 +117,23 @@ def write_anim(name, clips, extra=None):
     with open(os.path.join(d, "clips.json"), "w") as f:
         json.dump(info, f, indent=1)
     print("anim", name, {n: len(v[0]) for n, v in clips.items()})
+
+
+def clock_hands(name, w, h, cx, cy, minute_len, hour_len, width=3.0, extra=None):
+    """The hands of a clock as their own sprite (the engine sets them to the real time, over a face baked
+    without hands): clips "min" (60 frames: minute k) and "hour" (48: quarter hours from 12) in a canvas
+    the size of the building's, so the same origin puts them on its face. Not pinned: themes.py crops
+    the atlas to the hands."""
+    def hand(ang, ln, wd):
+        c = Canvas(w, h)
+        x1, y1 = cx + ln * math.sin(ang), cy - ln * math.cos(ang)
+        c.line([(cx, cy), (x1, y1)], INK, wd)
+        c.ell(cx, cy, wd * 0.8, wd * 0.8, INK, None, 0)
+        return c.im.resize((w, h), Image.LANCZOS)
+    write_anim(name, {
+        "min": ([hand(2 * math.pi * k / 60, minute_len, width * 0.75) for k in range(60)], 1, True),
+        "hour": ([hand(2 * math.pi * k / 48, hour_len, width) for k in range(48)], 1, True),
+    }, extra)
 
 
 def write_png(name, im):
@@ -364,8 +380,10 @@ def dom():
     c.ell(cx, 670, 30, 30, rgb("#f3e6b8"), ink, 2)       # the clock
     c.glow(cx, 670, 44, rgb("#ffe8a0"), 80)
     c.ell(cx, 670, 30, 30, None, ink, 2)
-    c.line([(cx, 670), (cx, 648)], ink, 3)
-    c.line([(cx, 670), (cx + 14, 676)], ink, 3)
+    for k in range(12):                           # (the hands: dom_hands, set to the real time)
+        a = 2 * math.pi * k / 12
+        c.line([(cx + 25 * math.sin(a), 670 - 25 * math.cos(a)), (cx + 28 * math.sin(a), 670 - 28 * math.cos(a))], ink, 1.4)
+    clock_hands("dom_hands", W, H, cx, 670, 22, 14, 3.0, {"unit_px": H, "origin_px": [0, H]})
     for dx in (-50, 50):                          # small blind lancets beside the clock
         arch(cx + dx - 9, cx + dx + 9, 640, 740, glass, 1.2)
     # the ledge and its corner pinnacles
@@ -639,45 +657,6 @@ def cow():
     write_anim("cow", clips, {"unit_px": 95, "origin_px": [200, 290]})
 
 
-# ── the jet (Maho beach) ────────────────────────────────────────────────────
-
-def jet():
-    W, H = 900, 300
-    frames = []
-    for k in range(4):
-        c = Canvas(W, H)
-        body, under, tail = rgb("#f2f4f7"), rgb("#c9ced6"), rgb("#2f5fa8")
-        # far wing
-        c.poly([(470, 150), (330, 70), (300, 70), (400, 150)], dark(under, 0.15), INK, 2)
-        # fuselage, nose to the right (flies right; mirrored for left)
-        c.poly([(60, 140), (120, 120), (760, 118), (830, 130), (868, 150), (840, 172), (760, 180), (140, 180), (60, 165)],
-               body, INK, 3)
-        c.poly([(140, 165), (760, 165), (840, 170), (760, 180), (140, 180)], under, None, 0)
-        # cockpit windows, cabin windows
-        c.poly([(800, 132), (838, 136), (846, 146), (806, 144)], rgb("#2a3448"), INK, 1.5)
-        for x in range(200, 760, 22):
-            c.ell(x, 140, 4.5, 6, rgb("#4a5a78"), None, 0)
-        # tail fin
-        c.poly([(60, 140), (20, 30), (70, 30), (170, 122)], tail, INK, 2.5)
-        c.poly([(60, 150), (10, 160), (30, 172), (110, 168)], tail, INK, 2)
-        # near wing with an engine
-        c.poly([(330, 172), (540, 166), (430, 280), (380, 280)], under, INK, 2.5)
-        c.ell(470, 210, 52, 22, rgb("#d6dae0"), INK, 2.5)
-        c.ell(522, 210, 8, 18, rgb("#3a3f48"), INK, 1.5)
-        # gear down
-        for gx in (330, 760):
-            c.line([(gx, 180), (gx, 228)], INK, 6)
-            c.ell(gx - 10, 236, 12, 12, rgb("#2a2a2e"), INK, 1.5)
-            c.ell(gx + 10, 236, 12, 12, rgb("#2a2a2e"), INK, 1.5)
-        # lights: red beacon blinks, landing light on
-        if k % 2 == 0:
-            c.glow(470, 116, 16, rgb("#ff3030"), 200)
-            c.ell(470, 116, 4, 4, rgb("#ff4040"), None, 0)
-        c.glow(840, 178, 40, rgb("#ffffd0"), 160)
-        frames.append(c.out())
-    write_anim("jet", {"fly": (frames, 4, True)})
-
-
 # ── the island ──────────────────────────────────────────────────────────────
 
 def island_shape(c, x0, x1, base, part, cut):
@@ -885,7 +864,7 @@ def coconut():
 
 
 ALL = {"houses": houses, "dom": dom, "bonfire": bonfire, "geese_v": geese_v, "goose": goose, "cow": cow,
-       "jet": jet, "island": island, "flags": flags, "caravel": caravel, "coconut": coconut, "turnip": turnip}
+       "island": island, "flags": flags, "caravel": caravel, "coconut": coconut, "turnip": turnip}
 
 if __name__ == "__main__":
     for w in (sys.argv[1:] or list(ALL)):

@@ -1145,7 +1145,7 @@ function S.church(el, spr, h)
     end
     if not x then el._next = now() + 20 return nil end
     local a = { el = el, spr = spr, stm = "church", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
-                ttl = rnd(range(el.stay, 240)), unique = false }
+                ttl = rnd(range(el.stay, 240)), unique = false, backdrop = 3 }     -- (behind everyone: engine restack)
     local u = unit(spr)
     local state, st_t = "idle", now()
     local next_service = now() + rnd(range(el.service, 40))
@@ -1265,11 +1265,13 @@ function S.church(el, spr, h)
         local frame, done = clip_frame(spr, a.clip, a.tc, a.rev)
         if done and a.clip == "open" and not a.rev then play("opened"); frame = clip_frame(spr, "opened", 0) end
         local l = layer(spr, frame, false, a.x, H, 0, (1 - ease(a.rise)) * spr.h)
+        a.clock_at = { a.x, H + (1 - ease(a.rise)) * spr.h }
         return true, l.x, l.y, l.frame, l.variant
     end
     if X2 then X2.ids_low_first(true) end
     local ok = E.add(a, el)
     if X2 then X2.ids_low_first(false) end
+    if ok and el.hands and S.clock_hands then S.clock_hands(a, el.hands) end      -- (the real time)
     return nil
 end
 
@@ -1314,7 +1316,7 @@ function S.school(el, spr, h)
     end
     if not x then el._next = now() + 20 return nil end
     local a = { el = el, spr = spr, stm = "school", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
-                ttl = rnd(range(el.stay, 300)), unique = false }
+                ttl = rnd(range(el.stay, 300)), unique = false, backdrop = 3 }
     local state, st_t = "idle", now()
     local out_t = now() + (forced and 3 or rnd(range(el.out, 30)))
     local file = nil                 -- the class coming out: { g, el, left = sprites, lanterns }

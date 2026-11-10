@@ -12,7 +12,7 @@ origin_px = the middle of the door on the step (where people go in and come out)
 import math, os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from stm_scenery import Canvas, INK, rgb, mix, dark, write_anim   # noqa: E402
+from stm_scenery import Canvas, INK, rgb, mix, dark, write_anim, clock_hands   # noqa: E402
 
 CW, CH = 460, 800
 GROUND = 792
@@ -118,8 +118,7 @@ def church_frame(door=0.0, bell=0.0, flicker=0.0):
     for k in range(12):
         a = 2 * math.pi * k / 12
         c.line([(DX + 26 * math.sin(a), 368 - 26 * math.cos(a)), (DX + 29 * math.sin(a), 368 - 29 * math.cos(a))], INK, 1.4)
-    c.line([(DX, 368), (DX + 15 * math.sin(math.radians(330)), 368 - 15 * math.cos(math.radians(330)))], INK, 3)   # 11:..
-    c.line([(DX, 368), (DX + 22 * math.sin(math.radians(66)), 368 - 22 * math.cos(math.radians(66)))], INK, 2)     # ..:11
+    # (the hands: their own sprite, church_hands - the engine sets them to the real time)
     # a round window over the door
     c.ell(DX, 470, 30, 30, TRIM)
     c.ell(DX, 470, 23, 23, WARM)
@@ -195,6 +194,7 @@ def main():
         "open": ([church_frame(door=k / 7, flicker=0.5) for k in range(8)], 10, False),
         "opened": ([church_frame(door=1, flicker=f) for f in fl], 6, True),
     }
+    clock_hands("church_hands", CW, CH, DX, 368, 23, 15, 3.0, {"unit_px": UNIT_PX, "origin_px": [DX, GROUND]})
     write_anim("church", clips, {"unit_px": UNIT_PX, "origin_px": [DX, GROUND], "door_px": [DX, DOOR[3]],
                                  "baked_by": "tools/bake/church.py"})
 
