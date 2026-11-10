@@ -114,18 +114,26 @@ end
 -- a thing left lying by someone (a gift by a beggar): stays while its owner is about, then sinks
 local function relic(spr, x, owner)
     if not spr or E.free_ids() < 1 then return end
-    local a = { el = { type = "stm_relic", hz = 8, video_min = 0 }, spr = spr, uncounted = true }
+    local a = { el = { type = "stm_relic", hz = 8, video_min = 0 }, spr = spr, uncounted = true, x = x }
     local t, gone_t = 0, nil
+    -- not for ever: its owner gone (dead, handed on, walked off from it), at most 3 by one, 2 minutes
+    owner.gifts = owner.gifts or {}
+    local mine = owner.gifts
+    for i = #mine, 1, -1 do if mine[i].gone then table.remove(mine, i) end end
+    if #mine >= 3 then mine[1].old = true; table.remove(mine, 1) end
     function a.update(dt, tt)
         t = t + dt
-        if owner.dead and not gone_t then gone_t = t + rnd(3, 8) end
+        if not gone_t and (owner.dead or owner.gone or owner.leaving or owner.handed_on or a.old or t > 120
+                           or (owner.x and math.abs(owner.x - x) > 0.15 * E.W())) then
+            gone_t = t + rnd(3, 8)
+        end
+        if gone_t and t > gone_t then a.gone = true; E.leave(a) end
         if gone_t and t > gone_t then E.leave(a) end
         local fr = spr.frames > 1 and math.floor(tt * math.max(spr.fps or 8, 1)) or 0
         return true, x - spr.w / 2, E.H() - spr.h, fr, false
     end
     E.add(a)
-    owner.gifts = owner.gifts or {}
-    owner.gifts[#owner.gifts + 1] = a
+    mine[#mine + 1] = a
 end
 
 -- a one-off effect at (x, y) (its middle): the sprite's frames over dur, growing by grow (a spark,
@@ -911,6 +919,13 @@ local function new_kid(el, spr, g, x, lantern)
             if now() - a.off_t > 15 then return false end
         else
             a.off_t = nil
+            -- nor on it, standing for minutes (a wait whose end never comes): off on its own
+            if not a.still_x or math.abs(a.x - a.still_x) > 0.3 * u then a.still_x, a.still_t = a.x, now()
+            elseif not a.stray and now() - a.still_t > (g.mode == "school" and 400 or 180) then
+                a.stray, a.leaving, a.singing, a.listening = true, true, nil, nil
+                a.steps = { { clip = "walk", walk_to = a.x < W_ / 2 and -2 * u or W_ + 2 * u, v = a.v_own } }
+                frame = run_steps(a, 0)
+            end
         end
         local ahead, gap
         for _, b in ipairs(g.alive()) do
