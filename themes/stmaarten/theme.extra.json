@@ -7,16 +7,16 @@
     "Art: tools/bake/stm_scenery.py (PIL), tools/bake/stm_people.py (KayKit, recipes in tools/bake/recipes/stmaarten)."
   ],
   "sprites": {
-    "house_a": {"anim": "anim/house_a", "unit": 0.07},
-    "house_b": {"anim": "anim/house_b", "unit": 0.07},
-    "house_c": {"anim": "anim/house_c", "unit": 0.07},
+    "house_a": {"anim": "anim/house_a", "unit": 0.08},
+    "house_b": {"anim": "anim/house_b", "unit": 0.08},
+    "house_c": {"anim": "anim/house_c", "unit": 0.08},
     "bonfire": {"anim": "anim/bonfire", "unit": 0.075},
     "cow": {"anim": "anim/cow", "unit": 0.1},
     "goose": {"anim": "anim/goose", "unit": 0.12},
     "geese_v": {"anim": "anim/geese_v", "height": 0.09},
     "jet": {"anim": "anim/jet", "height": 0.15},
     "dom": {"file": "scenery/dom.png", "height": 0.56},
-    "flag_utrecht": {"anim": "anim/flag_utrecht", "unit": 0.07},
+    "flag_utrecht": {"anim": "anim/flag_utrecht", "unit": 0.045},
     "flag_fr": {"anim": "anim/flag_fr", "unit": 0.1},
     "flag_nl": {"anim": "anim/flag_nl", "unit": 0.1},
     "flag_fr_s": {"anim": "anim/flag_fr", "unit": 0.05},
@@ -41,6 +41,7 @@
   },
   "elements": [
     {"_doc": "the Dom tower of Utrecht, far off at dusk", "type": "decor", "sprite": "dom", "anchor": "bottom-left", "places": [[0.012, 0.0]], "min": 6, "video_min": 9},
+    {"_doc": "the Utrecht flag on the Dom's upper gallery (mirrored: flying left, over the sky; out of the walkers' way)", "type": "decor", "sprite": "flag_utrecht", "anchor": "bottom-left", "places": [[0.0, 0.322, true]], "min": 6, "video_min": 9},
     {"_doc": "houses: the children ring and sing at the door (grumpy = chance the light goes off)", "type": "stm_house", "sprites": ["house_a", "house_b", "house_c"], "count": [1, 2], "grumpy": 0.25, "stay": [150, 300], "every": [40, 120], "delay": [5, 30], "min": 3, "video_min": 9},
     {"_doc": "a Sint-Maartensvuur", "type": "stm_bonfire", "sprite": "bonfire", "stay": [150, 300], "every": [200, 400], "delay": [30, 120], "min": 5, "video_min": 9},
     {"_doc": "a cow wandering by (de koeien hebben staarten)", "type": "stm_cow", "sprite": "cow", "every": [150, 300], "max_active": 1, "delay": [30, 90], "min": 4, "video_min": 8},
