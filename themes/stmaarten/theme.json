@@ -1169,7 +1169,7 @@
   },
   "church": {
    "anim": "anim/church",
-   "unit": 0.08
+   "unit": 0.0344
   },
   "burn": {
    "frames": [
@@ -1219,7 +1219,7 @@
   },
   "school": {
    "anim": "anim/school",
-   "unit": 0.1
+   "unit": 0.04
   },
   "pole_star": {
    "frames": [
@@ -1265,7 +1265,7 @@
   },
   "church_hands": {
    "anim": "anim/church_hands",
-   "unit": 0.08
+   "unit": 0.0344
   }
  },
  "planner": {"group": "act", "queue": 3, "gap": [4, 12], "hold": 150},
