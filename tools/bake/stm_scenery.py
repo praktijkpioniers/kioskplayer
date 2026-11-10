@@ -319,64 +319,99 @@ def houses():
 # ── the Dom tower ────────────────────────────────────────────────────────────
 
 def dom():
+    """The Dom tower of Utrecht, front view at dusk: a square tower in two big square stages (the lower
+    one with the passage and the clock, the upper one with tall paired lancets and corner pinnacles), on
+    top the open octagonal lantern - see-through (punched out: the sky shows), flying-buttress pinnacles
+    at its foot - and a small spire with a cross."""
     W, H = 300, 900
     c = Canvas(W, H)
-    stone, stone2, ink = rgb("#7d7f8c"), rgb("#6a6c78"), INK
+    stone, stone2, stone3 = rgb("#8c8274"), rgb("#776e62"), rgb("#9a9082")
+    ink, hole, glass = INK, (0, 0, 0, 0), rgb("#2b2f45")
     cx = W / 2
 
-    def tracery(x0, y0, x1, y1, n):
-        w = (x1 - x0) / n
-        for k in range(n):
-            a0 = x0 + k * w + 4
-            a1 = a0 + w - 8
-            pts = [(a0, y1), (a0, y0 + w * 0.6)]
-            for j in range(9):
-                t = j / 8
-                pts.append((a0 + (a1 - a0) * t, y0 + w * 0.6 - math.sin(math.pi * t) * w * 0.6))
-            pts += [(a1, y1)]
-            c.poly(pts, rgb("#2b2f45"), ink, 1.5)
+    def arch(x0, x1, y0, y1, fill, w=1.5):
+        """A pointed (gothic) opening: sides from y1 up to y0 + the point."""
+        r = (x1 - x0)
+        ys = y0 + r * 0.866                      # the spring line; two arcs (radius = the width) meet at y0
+        pts = [(x0, y1)]
+        for j in range(9):                       # left arc, centre (x1, ys): 180 -> 120 degrees
+            a = math.pi - (math.pi / 3) * j / 8
+            pts.append((x1 + r * math.cos(a), ys - r * math.sin(a)))
+        for j in range(1, 9):                    # right arc, centre (x0, ys): 60 -> 0 degrees
+            a = (math.pi / 3) * (1 - j / 8)
+            pts.append((x0 + r * math.cos(a), ys - r * math.sin(a)))
+        pts.append((x1, y1))
+        c.poly(pts, fill, ink, w)
 
-    # base stage: square, buttresses
-    c.rect(cx - 95, 470, cx + 95, H - 2, stone, ink, 2.5)
-    for bx in (cx - 95, cx + 75):
-        c.rect(bx, 470, bx + 20, H - 2, stone2, ink, 2)
-    c.ell(cx, 560, 34, 34, rgb("#f3e6b8"), ink, 2)              # the clock, lit
-    c.glow(cx, 560, 50, rgb("#ffe8a0"), 90)
-    c.ell(cx, 560, 34, 34, None, ink, 2)
-    c.line([(cx, 560), (cx, 536)], ink, 3)
-    c.line([(cx, 560), (cx + 16, 566)], ink, 3)
-    tracery(cx - 70, 620, cx + 70, 760, 2)
-    # the pointed portal at the bottom (the passage under the tower)
-    pts = [(cx - 32, H - 2), (cx - 32, 830)]
-    for j in range(13):
-        t = j / 12
-        pts.append((cx - 32 + 64 * t, 830 - math.sin(math.pi * t) * 42))
-    pts += [(cx + 32, H - 2)]
-    c.poly(pts, rgb("#ffcf6e"), ink, 2)
-    # second stage: square, a bit narrower, tall lancets
-    c.rect(cx - 82, 250, cx + 82, 472, stone, ink, 2.5)
-    for bx in (cx - 82, cx + 66):
-        c.rect(bx, 250, bx + 16, 472, stone2, ink, 2)
-    tracery(cx - 62, 290, cx + 62, 455, 3)
-    c.rect(cx - 90, 246, cx + 90, 258, stone2, ink, 2)           # the ledge
-    for k in range(11):                                         # pinnacles on the corners of the ledge
-        pass
-    for px in (cx - 88, cx + 76):
-        c.poly([(px, 246), (px + 6, 200), (px + 12, 246)], stone2, ink, 1.5)
-    # the octagonal lantern: open, narrower, with flying buttresses
-    c.rect(cx - 56, 90, cx + 56, 250, rgb("#6f7180"), ink, 2.5)
-    tracery(cx - 50, 110, cx + 50, 240, 3)
-    for px in (cx - 56, cx + 46):
-        c.rect(px, 90, px + 10, 250, stone2, ink, 1.5)
-    c.poly([(cx - 82, 250), (cx - 56, 170), (cx - 56, 190), (cx - 70, 250)], stone2, ink, 1.5)
-    c.poly([(cx + 82, 250), (cx + 56, 170), (cx + 56, 190), (cx + 70, 250)], stone2, ink, 1.5)
-    c.rect(cx - 62, 84, cx + 62, 94, stone2, ink, 2)
-    # the crown: small pinnacles and a short cap, a cross / weathervane
-    for px in (cx - 60, cx - 30, cx, cx + 30, cx + 60):
-        c.poly([(px - 6, 86), (px, 52), (px + 6, 86)], stone2, ink, 1.5)
-    c.poly([(cx - 26, 86), (cx, 20), (cx + 26, 86)], rgb("#5a5c68"), ink, 2)
-    c.line([(cx, 22), (cx, 4)], ink, 2.5)
-    c.line([(cx - 7, 10), (cx + 7, 10)], ink, 2.5)
+    def pinnacle(x, y, w, h, fill=stone2):
+        c.rect(x - w / 2, y - h * 0.45, x + w / 2, y, fill, ink, 1.5)
+        c.poly([(x - w / 2, y - h * 0.45), (x, y - h), (x + w / 2, y - h * 0.45)], fill, ink, 1.5)
+        for k in range(1, 3):                     # crockets
+            yy = y - h * 0.45 - (h * 0.55) * k / 3
+            ww = w / 2 * (1 - k / 3)
+            c.line([(x - ww - 2, yy), (x + ww + 2, yy)], ink, 1)
+
+    G = H - 2
+    # ── the lower stage: square, corner buttresses, the passage, the clock
+    L0, L1, ly = cx - 86, cx + 86, 600
+    c.rect(L0, ly, L1, G, stone, ink, 2.5)
+    for bx in (L0, L1 - 16):
+        c.rect(bx, ly, bx + 16, G, stone2, ink, 2)
+    for k in range(1, 4):                         # string courses
+        y = ly + (G - ly) * k / 4
+        c.line([(L0 + 16, y), (L1 - 16, y)], dark(stone, 0.25), 1.5)
+    arch(cx - 30, cx + 30, 800, G, rgb("#ffcf6e"), 2)    # the passage under the tower, lit
+    c.ell(cx, 670, 30, 30, rgb("#f3e6b8"), ink, 2)       # the clock
+    c.glow(cx, 670, 44, rgb("#ffe8a0"), 80)
+    c.ell(cx, 670, 30, 30, None, ink, 2)
+    c.line([(cx, 670), (cx, 648)], ink, 3)
+    c.line([(cx, 670), (cx + 14, 676)], ink, 3)
+    for dx in (-50, 50):                          # small blind lancets beside the clock
+        arch(cx + dx - 9, cx + dx + 9, 640, 740, glass, 1.2)
+    # the ledge and its corner pinnacles
+    c.rect(L0 - 4, ly - 10, L1 + 4, ly + 2, stone2, ink, 2)
+    # ── the upper stage: square, narrower, tall paired lancets
+    U0, U1, uy = cx - 74, cx + 74, 370
+    c.rect(U0, uy, U1, ly - 10, stone3, ink, 2.5)
+    for bx in (U0, U1 - 14):
+        c.rect(bx, uy, bx + 14, ly - 10, stone2, ink, 2)
+    for x0 in (U0 + 24, cx + 6):
+        arch(x0, x0 + 20, 400, 570, glass, 1.5)
+        arch(x0 + 22, x0 + 42, 400, 570, glass, 1.5)
+        c.line([(x0, 470), (x0 + 42, 470)], dark(stone3, 0.3), 1)
+    for px in (L0 + 2, L1 - 2):
+        pinnacle(px, ly - 10, 14, 70)
+    c.rect(U0 - 4, uy - 10, U1 + 4, uy + 2, stone2, ink, 2)   # the top ledge, a balustrade
+    for k in range(13):
+        x = U0 + (U1 - U0) * k / 12
+        c.line([(x, uy - 10), (x, uy - 18)], ink, 1.2)
+    c.line([(U0 - 4, uy - 18), (U1 + 4, uy - 18)], ink, 1.5)
+    # ── the octagonal lantern: three faces show (the middle full, two foreshortened), open
+    O = [cx - 56, cx - 30, cx + 30, cx + 56]
+    oy0, oy1 = 130, uy - 18
+    c.poly([(O[0], oy1), (O[0], oy0), (O[1], oy0 - 6), (O[1], oy1)], stone2, ink, 2)
+    c.poly([(O[2], oy1), (O[2], oy0 - 6), (O[3], oy0), (O[3], oy1)], stone2, ink, 2)
+    c.rect(O[1], oy0 - 6, O[2], oy1, stone3, ink, 2)
+    # see-through: the tall openings punched out (the sky shows), a far mullion in each
+    arch(O[1] + 9, O[2] - 9, oy0 + 10, oy1 - 10, hole, 1.5)
+    c.line([(cx, oy0 + 40), (cx, oy1 - 10)], ink, 2)
+    c.line([(O[1] + 9, oy0 + 120), (O[2] - 9, oy0 + 120)], ink, 1.5)
+    arch(O[0] + 6, O[1] - 5, oy0 + 16, oy1 - 10, hole, 1.2)
+    arch(O[2] + 5, O[3] - 6, oy0 + 16, oy1 - 10, hole, 1.2)
+    # flying buttresses from the corner pinnacles to the lantern
+    for sgn in (-1, 1):
+        bx = cx + sgn * 70
+        pinnacle(bx, uy - 18, 12, 90)
+        c.poly([(bx - sgn * 4, uy - 50), (cx + sgn * 56, oy0 + 60), (cx + sgn * 56, oy0 + 74), (bx - sgn * 4, uy - 36)],
+               stone2, ink, 1.2)
+    # the lantern's crown: a parapet and little pinnacles
+    c.rect(O[0] - 3, oy0 - 14, O[3] + 3, oy0, stone2, ink, 1.8)
+    for px in (O[0], O[1], cx, O[2], O[3]):
+        pinnacle(px, oy0 - 14, 7, 30)
+    # ── the small spire, a cross
+    c.poly([(cx - 22, oy0 - 14), (cx, 38), (cx + 22, oy0 - 14)], rgb("#5f5a54"), ink, 2)
+    c.line([(cx, 40), (cx, 12)], ink, 2.5)
+    c.line([(cx - 7, 22), (cx + 7, 22)], ink, 2.5)
     write_png("dom", c.out())
 
 
@@ -478,23 +513,44 @@ def geese_v():
 
 
 def goose():
-    W, H = 160, 150
+    W, H = 210, 150
     X, Y = 70, 140
     clips = {}
     clips["walk"] = ([_g(W, H, X, Y, step=k / 6, flap=0) for k in range(6)], 8, True, {"stride": 22 / W})
     clips["idle"] = ([_g(W, H, X, Y, neck_up=0.1 * math.sin(2 * math.pi * k / 6)) for k in range(6)], 4, True)
     hk = []
-    for k in range(10):
-        p = math.sin(math.pi * k / 9)
-        hk.append(_g(W, H, X, Y, neck_up=p, beak_open=p * (0.6 + 0.4 * (k % 2)), flap=0.8 * p * (1 if k % 2 else -0.4)))
-    clips["honk"] = (hk, 10, False)
+    for k in range(12):
+        # the honk: neck up, beak wide open, wings raised and shaking, sound puffs out of the beak
+        p = min(1.0, math.sin(math.pi * k / 11) * 1.6)
+        hk.append(_g(W, H, X, Y, neck_up=p, beak_open=p * (1.5 + 0.3 * (k % 2)),
+                     flap=(0.75 + 0.25 * (k % 2)) * p, honk=p if 1 <= k <= 10 else 0.0, honk_k=k))
+    clips["honk"] = (hk, 9, False)
     write_anim("goose", clips, {"unit_px": 90, "origin_px": [X, Y]})
 
 
-def _g(W, H, X, Y, **kw):
+def _g(W, H, X, Y, honk=0.0, honk_k=0, **kw):
     c = Canvas(W, H)
     kw.setdefault("flap", 0)
     goose_side(c, X, Y, 1.0, **kw)
+    if honk > 0.25:                     # where the beak is (goose_side's head, neck_up = honk)
+        nu = kw.get("neck_up", 0)
+        hx = X + 26 + 10 - 6 * nu
+        hy = Y - 26 - 6 - (30 + 18 * nu)
+        bx, by = hx + 24, hy
+        # three sound strokes fanning out, and a puff
+        for j, a in enumerate((-0.45, 0.0, 0.45)):
+            r0, r1 = 8 + 3 * (honk_k % 2), 22 + 6 * (honk_k % 2)
+            c.line([(bx + r0 * math.cos(a), by + r0 * math.sin(a)), (bx + r1 * math.cos(a), by + r1 * math.sin(a))], INK, 3)
+        px, py = bx + 44 + 4 * (honk_k % 3), by - 10 - 3 * (honk_k % 3)
+        rr = 9 + 2 * (honk_k % 2)
+        for dx, dy, r in ((-rr, 2, rr * 0.8), (0, -4, rr), (rr, 2, rr * 0.8), (0, 5, rr * 0.8)):
+            c.ell(px + dx, py + dy, r, r, rgb("#ffffff"), INK, 1.8)
+        for dx, dy, r in ((-rr, 2, rr * 0.8 - 1.5), (0, -4, rr - 1.5), (rr, 2, rr * 0.8 - 1.5), (0, 5, rr * 0.8 - 1.5)):
+            c.ell(px + dx, py + dy, r, r, rgb("#ffffff"), None, 0)
+        c.line([(px - 3, py - 4), (px - 3, py + 2)], INK, 2.5)       # "!!"
+        c.line([(px + 4, py - 4), (px + 4, py + 2)], INK, 2.5)
+        c.ell(px - 3, py + 6, 1.4, 1.4, INK, None, 0)
+        c.ell(px + 4, py + 6, 1.4, 1.4, INK, None, 0)
     return c.out()
 
 

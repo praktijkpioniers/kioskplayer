@@ -7,7 +7,7 @@
    "count": 6,
    "fps": 8,
    "loop": true,
-   "stride": 0.1375
+   "stride": 0.10476190476190476
   },
   "idle": {
    "files": "idle_*.png",
@@ -17,8 +17,8 @@
   },
   "honk": {
    "files": "honk_*.png",
-   "count": 10,
-   "fps": 10,
+   "count": 12,
+   "fps": 9,
    "loop": false
   }
  },
