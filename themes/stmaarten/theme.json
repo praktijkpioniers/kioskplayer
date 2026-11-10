@@ -874,6 +874,124 @@
   "beggar_rags_young": {
    "anim": "anim/beggar_rags_young",
    "unit": 0.1
+  },
+  "unlit_round_orange": {
+   "file": "lantern/unlit_round_orange.png",
+   "height": 0.143
+  },
+  "unlit_round_red": {
+   "file": "lantern/unlit_round_red.png",
+   "height": 0.143
+  },
+  "unlit_round_yellow": {
+   "file": "lantern/unlit_round_yellow.png",
+   "height": 0.143
+  },
+  "unlit_round_blue": {
+   "file": "lantern/unlit_round_blue.png",
+   "height": 0.143
+  },
+  "unlit_round_green": {
+   "file": "lantern/unlit_round_green.png",
+   "height": 0.143
+  },
+  "unlit_round_pink": {
+   "file": "lantern/unlit_round_pink.png",
+   "height": 0.143
+  },
+  "unlit_round_purple": {
+   "file": "lantern/unlit_round_purple.png",
+   "height": 0.143
+  },
+  "unlit_star_orange": {
+   "file": "lantern/unlit_star_orange.png",
+   "height": 0.143
+  },
+  "unlit_star_red": {
+   "file": "lantern/unlit_star_red.png",
+   "height": 0.143
+  },
+  "unlit_star_yellow": {
+   "file": "lantern/unlit_star_yellow.png",
+   "height": 0.143
+  },
+  "unlit_star_blue": {
+   "file": "lantern/unlit_star_blue.png",
+   "height": 0.143
+  },
+  "unlit_star_green": {
+   "file": "lantern/unlit_star_green.png",
+   "height": 0.143
+  },
+  "unlit_star_pink": {
+   "file": "lantern/unlit_star_pink.png",
+   "height": 0.143
+  },
+  "unlit_star_purple": {
+   "file": "lantern/unlit_star_purple.png",
+   "height": 0.143
+  },
+  "unlit_house_orange": {
+   "file": "lantern/unlit_house_orange.png",
+   "height": 0.143
+  },
+  "unlit_house_red": {
+   "file": "lantern/unlit_house_red.png",
+   "height": 0.143
+  },
+  "unlit_house_yellow": {
+   "file": "lantern/unlit_house_yellow.png",
+   "height": 0.143
+  },
+  "unlit_house_blue": {
+   "file": "lantern/unlit_house_blue.png",
+   "height": 0.143
+  },
+  "unlit_house_green": {
+   "file": "lantern/unlit_house_green.png",
+   "height": 0.143
+  },
+  "unlit_house_pink": {
+   "file": "lantern/unlit_house_pink.png",
+   "height": 0.143
+  },
+  "unlit_house_purple": {
+   "file": "lantern/unlit_house_purple.png",
+   "height": 0.143
+  },
+  "spark": {
+   "frames": [
+    "prop/spark_0.png",
+    "prop/spark_1.png",
+    "prop/spark_2.png",
+    "prop/spark_3.png"
+   ],
+   "height": 0.035,
+   "fps": 12
+  },
+  "flare": {
+   "frames": [
+    "prop/flare_0.png",
+    "prop/flare_1.png",
+    "prop/flare_2.png",
+    "prop/flare_3.png"
+   ],
+   "height": 0.12,
+   "fps": 8
+  },
+  "puff": {
+   "frames": [
+    "prop/puff_0.png",
+    "prop/puff_1.png",
+    "prop/puff_2.png",
+    "prop/puff_3.png"
+   ],
+   "height": 0.14,
+   "fps": 3
+  },
+  "soot": {
+   "file": "prop/soot.png",
+   "height": 0.111
   }
  },
  "elements": [
@@ -994,7 +1112,8 @@
     30
    ],
    "video_min": 8,
-   "spacing": 3.0
+   "spacing": 3.0,
+   "unlit": 0.167
   },
   {
    "_doc": "a lantern procession: a line of children",
@@ -1062,7 +1181,8 @@
     30,
     120
    ],
-   "video_min": 8
+   "video_min": 8,
+   "unlit": 0.167
   },
   {
    "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",

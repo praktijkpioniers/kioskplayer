@@ -30,3 +30,9 @@ Island,The border walk (1648): back to back; the Dutchman drinks jenever and fal
 Island,St Martin lays a piece of his cloak over the sleeping Dutchman: he sleeps on,done,stm_extra.lua stm_border,Shift+F10
 Island,Maho beach: a jet low overhead (rare),done,flyer jet,Ctrl+F10
 Carnival,11:11: prince carnaval + jester + two trumpets cross the room once with confetti (os.date),done,stm_extra.lua stm_parade,Shift+F11
+St Martin,Outfit looks to choose from: v1 (first try) / A gold cuirass + plumed helmet / B silver + plumed helmet / C bareheaded; all with pteruges bare knees brooch spatha and a cone cloak that shows from the side,done,"martin.py; theme.json martin element ""look""",Shift+F5 cycles
+Beggar,Rag beggars after the legend (old bearded man / woman in headscarf / young man in a torn tunic) next to the first try,done,"martin.py beggar_rags_*; theme.json beggar ""sprites""",F8
+Kids,Unlit lantern (about 1 in 6 kids): meets a lit one; lanterns together and a spark jumps across - both cheer,done,"meeting 'light' (S.meet); kid.unlit, el.unlit",Shift+F6
+Kids,Lighting gone wrong: POOF - a flare and smoke; both kids sooty with frizzy hair; they blink and laugh,done,meeting 'light' poof 0.2,Shift+F6
+Kids,Lighting swap: the lit one goes out as the other lights; it looks at its dark lantern and runs after the other,done,meeting 'light' swap 0.1,Shift+F6
+Moon,The moon cycle: a lantern slips off a stick and flies up to become the moon; the moon sinks or flies loose and lands on a lightless child's stick,todo,,

@@ -127,6 +127,22 @@ local function relic(spr, x, owner)
     owner.gifts[#owner.gifts + 1] = a
 end
 
+-- a one-off effect at (x, y) (its middle): the sprite's frames over dur, growing by grow (a spark,
+-- a flare, a puff of smoke); follow() may move it along
+local function fx(spr, x, y, dur, follow)
+    if not spr or E.free_ids() < 1 then return end
+    local a = { el = { type = "stm_fx", hz = 30, video_min = 0 }, spr = spr, uncounted = true }
+    local t = 0
+    function a.update(dt)
+        t = t + dt
+        if t >= dur then return false end
+        if follow then x, y = follow(x, y, t) end
+        local fr = math.min(spr.frames - 1, math.floor(t / dur * spr.frames))
+        return true, x - spr.w / 2, y - spr.h / 2, fr, false
+    end
+    E.add(a)
+end
+
 local function others(stm)
     local list = {}
     for _, b in ipairs(E.actors()) do
@@ -428,18 +444,32 @@ end
 S.meet = {
     { who = "martin", chance = 0.5, near = 3.2, stand = 1.5 },     -- St Martin: they sing, he gives sweets
     { who = "beggar", chance = 0.5, near = 3.2, stand = 1.5 },     -- a beggar: they sing, he gets a gift
+    -- a child with an unlit lantern meets one whose lantern is lit (any child just ahead, going the same
+    -- way): they hold the lanterns together and a spark jumps across (usual), or POOF - a flare, smoke,
+    -- two sooty faces, a laugh (poof), or the lit one goes out as the other lights (swap: it runs after)
+    { who = "light", chance = 0.8, near = 3.8, stand = 2.1, poof = 0.2, swap = 0.1 },
 }
+local function meet_cfg(who)
+    for _, m in ipairs(S.meet) do if m.who == who then return m end end
+    return {}
+end
 
-local function lantern_sprite(el, name)
+local force_unlit = false        -- (preview) the next group: one child with an unlit lantern
+local function lantern_sprite(el, name, unlit)
     local M = E.M()
     if name and name ~= "" then return M.sprites[name] end
     local list = el.lanterns or {}
     for _ = 1, 4 do
         local n = list[math.random(math.max(1, #list))]
+        if unlit and n then
+            local un = n:gsub("^carry_", "unlit_")
+            if M.sprites[un] then return M.sprites[un], un end
+        end
         if n and M.sprites[n] then return M.sprites[n], n end
     end
 end
 local GRIP = { 8 / 220, 185 / 195 }      -- the stick's lower end in a carried lantern's frame (lanterns.py)
+local LC = { 120 / 220, 98 / 195 }       -- the lantern's middle in that frame
 
 local function new_kid(el, spr, g, x, lantern)
     local W, H = E.W(), E.H()
@@ -448,10 +478,94 @@ local function new_kid(el, spr, g, x, lantern)
     a.v_own = walk_v(spr)
     a.v = g.v or a.v_own
     a.lantern = lantern
+    a.unlit = lantern and (lantern.name or ""):match("^unlit_") and true or nil
     a.ph = rnd(0, 6.28)
     a.note = E.M().sprites[(el.notes or {})[math.random(math.max(1, #(el.notes or {})))] or ""]
     g.members[#g.members + 1] = a
     function a.cheer() if not a.steps[1] then a.steps = { { clip = "cheer" } } end end
+    function a.set_lit(on)            -- light the lantern (carry_*) or let it go out (unlit_*)
+        local nm = a.lantern and a.lantern.name or ""
+        local base = nm:gsub("^carry_", ""):gsub("^unlit_", "")
+        local sp = E.M().sprites[(on and "carry_" or "unlit_") .. base]
+        if sp then a.lantern, a.unlit = sp, (not on) or nil end
+    end
+    -- where its lantern is now (the middle of it), from the last frame drawn
+    function a.lantern_at() return a.lc_x or a.x + a.dir * 1.1 * u, a.lc_y or E.H() - 1.9 * u end
+    -- the lighting: a (unlit) and b (lit) face each other, lanterns together; then one of the three endings
+    local function light_from(b)
+        local m = meet_cfg("light")
+        local ga, gb = g, b.g
+        for _, gg in ipairs({ ga, gb }) do if gg.mode == "walk" then gg.mode = "light" end end
+        local side = b.x > a.x and 1 or -1
+        local stand = (m.stand or 2.1) * u
+        local r = math.random()
+        local ending = (r < (m.swap or 0.1)) and "swap" or (r < (m.swap or 0.1) + (m.poof or 0.2)) and "poof" or "spark"
+        local done_n = 0
+        local function done()
+            done_n = done_n + 1
+            if done_n < 2 then return end
+            for _, gg in ipairs({ ga, gb }) do if gg.mode == "light" then gg.mode = "walk" end end
+        end
+        local M = E.M()
+        local function spark_over(from, to, after)
+            local x0, y0 = from.lantern_at()
+            local x1, y1 = to.lantern_at()
+            fly(M.sprites.spark, x0, y0, x1, y1, 0.55, after)
+        end
+        b.steps = { { clip = "turn_front", face = -side }, { clip = "idle", wait = function() return a.lit_done end } }
+        a.steps = {
+            { clip = "walk", walk_to = b.x - side * stand, v = a.v_own * 0.8 },
+            { clip = "turn_front", face = side },
+            { clip = "idle", dur = 0.8 },
+        }
+        if ending == "spark" then
+            a.steps[#a.steps + 1] = { clip = "idle", wait = function() return a.lit_done end, on_start = function()
+                spark_over(b, a, function() a.set_lit(true); a.lit_done = true end)
+            end }
+            a.steps[#a.steps + 1] = { clip = "cheer", on_start = function() b.steps = { { clip = "cheer", on_end = done } } end }
+            a.steps[#a.steps + 1] = { clip = "turn_side", face = g.dir, on_end = done }
+        elseif ending == "poof" then
+            a.steps[#a.steps + 1] = { clip = "idle", dur = 1.6, on_start = function()
+                local lx, ly = a.lantern_at()
+                fx(M.sprites.flare, lx, ly, 0.5)
+                fx(M.sprites.puff, lx, ly - 0.3 * u, 1.6, function(x, y, t) return x, y - 0.02 * u end)
+                a.set_lit(true)
+                a.soot_until, b.soot_until = now() + 5, now() + 5
+                a.lit_done = true
+            end }
+            a.steps[#a.steps + 1] = { clip = "idle", dur = 0.8 }                -- (blink)
+            a.steps[#a.steps + 1] = { clip = "cheer", on_start = function() b.steps = { { clip = "idle", dur = 0.3 }, { clip = "cheer", on_end = done } } end }
+            a.steps[#a.steps + 1] = { clip = "turn_side", face = g.dir, on_end = done }
+        else    -- swap: b's goes out as a's lights; b looks at it, then runs after a
+            a.steps[#a.steps + 1] = { clip = "idle", wait = function() return a.lit_done end, on_start = function()
+                spark_over(b, a, function() a.set_lit(true); b.set_lit(false); a.lit_done = true end)
+            end }
+            a.steps[#a.steps + 1] = { clip = "cheer" }
+            a.steps[#a.steps + 1] = { clip = "turn_side", face = g.dir, on_end = function()
+                done()
+                b.steps = { { clip = "idle", dur = 1.4 }, { clip = "turn_side", face = gb.dir },
+                            { clip = "skip", walk_to = a.x + gb.dir * 0.2 * u, v = b.v_own * 1.4, on_end = function() b.tried = nil; done() end } }
+            end }
+        end
+    end
+    -- an unlit child walking along: a lit one just ahead (or just behind) going the same way?
+    local function look_for_light()
+        if a.tried and now() < a.tried then return end
+        a.tried = now() + 4
+        local m = meet_cfg("light")
+        local best, bd
+        for _, b in ipairs(others("kid")) do
+            local d = math.abs(b.x - a.x)
+            if b ~= a and b.lantern and not b.unlit and not b.steps[1] and b.g and b.g.dir == g.dir
+               and (b.g.mode == "walk") and d < (m.near or 3.8) * u and d > 0.5 * u and (not bd or d < bd) then
+                best, bd = b, d
+            end
+        end
+        if best and (now() < sure_until or math.random() < (m.chance or 0.8)) then
+            a.lit_done = nil
+            light_from(best)
+        end
+    end
     function a.errand(target, gift, done)      -- walk up to him, put the gift down, skip back
         local back, side = a.x, target.x > a.x and 1 or -1
         a.singing = false
@@ -477,6 +591,10 @@ local function new_kid(el, spr, g, x, lantern)
         g.tick(t)
         local W_ = E.W()
         local frame = run_steps(a, dt)
+        if not frame and a.unlit and g.mode == "walk" and a.x > 0 and a.x < W_ then
+            look_for_light()
+            frame = run_steps(a, 0)
+        end
         local clip, k = a.clip, a.k
         if a.dead then return false end
         local ahead, gap
@@ -519,6 +637,8 @@ local function new_kid(el, spr, g, x, lantern)
                         end
                     end
                 end
+            elseif g.mode == "light" then
+                moving, a.singing = false, false            -- (two of them lighting a lantern: wait)
             else
                 -- sing / react: the first walks to its place, the others close up behind
                 if not ahead then
@@ -564,6 +684,8 @@ local function new_kid(el, spr, g, x, lantern)
             local lx = mirror and (hx - (ls.w - gx)) or (hx - gx)
             local fr = math.floor(t * 8 + a.ph * 3)
             L[2] = { spr = ls, frame = fr, variant = mirror, x = lx, y = hy - GRIP[2] * ls.h }
+            a.lc_x = mirror and (lx + ls.w * (1 - LC[1])) or (lx + ls.w * LC[1])
+            a.lc_y = hy - GRIP[2] * ls.h + ls.h * LC[2]
         end
         -- a note rising while it sings
         if a.singing and a.note then
@@ -572,6 +694,14 @@ local function new_kid(el, spr, g, x, lantern)
                 L[3] = { spr = a.note, frame = 0, variant = false,
                          x = a.x + math.sin(t * 2 + a.ph) * 0.15 * u - a.note.w / 2,
                          y = H - 2.2 * u - q * 1.2 * u }
+            end
+        end
+        -- soot and frizzy hair (the POOF)
+        if a.soot_until and now() < a.soot_until then
+            local so = E.M().sprites.soot
+            if so then
+                local hx = a.x + (mirror and -1 or 1) * 0.12 * u
+                L[3] = { spr = so, frame = 0, variant = mirror, x = hx - so.w / 2, y = H - 1.95 * u - so.h / 2 }
             end
         end
         a.cx = a.x
@@ -601,7 +731,11 @@ function S.kid(el, spr, h)
     local u = unit(spr)
     g.spacing = (el.spacing or 1.7) * u
     local x = dir > 0 and -0.6 * u or W + 0.6 * u
-    local lead = new_kid(el, spr, g, x, lantern_sprite(el))
+    if force_unlit then n = math.max(n, 2) end
+    local unl = {}
+    for i = 1, n do unl[i] = math.random() < (el.unlit or 1 / 6) end
+    if force_unlit then for i = 1, n do unl[i] = (i == 2) end; force_unlit = false end
+    local lead = new_kid(el, spr, g, x, lantern_sprite(el, nil, unl[1]))
     local used = { [spr] = true }
     for i = 2, n do
         if E.free_ids() < 3 + 6 then break end
@@ -612,7 +746,7 @@ function S.kid(el, spr, h)
         end
         if not s2 then break end
         used[s2] = true
-        local k = new_kid(el, s2, g, x - dir * (i - 1) * g.spacing * rnd(1.0, 1.15), lantern_sprite(el))
+        local k = new_kid(el, s2, g, x - dir * (i - 1) * g.spacing * rnd(1.0, 1.15), lantern_sprite(el, nil, unl[i]))
         E.add(k, el)
     end
     return lead
@@ -659,6 +793,16 @@ function S.install(api)
         end
     end)
     mp.add_forced_key_binding("F8", "stm-beggar", function() force("beggar") end)
+    mp.add_forced_key_binding("Shift+F6", "stm-light", function()          -- the lighting gag
+        sure_until = now() + 60
+        force_unlit = true
+        for _, el in ipairs(E.M() and E.M().elements or {}) do
+            if el.type == "kid" and not el.procession and E.elements()[el] then
+                E.elements()[el].next, E.elements()[el].force = 0, true
+                break
+            end
+        end
+    end)
     mp.add_forced_key_binding("Shift+F5", "stm-martin-look", function()      -- cycle St Martin's look, live
         for _, el in ipairs(E.M() and E.M().elements or {}) do
             if el.type == "martin" and el.looks then
