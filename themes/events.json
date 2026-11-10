@@ -32,10 +32,8 @@
       "type": "stmaarten",
       "theme": "stmaarten",
       "date": "11-11",
-      "lead_days": 1,
+      "lead_days": 0,
       "after_days": 0,
-      "lead_min": 2,
-      "lead_max": 3,
       "priority": 2
     },
     {

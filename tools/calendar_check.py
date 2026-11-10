@@ -46,7 +46,7 @@ def asserts() -> None:
     # 2026/27 season
     check("2026-10-31", "halloween", 8)
     check("2026-11-09", None)
-    check("2026-11-10", "stmaarten", 3)
+    check("2026-11-10", None)                         # St Maarten: only the day itself
     check("2026-11-11", "stmaarten", 8)                 # beats carnaval-opening
     check("2026-11-11", "carnaval-opening", 5, themes_disabled_types=["stmaarten"])
     check("2026-11-12", None)
