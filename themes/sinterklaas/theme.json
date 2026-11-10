@@ -33,6 +33,41 @@
   "horse3d": {
    "anim": "anim/horse",
    "unit": 0.085
+  },
+  "pepernoot": {
+   "frames": [
+    "pepernoot_0.png",
+    "pepernoot_1.png",
+    "pepernoot_2.png"
+   ],
+   "height": 0.022,
+   "spin": 8,
+   "fade": 6
+  },
+  "shoe": {
+   "file": "shoe.png",
+   "height": 0.1,
+   "solid": true
+  },
+  "shoe_b": {
+   "file": "shoe_b.png",
+   "height": 0.1,
+   "solid": true
+  },
+  "chocoletter": {
+   "file": "chocoletter.png",
+   "height": 0.1,
+   "solid": true
+  },
+  "presents": {
+   "file": "presents.png",
+   "height": 0.13,
+   "solid": true
+  },
+  "presents_b": {
+   "file": "presents_b.png",
+   "height": 0.13,
+   "solid": true
   }
  },
  "elements": [
@@ -211,6 +246,166 @@
    "group": [
     "sint",
     "walker"
+   ]
+  },
+  {
+   "_doc": "A shoe by the chimney with a carrot for the horse, now and then a chocolate letter beside it: calm, in a bottom corner",
+   "type": "visitor",
+   "name": "shoes",
+   "min": 1,
+   "max": 7,
+   "every": [
+    90,
+    180
+   ],
+   "max_active": 1,
+   "stay": [
+    60,
+    150
+   ],
+   "video_min": 1,
+   "cast": [
+    {
+     "sprites": [
+      "shoe",
+      "shoe_b"
+     ],
+     "anchor": "bottom-left",
+     "places": [
+      [
+       0.01,
+       0.0
+      ],
+      [
+       0.06,
+       0.0,
+       true
+      ]
+     ]
+    },
+    {
+     "sprite": "chocoletter",
+     "anchor": "bottom-right",
+     "places": [
+      [
+       0.01,
+       0.0
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "_doc": "Presents in a bottom corner, making way while something big happens on the floor",
+   "type": "decor",
+   "group": "presents",
+   "anchor": "bottom-right",
+   "min": 3,
+   "count": 1,
+   "video_min": 3,
+   "duty": {
+    "on": [
+     150,
+     400
+    ],
+    "off": [
+     60,
+     150
+    ]
+   },
+   "aside": "scenes",
+   "places": [
+    [
+     0.01,
+     0.0
+    ],
+    [
+     0.08,
+     0.0,
+     true
+    ]
+   ],
+   "sprites": [
+    "presents",
+    "presents_b"
+   ]
+  },
+  {
+   "_doc": "A few pepernoten tumbling down, as if a Piet threw a handful off screen; they lie a while and fade",
+   "type": "particles",
+   "sprite": "pepernoot",
+   "min": 4,
+   "max": 7,
+   "count": [
+    1,
+    3
+   ],
+   "speed": [
+    0.06,
+    0.1
+   ],
+   "sway": 0.01,
+   "band": true,
+   "hz": 10,
+   "rest": [
+    20,
+    60
+   ],
+   "rest_max": [
+    3,
+    6
+   ],
+   "fade_time": 4,
+   "spin_speed": 10
+  },
+  {
+   "_doc": "Level 8: a shower of pepernoten",
+   "type": "particles",
+   "sprite": "pepernoot",
+   "min": 8,
+   "count": 10,
+   "speed": [
+    0.08,
+    0.14
+   ],
+   "sway": 0.01,
+   "hz": 10,
+   "rest": [
+    15,
+    50
+   ],
+   "rest_max": 10,
+   "fade_time": 4,
+   "spin_speed": 10
+  },
+  {
+   "_doc": "Level 8: shoes and presents in both corners",
+   "type": "decor",
+   "group": "presents",
+   "anchor": "bottom-left",
+   "min": 8,
+   "count": 1,
+   "video_min": 8,
+   "duty": {
+    "on": [
+     150,
+     400
+    ],
+    "off": [
+     30,
+     90
+    ]
+   },
+   "aside": "scenes",
+   "places": [
+    [
+     0.01,
+     0.0
+    ]
+   ],
+   "sprites": [
+    "presents",
+    "presents_b"
    ]
   }
  ],
