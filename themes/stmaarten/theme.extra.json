@@ -42,9 +42,9 @@
   "elements": [
     {"_doc": "the Dom tower of Utrecht, far off at dusk", "type": "decor", "sprite": "dom", "anchor": "bottom-left", "places": [[0.012, 0.0]], "min": 6, "video_min": 9},
     {"_doc": "the Utrecht flag on the Dom's upper gallery (mirrored: flying left, over the sky; out of the walkers' way)", "type": "decor", "sprite": "flag_utrecht", "anchor": "bottom-left", "places": [[0.0, 0.322, true]], "min": 6, "video_min": 9},
-    {"_doc": "houses: the children ring and sing at the door (grumpy = chance the light goes off)", "type": "stm_house", "sprites": ["house_a", "house_b", "house_c"], "count": [1, 2], "grumpy": 0.25, "stay": [150, 300], "every": [40, 120], "delay": [5, 30], "min": 3, "video_min": 9},
-    {"_doc": "a Sint-Maartensvuur", "type": "stm_bonfire", "sprite": "bonfire", "stay": [150, 300], "every": [200, 400], "delay": [30, 120], "min": 5, "video_min": 9},
-    {"_doc": "a cow wandering by (de koeien hebben staarten)", "type": "stm_cow", "sprite": "cow", "every": [150, 300], "max_active": 1, "delay": [30, 90], "min": 4, "video_min": 8},
+    {"_doc": "houses: the children ring and sing at the door (grumpy = chance the light goes off)", "type": "stm_house", "sprites": ["house_a", "house_b", "house_c"], "count": [1, 1], "grumpy": 0.25, "stay": [120, 240], "every": [90, 200], "delay": [5, 30], "min": 3, "video_min": 9},
+    {"_doc": "a Sint-Maartensvuur", "type": "stm_bonfire", "sprite": "bonfire", "stay": [120, 240], "every": [400, 800], "delay": [120, 400], "min": 5, "video_min": 9},
+    {"_doc": "a cow wandering by (de koeien hebben staarten)", "type": "stm_cow", "sprite": "cow", "every": [300, 600], "max_active": 1, "delay": [30, 90], "min": 4, "video_min": 8},
     {"_doc": "geese - and St Martin hiding among them, found out (martin = chance)", "type": "stm_geese", "sprite": "goose", "n": [3, 5], "martin": 0.5, "stay": [25, 45], "every": [180, 360], "max_active": 1, "delay": [60, 150], "min": 4, "video_min": 8},
     {"_doc": "two teenagers without lanterns at a door", "type": "stm_teens", "sprite": "teen_a", "sprites_pair": ["teen_a", "teen_b"], "group": "stm_scene", "every": [300, 600], "max_active": 1, "delay": [90, 240], "min": 6, "video_min": 9},
     {"_doc": "the border walk round the island of Sint Maarten (martin = chance he brings a blanket)", "type": "stm_border", "sprite": "dutch", "martin": 0.6, "group": "stm_scene", "max_hops": 9, "every": [500, 900], "max_active": 1, "delay": [120, 400], "min": 7, "video_min": 9},

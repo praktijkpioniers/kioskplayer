@@ -34,6 +34,17 @@
 local X = {}
 local E, S, E2                  -- the engine API, stmaarten.lua, the extras
 local parade_day = nil          -- the date the parade came by here
+-- test hook: KIOSK_FAKE_CLOCK=HH:MM[:SS] makes the theme's clock start at that time (the 11:11 parade)
+local clock_off = 0
+do
+    local h, m, sec = (os.getenv("KIOSK_FAKE_CLOCK") or ""):match("^(%d+):(%d+):?(%d*)$")
+    if h then
+        local t = os.date("*t")
+        t.hour, t.min, t.sec = tonumber(h), tonumber(m), tonumber(sec) or 0
+        clock_off = os.time(t) - os.time()
+    end
+end
+local function clock(fmt) return os.date(fmt, os.time() + clock_off) end
 
 local function rnd(a, b) return a + math.random() * (b - a) end
 local function range(v, d1, d2)
@@ -209,7 +220,7 @@ function X.house(el, spr, grumpy, at)
     local W, H = E.W(), E.H()
     if not (spr and spr.clips and spr.clips.open) then return nil end
     local u = unit(spr)
-    local x = at or E.free_x(0.14 * W, 0.86 * W)
+    local x = at or E.free_x(0.22 * W, 0.86 * W)          -- (clear of the Dom and its flag)
     local a = { el = el, spr = spr, stm = "house", x = x, cx = x, dir = 1, clip = "idle", tc = 0, rise = 0,
                 grumpy = grumpy, ttl = rnd(range(el.stay, 150, 300)), t0 = now(), unique = false }
     local function play(name, reverse, after) a.clip, a.rev, a.tc, a.after = name, reverse, 0, after end
@@ -588,11 +599,12 @@ function X.border(el, spr, h)
     if h then
         -- the Frenchman going round: home again? (the screen where the Dutchman waits)
         for _, b in ipairs(others("border")) do
-            if b.wait_fr then b.fr_back(h) return nil end
+            if b.wait_fr and (h.home == nil or h.home == b.token) then b.fr_back(h) return nil end
         end
         -- passing through: across this screen and on
         local a = { el = el, spr = sf, stm = "border_pass", hops = tonumber(h.hops) or 1, unique = false }
         local p = { spr = sf, dir = h.dir == 1 and 1 or -1, steps = {}, tc = 0, v = walk_v(sf) }
+        local home = h.home
         p.x = E.walk_in_x(h, p.v, 0.5 * u)
         if math.random() < 0.5 then
             p.steps = { { clip = "walk", walk_to = E.free_x(0.3 * W, 0.7 * W) }, { clip = "drink" } }
@@ -601,7 +613,7 @@ function X.border(el, spr, h)
             local frame = run_steps(p, dt)
             if not frame then
                 p.x = p.x + p.dir * p.v * dt
-                E.walk_out(a, p.x, p.dir, 0.5 * u, { role = "fr" })
+                E.walk_out(a, p.x, p.dir, 0.5 * u, { role = "fr", home = home })
                 if p.x < -2 * u or p.x > W + 2 * u then return false end
                 frame = clip_frame(sf, "walk", t)
             end
@@ -611,7 +623,7 @@ function X.border(el, spr, h)
         end
         return a
     end
-    local a = { el = el, spr = sd, stm = "border", layers = 5, hops = 0 }
+    local a = { el = el, spr = sd, stm = "border", layers = 5, hops = 0, token = tostring(math.random(1, 1e9)) }
     local x0 = W / 2
     local fdir = math.random() < 0.5 and 1 or -1
     local F = { spr = sf, x = x0 + fdir * 0.2 * u, dir = fdir, steps = {}, tc = 0, v = walk_v(sf) }
@@ -676,7 +688,7 @@ function X.border(el, spr, h)
             F.x = F.x + F.dir * F.v * dt
             local proxy = a.proxy or { el = el, hops = 0, unique = false, spr = sf }
             a.proxy = proxy
-            E.walk_out(proxy, F.x, F.dir, 0.5 * u, { role = "fr", sprite = sf.name })
+            E.walk_out(proxy, F.x, F.dir, 0.5 * u, { role = "fr", sprite = sf.name, home = a.token })   -- (his Dutchman's screen)
             if F.x < -1.5 * u or F.x > W + 1.5 * u then
                 fr_gone, fr_out_t = true, n
                 if proxy.handed_on ~= "yes" then fr_out_t = n - 100 end      -- (no one next door)
@@ -937,12 +949,12 @@ end
 
 function X.parade(el, spr, h)
     local W, H = E.W(), E.H()
-    local today = os.date("%Y-%m-%d")
+    local today = clock("%Y-%m-%d")
     if not h then
         local st = E.elements()[el]
         local forced = st and st.force
         local at = el.at or "11:11"
-        if not forced and (os.date("%H:%M") ~= at or parade_day == today) then return nil end
+        if not forced and (clock("%H:%M") ~= at or parade_day == today) then return nil end
     end
     parade_day = today
     local names = el.members or { "prince", "jester", "brass", "brass" }
@@ -963,7 +975,8 @@ function X.parade(el, spr, h)
     function a.update(dt, t)
         head = head + dir * v * dt
         local last = head - dir * gap * (#M - 1)
-        E.walk_out(a, head, dir, 0.5 * u, { members = names })
+        -- across the room once: on to the next screen till each has had it (then off the last one)
+        if (a.hops or 0) < (E.room().screens or 1) - 1 then E.walk_out(a, head, dir, 0.5 * u, { members = names }) end
         if (dir > 0 and last > W + 1.5 * u) or (dir < 0 and last < -1.5 * u) then return false end
         local L = {}
         for i, m in ipairs(M) do
