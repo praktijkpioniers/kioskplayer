@@ -39,7 +39,8 @@
 #   per clip "only": ["Knight_Head", "prop"]  render only the meshes whose names contain one of these
 #   per clip "show": ["2H_Staff"]  show meshes "hide" hides everywhere else (a stick for stirring)
 #   per clip "drop": ["prop"]  hide these meshes in this clip (a pumpkin-head without its head)
-#   per clip "track": {"hand.r": [0, 0, 0]}  where these bones (plus a world offset) are in each
+#   per clip "track": {"hand.r": [0, 0, 0]}  where these bones (plus a world offset; or a prop by its
+#              "name", plus an offset in its own space) are in each
 #              frame, in render pixels: clips.json "track" (the engine carries something along)
 #   per clip "spin": true  turn what shows about its own middle, a full turn over the clip's frames
 #              (in the picture plane): pieces flying off
@@ -78,7 +79,11 @@ for part in R.get("parts", []):
     for o in [o for o in scene.objects if o not in before]:
         if o.type == "MESH" and o.name.split(".")[0] in part["meshes"]:
             mw = o.matrix_world.copy()
+            pb = o.parent_bone if (o.parent and o.parent.type == "ARMATURE" and o.parent_type == "BONE") else None
             o.parent = rig
+            if pb:              # (riding on a bone, not skinned: a cape on the chest) - on the same bone here
+                o.parent_type, o.parent_bone = "BONE", pb
+                bpy.context.view_layer.update()
             o.matrix_world = mw
             for m in o.modifiers:
                 if m.type == "ARMATURE":
@@ -109,6 +114,18 @@ if R.get("recolor"):
                 recolor(img, cells)
 
 meshes = [o for o in scene.objects if o.type == "MESH"]
+# "mesh_scale": {"Knight_Cape": [sx, sy, sz]}  stretch a mesh in its rest shape, about the middle of its
+#   top (a longer, wider cape: St Martin's cloak; [1, 1, 0.5] half as long); still skinned to the rig
+for o in meshes:
+    for key, sc in R.get("mesh_scale", {}).items():
+        if o.name.split(".")[0] == key:
+            mw = o.matrix_world
+            pts = [mw @ v.co for v in o.data.vertices]
+            piv = Vector((sum(p.x for p in pts) / len(pts), sum(p.y for p in pts) / len(pts), max(p.z for p in pts)))
+            inv = mw.inverted()
+            for v, p in zip(o.data.vertices, pts):
+                d = p - piv
+                v.co = inv @ (piv + Vector((d.x * sc[0], d.y * sc[1], d.z * sc[2])))
 for o in meshes:
     if any(h in o.name for h in R.get("hide", [])):
         o.hide_render = True
@@ -227,6 +244,9 @@ for i, pr in enumerate(R.get("props", [])):
     m.use_nodes = True
     m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (*hexrgb(pr.get("color", "#808080")), 1)
     m.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.6
+    if pr.get("emit"):        # (a lantern: it glows)
+        m.node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (*hexrgb(pr["color"]), 1)
+        m.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = float(pr["emit"])
     o.data.materials.append(m)
     mw = o.matrix_world.copy()
     o.parent, o.parent_type, o.parent_bone = rig, "BONE", pr["bone"]
@@ -495,7 +515,8 @@ for name, (a, fr) in clips.items():
         if track:
             bpy.context.view_layer.update()
             for b, off in c["track"].items():
-                p = rig.matrix_world @ rig.pose.bones[b].head + Vector(off)
+                ob = bpy.data.objects.get(b)     # (a prop by its "name": that point of it, e.g. a stick's tip)
+                p = (ob.matrix_world @ Vector(off)) if ob else (rig.matrix_world @ rig.pose.bones[b].head + Vector(off))
                 track[b].append([round((p.x - x_lo) / frame_w * RES[0], 1),
                                  round(RES[1] - (p.z - ground) / frame_h * RES[1], 1)])
         loc, rot = pivot.location.copy(), pivot.rotation_euler.copy()

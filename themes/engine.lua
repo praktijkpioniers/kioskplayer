@@ -6355,6 +6355,31 @@ end
 -- ── prowlers (prowler.lua): a cat strolling along the bottom edge ────────────
 
 local prowler = load_module("prowler.lua")
+
+-- St Maarten (stmaarten.lua): kids with lanterns, St Martin, beggars - its spawn.* through a small API
+-- (no new locals here: the main chunk is at Lua's limit)
+hooks.stm = load_module("stmaarten.lua")
+if hooks.stm and hooks.stm.install then
+    hooks.stm.install({
+        W = function() return W end, H = function() return H end, M = function() return M end,
+        actors = function() return actors end, elements = function() return elements end,
+        room = function() return room end, free_ids = function() return #free_ids end,
+        free_x = free_x, walk_out = walk_out, walk_in_x = walk_in_x, leave = leave, spawn = spawn,
+        free_sprite = function(el) return free_sprite_of(el) end,
+        add = function(a, el)           -- one more actor, not started by try_spawn (not counted)
+            if #free_ids < (a.layers or 1) then return false end
+            a.el, a.uncounted, a.groups = a.el or el, true, a.groups or {}
+            a.id = take_id()
+            if a.layers then
+                a.ids = { a.id }
+                for k = 2, a.layers do a.ids[k] = take_id() end
+                table.sort(a.ids)
+            end
+            actors[#actors + 1] = a
+            return true
+        end,
+    })
+end
 local cat_next = {}  -- element name -> time the next cat may come
 local cat_dir        -- (preview key) the next cat walks this way
 

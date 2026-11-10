@@ -1,0 +1,1061 @@
+{
+ "_doc": [
+  "St Maarten (11-11). Sprites: kid_NN tools/bake/kids.py, martin_N / beggar_* tools/bake/martin.py,",
+  "lanterns and props tools/bake/lanterns.py. Behaviour: themes/stmaarten.lua (types kid, martin, beggar),",
+  "the rest is the engine's own (decor). See IDEAS.md. Preview keys: F5 St Martin, F6 children, F7 a procession, F8 a beggar."
+ ],
+ "sprites": {
+  "kid_00": {
+   "anim": "anim/kid_00",
+   "unit": 0.075
+  },
+  "kid_01": {
+   "anim": "anim/kid_01",
+   "unit": 0.075
+  },
+  "kid_02": {
+   "anim": "anim/kid_02",
+   "unit": 0.075
+  },
+  "kid_03": {
+   "anim": "anim/kid_03",
+   "unit": 0.075
+  },
+  "kid_04": {
+   "anim": "anim/kid_04",
+   "unit": 0.075
+  },
+  "kid_05": {
+   "anim": "anim/kid_05",
+   "unit": 0.075
+  },
+  "kid_06": {
+   "anim": "anim/kid_06",
+   "unit": 0.075
+  },
+  "kid_07": {
+   "anim": "anim/kid_07",
+   "unit": 0.075
+  },
+  "kid_08": {
+   "anim": "anim/kid_08",
+   "unit": 0.075
+  },
+  "kid_09": {
+   "anim": "anim/kid_09",
+   "unit": 0.075
+  },
+  "kid_10": {
+   "anim": "anim/kid_10",
+   "unit": 0.075
+  },
+  "kid_11": {
+   "anim": "anim/kid_11",
+   "unit": 0.075
+  },
+  "kid_12": {
+   "anim": "anim/kid_12",
+   "unit": 0.075
+  },
+  "kid_13": {
+   "anim": "anim/kid_13",
+   "unit": 0.075
+  },
+  "martin_0": {
+   "anim": "anim/martin_0",
+   "unit": 0.1
+  },
+  "martin_1": {
+   "anim": "anim/martin_1",
+   "unit": 0.1
+  },
+  "martin_2": {
+   "anim": "anim/martin_2",
+   "unit": 0.1
+  },
+  "martin_3": {
+   "anim": "anim/martin_3",
+   "unit": 0.1
+  },
+  "beggar_old": {
+   "anim": "anim/beggar_old",
+   "unit": 0.1
+  },
+  "beggar_woman": {
+   "anim": "anim/beggar_woman",
+   "unit": 0.1
+  },
+  "beggar_young": {
+   "anim": "anim/beggar_young",
+   "unit": 0.1
+  },
+  "beggar_hood": {
+   "anim": "anim/beggar_hood",
+   "unit": 0.1
+  },
+  "carry_round_orange": {
+   "frames": [
+    "lantern/carry_round_orange_0.png",
+    "lantern/carry_round_orange_1.png",
+    "lantern/carry_round_orange_2.png",
+    "lantern/carry_round_orange_3.png",
+    "lantern/carry_round_orange_4.png",
+    "lantern/carry_round_orange_5.png",
+    "lantern/carry_round_orange_6.png",
+    "lantern/carry_round_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_orange": {
+   "frames": [
+    "lantern/stand_round_orange_0.png",
+    "lantern/stand_round_orange_1.png",
+    "lantern/stand_round_orange_2.png",
+    "lantern/stand_round_orange_3.png",
+    "lantern/stand_round_orange_4.png",
+    "lantern/stand_round_orange_5.png",
+    "lantern/stand_round_orange_6.png",
+    "lantern/stand_round_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_red": {
+   "frames": [
+    "lantern/carry_round_red_0.png",
+    "lantern/carry_round_red_1.png",
+    "lantern/carry_round_red_2.png",
+    "lantern/carry_round_red_3.png",
+    "lantern/carry_round_red_4.png",
+    "lantern/carry_round_red_5.png",
+    "lantern/carry_round_red_6.png",
+    "lantern/carry_round_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_red": {
+   "frames": [
+    "lantern/stand_round_red_0.png",
+    "lantern/stand_round_red_1.png",
+    "lantern/stand_round_red_2.png",
+    "lantern/stand_round_red_3.png",
+    "lantern/stand_round_red_4.png",
+    "lantern/stand_round_red_5.png",
+    "lantern/stand_round_red_6.png",
+    "lantern/stand_round_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_yellow": {
+   "frames": [
+    "lantern/carry_round_yellow_0.png",
+    "lantern/carry_round_yellow_1.png",
+    "lantern/carry_round_yellow_2.png",
+    "lantern/carry_round_yellow_3.png",
+    "lantern/carry_round_yellow_4.png",
+    "lantern/carry_round_yellow_5.png",
+    "lantern/carry_round_yellow_6.png",
+    "lantern/carry_round_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_yellow": {
+   "frames": [
+    "lantern/stand_round_yellow_0.png",
+    "lantern/stand_round_yellow_1.png",
+    "lantern/stand_round_yellow_2.png",
+    "lantern/stand_round_yellow_3.png",
+    "lantern/stand_round_yellow_4.png",
+    "lantern/stand_round_yellow_5.png",
+    "lantern/stand_round_yellow_6.png",
+    "lantern/stand_round_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_blue": {
+   "frames": [
+    "lantern/carry_round_blue_0.png",
+    "lantern/carry_round_blue_1.png",
+    "lantern/carry_round_blue_2.png",
+    "lantern/carry_round_blue_3.png",
+    "lantern/carry_round_blue_4.png",
+    "lantern/carry_round_blue_5.png",
+    "lantern/carry_round_blue_6.png",
+    "lantern/carry_round_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_blue": {
+   "frames": [
+    "lantern/stand_round_blue_0.png",
+    "lantern/stand_round_blue_1.png",
+    "lantern/stand_round_blue_2.png",
+    "lantern/stand_round_blue_3.png",
+    "lantern/stand_round_blue_4.png",
+    "lantern/stand_round_blue_5.png",
+    "lantern/stand_round_blue_6.png",
+    "lantern/stand_round_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_green": {
+   "frames": [
+    "lantern/carry_round_green_0.png",
+    "lantern/carry_round_green_1.png",
+    "lantern/carry_round_green_2.png",
+    "lantern/carry_round_green_3.png",
+    "lantern/carry_round_green_4.png",
+    "lantern/carry_round_green_5.png",
+    "lantern/carry_round_green_6.png",
+    "lantern/carry_round_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_green": {
+   "frames": [
+    "lantern/stand_round_green_0.png",
+    "lantern/stand_round_green_1.png",
+    "lantern/stand_round_green_2.png",
+    "lantern/stand_round_green_3.png",
+    "lantern/stand_round_green_4.png",
+    "lantern/stand_round_green_5.png",
+    "lantern/stand_round_green_6.png",
+    "lantern/stand_round_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_pink": {
+   "frames": [
+    "lantern/carry_round_pink_0.png",
+    "lantern/carry_round_pink_1.png",
+    "lantern/carry_round_pink_2.png",
+    "lantern/carry_round_pink_3.png",
+    "lantern/carry_round_pink_4.png",
+    "lantern/carry_round_pink_5.png",
+    "lantern/carry_round_pink_6.png",
+    "lantern/carry_round_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_pink": {
+   "frames": [
+    "lantern/stand_round_pink_0.png",
+    "lantern/stand_round_pink_1.png",
+    "lantern/stand_round_pink_2.png",
+    "lantern/stand_round_pink_3.png",
+    "lantern/stand_round_pink_4.png",
+    "lantern/stand_round_pink_5.png",
+    "lantern/stand_round_pink_6.png",
+    "lantern/stand_round_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_round_purple": {
+   "frames": [
+    "lantern/carry_round_purple_0.png",
+    "lantern/carry_round_purple_1.png",
+    "lantern/carry_round_purple_2.png",
+    "lantern/carry_round_purple_3.png",
+    "lantern/carry_round_purple_4.png",
+    "lantern/carry_round_purple_5.png",
+    "lantern/carry_round_purple_6.png",
+    "lantern/carry_round_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_round_purple": {
+   "frames": [
+    "lantern/stand_round_purple_0.png",
+    "lantern/stand_round_purple_1.png",
+    "lantern/stand_round_purple_2.png",
+    "lantern/stand_round_purple_3.png",
+    "lantern/stand_round_purple_4.png",
+    "lantern/stand_round_purple_5.png",
+    "lantern/stand_round_purple_6.png",
+    "lantern/stand_round_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_orange": {
+   "frames": [
+    "lantern/carry_star_orange_0.png",
+    "lantern/carry_star_orange_1.png",
+    "lantern/carry_star_orange_2.png",
+    "lantern/carry_star_orange_3.png",
+    "lantern/carry_star_orange_4.png",
+    "lantern/carry_star_orange_5.png",
+    "lantern/carry_star_orange_6.png",
+    "lantern/carry_star_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_orange": {
+   "frames": [
+    "lantern/stand_star_orange_0.png",
+    "lantern/stand_star_orange_1.png",
+    "lantern/stand_star_orange_2.png",
+    "lantern/stand_star_orange_3.png",
+    "lantern/stand_star_orange_4.png",
+    "lantern/stand_star_orange_5.png",
+    "lantern/stand_star_orange_6.png",
+    "lantern/stand_star_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_red": {
+   "frames": [
+    "lantern/carry_star_red_0.png",
+    "lantern/carry_star_red_1.png",
+    "lantern/carry_star_red_2.png",
+    "lantern/carry_star_red_3.png",
+    "lantern/carry_star_red_4.png",
+    "lantern/carry_star_red_5.png",
+    "lantern/carry_star_red_6.png",
+    "lantern/carry_star_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_red": {
+   "frames": [
+    "lantern/stand_star_red_0.png",
+    "lantern/stand_star_red_1.png",
+    "lantern/stand_star_red_2.png",
+    "lantern/stand_star_red_3.png",
+    "lantern/stand_star_red_4.png",
+    "lantern/stand_star_red_5.png",
+    "lantern/stand_star_red_6.png",
+    "lantern/stand_star_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_yellow": {
+   "frames": [
+    "lantern/carry_star_yellow_0.png",
+    "lantern/carry_star_yellow_1.png",
+    "lantern/carry_star_yellow_2.png",
+    "lantern/carry_star_yellow_3.png",
+    "lantern/carry_star_yellow_4.png",
+    "lantern/carry_star_yellow_5.png",
+    "lantern/carry_star_yellow_6.png",
+    "lantern/carry_star_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_yellow": {
+   "frames": [
+    "lantern/stand_star_yellow_0.png",
+    "lantern/stand_star_yellow_1.png",
+    "lantern/stand_star_yellow_2.png",
+    "lantern/stand_star_yellow_3.png",
+    "lantern/stand_star_yellow_4.png",
+    "lantern/stand_star_yellow_5.png",
+    "lantern/stand_star_yellow_6.png",
+    "lantern/stand_star_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_blue": {
+   "frames": [
+    "lantern/carry_star_blue_0.png",
+    "lantern/carry_star_blue_1.png",
+    "lantern/carry_star_blue_2.png",
+    "lantern/carry_star_blue_3.png",
+    "lantern/carry_star_blue_4.png",
+    "lantern/carry_star_blue_5.png",
+    "lantern/carry_star_blue_6.png",
+    "lantern/carry_star_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_blue": {
+   "frames": [
+    "lantern/stand_star_blue_0.png",
+    "lantern/stand_star_blue_1.png",
+    "lantern/stand_star_blue_2.png",
+    "lantern/stand_star_blue_3.png",
+    "lantern/stand_star_blue_4.png",
+    "lantern/stand_star_blue_5.png",
+    "lantern/stand_star_blue_6.png",
+    "lantern/stand_star_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_green": {
+   "frames": [
+    "lantern/carry_star_green_0.png",
+    "lantern/carry_star_green_1.png",
+    "lantern/carry_star_green_2.png",
+    "lantern/carry_star_green_3.png",
+    "lantern/carry_star_green_4.png",
+    "lantern/carry_star_green_5.png",
+    "lantern/carry_star_green_6.png",
+    "lantern/carry_star_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_green": {
+   "frames": [
+    "lantern/stand_star_green_0.png",
+    "lantern/stand_star_green_1.png",
+    "lantern/stand_star_green_2.png",
+    "lantern/stand_star_green_3.png",
+    "lantern/stand_star_green_4.png",
+    "lantern/stand_star_green_5.png",
+    "lantern/stand_star_green_6.png",
+    "lantern/stand_star_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_pink": {
+   "frames": [
+    "lantern/carry_star_pink_0.png",
+    "lantern/carry_star_pink_1.png",
+    "lantern/carry_star_pink_2.png",
+    "lantern/carry_star_pink_3.png",
+    "lantern/carry_star_pink_4.png",
+    "lantern/carry_star_pink_5.png",
+    "lantern/carry_star_pink_6.png",
+    "lantern/carry_star_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_pink": {
+   "frames": [
+    "lantern/stand_star_pink_0.png",
+    "lantern/stand_star_pink_1.png",
+    "lantern/stand_star_pink_2.png",
+    "lantern/stand_star_pink_3.png",
+    "lantern/stand_star_pink_4.png",
+    "lantern/stand_star_pink_5.png",
+    "lantern/stand_star_pink_6.png",
+    "lantern/stand_star_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_star_purple": {
+   "frames": [
+    "lantern/carry_star_purple_0.png",
+    "lantern/carry_star_purple_1.png",
+    "lantern/carry_star_purple_2.png",
+    "lantern/carry_star_purple_3.png",
+    "lantern/carry_star_purple_4.png",
+    "lantern/carry_star_purple_5.png",
+    "lantern/carry_star_purple_6.png",
+    "lantern/carry_star_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_star_purple": {
+   "frames": [
+    "lantern/stand_star_purple_0.png",
+    "lantern/stand_star_purple_1.png",
+    "lantern/stand_star_purple_2.png",
+    "lantern/stand_star_purple_3.png",
+    "lantern/stand_star_purple_4.png",
+    "lantern/stand_star_purple_5.png",
+    "lantern/stand_star_purple_6.png",
+    "lantern/stand_star_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_orange": {
+   "frames": [
+    "lantern/carry_house_orange_0.png",
+    "lantern/carry_house_orange_1.png",
+    "lantern/carry_house_orange_2.png",
+    "lantern/carry_house_orange_3.png",
+    "lantern/carry_house_orange_4.png",
+    "lantern/carry_house_orange_5.png",
+    "lantern/carry_house_orange_6.png",
+    "lantern/carry_house_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_orange": {
+   "frames": [
+    "lantern/stand_house_orange_0.png",
+    "lantern/stand_house_orange_1.png",
+    "lantern/stand_house_orange_2.png",
+    "lantern/stand_house_orange_3.png",
+    "lantern/stand_house_orange_4.png",
+    "lantern/stand_house_orange_5.png",
+    "lantern/stand_house_orange_6.png",
+    "lantern/stand_house_orange_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_red": {
+   "frames": [
+    "lantern/carry_house_red_0.png",
+    "lantern/carry_house_red_1.png",
+    "lantern/carry_house_red_2.png",
+    "lantern/carry_house_red_3.png",
+    "lantern/carry_house_red_4.png",
+    "lantern/carry_house_red_5.png",
+    "lantern/carry_house_red_6.png",
+    "lantern/carry_house_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_red": {
+   "frames": [
+    "lantern/stand_house_red_0.png",
+    "lantern/stand_house_red_1.png",
+    "lantern/stand_house_red_2.png",
+    "lantern/stand_house_red_3.png",
+    "lantern/stand_house_red_4.png",
+    "lantern/stand_house_red_5.png",
+    "lantern/stand_house_red_6.png",
+    "lantern/stand_house_red_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_yellow": {
+   "frames": [
+    "lantern/carry_house_yellow_0.png",
+    "lantern/carry_house_yellow_1.png",
+    "lantern/carry_house_yellow_2.png",
+    "lantern/carry_house_yellow_3.png",
+    "lantern/carry_house_yellow_4.png",
+    "lantern/carry_house_yellow_5.png",
+    "lantern/carry_house_yellow_6.png",
+    "lantern/carry_house_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_yellow": {
+   "frames": [
+    "lantern/stand_house_yellow_0.png",
+    "lantern/stand_house_yellow_1.png",
+    "lantern/stand_house_yellow_2.png",
+    "lantern/stand_house_yellow_3.png",
+    "lantern/stand_house_yellow_4.png",
+    "lantern/stand_house_yellow_5.png",
+    "lantern/stand_house_yellow_6.png",
+    "lantern/stand_house_yellow_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_blue": {
+   "frames": [
+    "lantern/carry_house_blue_0.png",
+    "lantern/carry_house_blue_1.png",
+    "lantern/carry_house_blue_2.png",
+    "lantern/carry_house_blue_3.png",
+    "lantern/carry_house_blue_4.png",
+    "lantern/carry_house_blue_5.png",
+    "lantern/carry_house_blue_6.png",
+    "lantern/carry_house_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_blue": {
+   "frames": [
+    "lantern/stand_house_blue_0.png",
+    "lantern/stand_house_blue_1.png",
+    "lantern/stand_house_blue_2.png",
+    "lantern/stand_house_blue_3.png",
+    "lantern/stand_house_blue_4.png",
+    "lantern/stand_house_blue_5.png",
+    "lantern/stand_house_blue_6.png",
+    "lantern/stand_house_blue_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_green": {
+   "frames": [
+    "lantern/carry_house_green_0.png",
+    "lantern/carry_house_green_1.png",
+    "lantern/carry_house_green_2.png",
+    "lantern/carry_house_green_3.png",
+    "lantern/carry_house_green_4.png",
+    "lantern/carry_house_green_5.png",
+    "lantern/carry_house_green_6.png",
+    "lantern/carry_house_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_green": {
+   "frames": [
+    "lantern/stand_house_green_0.png",
+    "lantern/stand_house_green_1.png",
+    "lantern/stand_house_green_2.png",
+    "lantern/stand_house_green_3.png",
+    "lantern/stand_house_green_4.png",
+    "lantern/stand_house_green_5.png",
+    "lantern/stand_house_green_6.png",
+    "lantern/stand_house_green_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_pink": {
+   "frames": [
+    "lantern/carry_house_pink_0.png",
+    "lantern/carry_house_pink_1.png",
+    "lantern/carry_house_pink_2.png",
+    "lantern/carry_house_pink_3.png",
+    "lantern/carry_house_pink_4.png",
+    "lantern/carry_house_pink_5.png",
+    "lantern/carry_house_pink_6.png",
+    "lantern/carry_house_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_pink": {
+   "frames": [
+    "lantern/stand_house_pink_0.png",
+    "lantern/stand_house_pink_1.png",
+    "lantern/stand_house_pink_2.png",
+    "lantern/stand_house_pink_3.png",
+    "lantern/stand_house_pink_4.png",
+    "lantern/stand_house_pink_5.png",
+    "lantern/stand_house_pink_6.png",
+    "lantern/stand_house_pink_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "carry_house_purple": {
+   "frames": [
+    "lantern/carry_house_purple_0.png",
+    "lantern/carry_house_purple_1.png",
+    "lantern/carry_house_purple_2.png",
+    "lantern/carry_house_purple_3.png",
+    "lantern/carry_house_purple_4.png",
+    "lantern/carry_house_purple_5.png",
+    "lantern/carry_house_purple_6.png",
+    "lantern/carry_house_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "stand_house_purple": {
+   "frames": [
+    "lantern/stand_house_purple_0.png",
+    "lantern/stand_house_purple_1.png",
+    "lantern/stand_house_purple_2.png",
+    "lantern/stand_house_purple_3.png",
+    "lantern/stand_house_purple_4.png",
+    "lantern/stand_house_purple_5.png",
+    "lantern/stand_house_purple_6.png",
+    "lantern/stand_house_purple_7.png"
+   ],
+   "height": 0.1,
+   "fps": 8
+  },
+  "hang_0": {
+   "frames": [
+    "lantern/hang_0_0.png",
+    "lantern/hang_0_1.png",
+    "lantern/hang_0_2.png",
+    "lantern/hang_0_3.png",
+    "lantern/hang_0_4.png",
+    "lantern/hang_0_5.png",
+    "lantern/hang_0_6.png",
+    "lantern/hang_0_7.png"
+   ],
+   "height": 0.13,
+   "fps": 6
+  },
+  "hang_1": {
+   "frames": [
+    "lantern/hang_1_0.png",
+    "lantern/hang_1_1.png",
+    "lantern/hang_1_2.png",
+    "lantern/hang_1_3.png",
+    "lantern/hang_1_4.png",
+    "lantern/hang_1_5.png",
+    "lantern/hang_1_6.png",
+    "lantern/hang_1_7.png"
+   ],
+   "height": 0.17,
+   "fps": 6
+  },
+  "hang_2": {
+   "frames": [
+    "lantern/hang_2_0.png",
+    "lantern/hang_2_1.png",
+    "lantern/hang_2_2.png",
+    "lantern/hang_2_3.png",
+    "lantern/hang_2_4.png",
+    "lantern/hang_2_5.png",
+    "lantern/hang_2_6.png",
+    "lantern/hang_2_7.png"
+   ],
+   "height": 0.11,
+   "fps": 6
+  },
+  "hang_3": {
+   "frames": [
+    "lantern/hang_3_0.png",
+    "lantern/hang_3_1.png",
+    "lantern/hang_3_2.png",
+    "lantern/hang_3_3.png",
+    "lantern/hang_3_4.png",
+    "lantern/hang_3_5.png",
+    "lantern/hang_3_6.png",
+    "lantern/hang_3_7.png"
+   ],
+   "height": 0.16,
+   "fps": 6
+  },
+  "hang_4": {
+   "frames": [
+    "lantern/hang_4_0.png",
+    "lantern/hang_4_1.png",
+    "lantern/hang_4_2.png",
+    "lantern/hang_4_3.png",
+    "lantern/hang_4_4.png",
+    "lantern/hang_4_5.png",
+    "lantern/hang_4_6.png",
+    "lantern/hang_4_7.png"
+   ],
+   "height": 0.19,
+   "fps": 6
+  },
+  "hang_5": {
+   "frames": [
+    "lantern/hang_5_0.png",
+    "lantern/hang_5_1.png",
+    "lantern/hang_5_2.png",
+    "lantern/hang_5_3.png",
+    "lantern/hang_5_4.png",
+    "lantern/hang_5_5.png",
+    "lantern/hang_5_6.png",
+    "lantern/hang_5_7.png"
+   ],
+   "height": 0.12,
+   "fps": 6
+  },
+  "moon": {
+   "file": "prop/moon.png",
+   "height": 0.17
+  },
+  "note_0": {
+   "file": "prop/note_0.png",
+   "height": 0.035
+  },
+  "note_1": {
+   "file": "prop/note_1.png",
+   "height": 0.035
+  },
+  "note_2": {
+   "file": "prop/note_2.png",
+   "height": 0.035
+  },
+  "note_3": {
+   "file": "prop/note_3.png",
+   "height": 0.035
+  },
+  "sweet": {
+   "file": "prop/sweet.png",
+   "height": 0.02
+  },
+  "mandarin": {
+   "file": "prop/mandarin.png",
+   "height": 0.028
+  },
+  "apple": {
+   "file": "prop/apple.png",
+   "height": 0.028
+  },
+  "present": {
+   "file": "prop/present.png",
+   "height": 0.034
+  },
+  "cloth": {
+   "file": "prop/cloth.png",
+   "height": 0.045
+  },
+  "coin": {
+   "frames": [
+    "prop/coin_0.png",
+    "prop/coin_1.png",
+    "prop/coin_2.png",
+    "prop/coin_3.png"
+   ],
+   "height": 0.02,
+   "fps": 4
+  }
+ },
+ "elements": [
+  {
+   "type": "decor",
+   "sprite": "moon",
+   "anchor": "top-left",
+   "places": [
+    [
+     0.03,
+     0.04
+    ]
+   ],
+   "min": 1,
+   "video_min": 5
+  },
+  {
+   "type": "decor",
+   "sprites": [
+    "hang_0",
+    "hang_1",
+    "hang_2",
+    "hang_3",
+    "hang_4",
+    "hang_5"
+   ],
+   "anchor": "top-right",
+   "places": [
+    [
+     0.015,
+     0.0
+    ],
+    [
+     0.075,
+     0.0
+    ],
+    [
+     0.135,
+     0.0
+    ],
+    [
+     0.195,
+     0.0
+    ]
+   ],
+   "count": [
+    1,
+    4
+   ],
+   "min": 1,
+   "full": 7,
+   "video_min": 2
+  },
+  {
+   "_doc": "children with lanterns, alone or in twos and threes",
+   "type": "kid",
+   "sprites": [
+    "kid_00",
+    "kid_01",
+    "kid_02",
+    "kid_03",
+    "kid_04",
+    "kid_05",
+    "kid_06",
+    "kid_07",
+    "kid_08",
+    "kid_09",
+    "kid_10",
+    "kid_11",
+    "kid_12",
+    "kid_13"
+   ],
+   "lanterns": [
+    "carry_round_orange",
+    "carry_round_red",
+    "carry_round_yellow",
+    "carry_round_blue",
+    "carry_round_green",
+    "carry_round_pink",
+    "carry_round_purple",
+    "carry_star_orange",
+    "carry_star_red",
+    "carry_star_yellow",
+    "carry_star_blue",
+    "carry_star_green",
+    "carry_star_pink",
+    "carry_star_purple",
+    "carry_house_orange",
+    "carry_house_red",
+    "carry_house_yellow",
+    "carry_house_blue",
+    "carry_house_green",
+    "carry_house_pink",
+    "carry_house_purple"
+   ],
+   "notes": [
+    "note_0",
+    "note_1",
+    "note_2",
+    "note_3"
+   ],
+   "n": [
+    1,
+    3
+   ],
+   "min": 2,
+   "full": 8,
+   "every": [
+    90,
+    200
+   ],
+   "max_active": [
+    1,
+    2
+   ],
+   "delay": [
+    5,
+    30
+   ],
+   "video_min": 8
+  },
+  {
+   "_doc": "a lantern procession: a line of children",
+   "type": "kid",
+   "procession": true,
+   "sprites": [
+    "kid_00",
+    "kid_01",
+    "kid_02",
+    "kid_03",
+    "kid_04",
+    "kid_05",
+    "kid_06",
+    "kid_07",
+    "kid_08",
+    "kid_09",
+    "kid_10",
+    "kid_11",
+    "kid_12",
+    "kid_13"
+   ],
+   "lanterns": [
+    "carry_round_orange",
+    "carry_round_red",
+    "carry_round_yellow",
+    "carry_round_blue",
+    "carry_round_green",
+    "carry_round_pink",
+    "carry_round_purple",
+    "carry_star_orange",
+    "carry_star_red",
+    "carry_star_yellow",
+    "carry_star_blue",
+    "carry_star_green",
+    "carry_star_pink",
+    "carry_star_purple",
+    "carry_house_orange",
+    "carry_house_red",
+    "carry_house_yellow",
+    "carry_house_blue",
+    "carry_house_green",
+    "carry_house_pink",
+    "carry_house_purple"
+   ],
+   "notes": [
+    "note_0",
+    "note_1",
+    "note_2",
+    "note_3"
+   ],
+   "n": [
+    4,
+    7
+   ],
+   "speed": 0.75,
+   "spacing": 2.0,
+   "min": 5,
+   "full": 8,
+   "every": [
+    240,
+    480
+   ],
+   "max_active": 1,
+   "delay": [
+    30,
+    120
+   ],
+   "video_min": 8
+  },
+  {
+   "_doc": "beggars sitting in the cold",
+   "type": "beggar",
+   "sprites": [
+    "beggar_old",
+    "beggar_woman",
+    "beggar_young",
+    "beggar_hood"
+   ],
+   "stay": [
+    120,
+    260
+   ],
+   "min": 4,
+   "full": 8,
+   "every": [
+    100,
+    220
+   ],
+   "max_active": [
+    1,
+    1
+   ],
+   "delay": [
+    10,
+    60
+   ],
+   "video_min": 8
+  },
+  {
+   "_doc": "St Martin sharing his cloak (stages: full, half, a quarter, none)",
+   "type": "martin",
+   "sprite": "martin_0",
+   "stages": [
+    "martin_0",
+    "martin_1",
+    "martin_2",
+    "martin_3"
+   ],
+   "cloth": "cloth",
+   "beggar_chance": 0.7,
+   "min": 5,
+   "full": 8,
+   "every": [
+    60,
+    150
+   ],
+   "max_active": 1,
+   "delay": [
+    15,
+    60
+   ],
+   "video_min": 8
+  }
+ ]
+}

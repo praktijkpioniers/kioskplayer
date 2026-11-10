@@ -1,0 +1,20 @@
+character,idea,status,how,key
+Kids,Lantern children: 14 distinct outfits (hats/hoods/scarves/mittens/skin/height),done,tools/bake/kids.py; spawn.kid casual groups of 1-3,F6
+Kids,Lanterns: round/star/house in 7 colours on a stick; flickering glow,done,tools/bake/lanterns.py; drawn at the tracked left hand,F6
+Kids,Procession: 4-7 kids in a row across the screen,done,spawn.kid procession (spacing 2.0 speed 0.75),F7
+Kids,Groups join in when another group is singing ahead,done,stmaarten.lua group mode sing/react,F6
+Kids,Sing for St Martin: he listens then gives each singer a sweet; they cheer,done,S.meet.martin,F6
+Kids,Sing for a beggar: one child walks up and gives (sweet / mandarin / apple / present / their lantern left glowing) and skips back,done,kid.errand + relic,F6
+Martin,St Martin with cloak in 4 stages (full / half / quarter / none),done,tools/bake/martin.py martin_0..3,F5
+Martin,Cuts his cloak with his sword and hands the piece to a beggar who wraps it round,done,martin.share -> beggar.receive,F5
+Martin,No cloak left: sits down in the cold and is a beggar himself; a new St Martin comes for him,done,sit_down_cold -> ex-beggar + martin element forced,F5
+Beggar,Four beggars sit and shiver; wrapped in the red cloth they stand up cheered and walk off,done,spawn.beggar,F8
+Decor,Moon top left; lanterns hanging on a line top right,done,decor elements,
+Church,Church whose door opens: beggars go in; Martin / beggar / rich man / child comes out,todo,,
+Church,Kid leads a beggar to church,todo,,
+School,Procession led by juf/meester with a big lantern on a pole out of a school and back in,todo,,
+Rich man,Fur coat hat cane: passes beggars nose up; sometimes drops a glinting coin; sung to he pats his pockets,todo,coin prop baked,
+Kids,Lantern catches fire: flame / ash / bare stick / a new lantern handed over,todo,,
+Kids,LED lantern dies: a shake and it comes back on,todo,,
+Kids,Sugar-beet lantern,todo,,
+Kids,Doorbell children (art by the other St Maarten fork),todo,,
