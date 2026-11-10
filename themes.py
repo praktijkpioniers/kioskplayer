@@ -621,6 +621,18 @@ def build_manifest(theme: str, level: int, screen_w: int, screen_h: int, text: b
     """Prepare all sprites of a theme and write the manifest the Lua engine loads."""
     theme_dir = THEMES_DIR / theme
     tdef = json.loads((theme_dir / "theme.json").read_text(encoding="utf-8"))
+    # theme.<part>.json next to it: more sprites and elements (jokes, shouts) merged in, so one theme
+    # can be worked on in pieces (sprites: a name in theme.json wins; elements, jokes, shouts appended)
+    for part in sorted(theme_dir.glob("theme.*.json")):
+        try:
+            pdef = json.loads(part.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[themes] {theme}/{part.name} skipped: {e!r}")
+            continue
+        tdef["sprites"] = {**(pdef.get("sprites") or {}), **(tdef.get("sprites") or {})}
+        for k in ("elements", "jokes", "shouts"):
+            if pdef.get(k):
+                tdef[k] = list(tdef.get(k) or []) + list(pdef[k])
     sprites = {}
     for name, sdef in (tdef.get("sprites") or {}).items():
         if level < int(sdef.get("flicker_min", 0)):
