@@ -6107,13 +6107,13 @@ local function is_gag(el)
 end
 -- An act whose prop lingers (a church, a house, a bonfire: they stay up a while after the act) lets
 -- the screen go once its act part is done: a.act_done set by the act, or el.gag_hold seconds after
--- it came (on this screen); then the next gag may come while it still stands
+-- it came (on this screen), planner.hold for any act; then the next gag may come while it still stands
 local function gag_on()                         -- the gag on here: its actor, or nil
     local g = M.planner.group or "monster"
     local now = mp.get_time()
     for _, a in ipairs(actors) do
         if a.scene or (a.el and not HANDED_ONLY[a.el.type] and not a.gone and not a.act_done
-                and not (a.el.gag_hold and now - (a.born or a.came or now) > a.el.gag_hold)
+                and not ((a.el.gag_hold or M.planner.hold) and now - (a.born or a.came or now) > (a.el.gag_hold or M.planner.hold))
                 and has_group(a.groups or {}, g)) then return a end
     end
 end
@@ -6187,7 +6187,24 @@ local function gag_started(el, how)
     msg.verbose("plan: on now: the " .. el.type .. (how and (" (" .. how .. ")") or ""))
 end
 local function plan_tick(now)
-    if not (M and M.planner) or holding() then return end
+    if not (M and M.planner) then return end
+    if now >= (plan.census_t or 0) then          -- (for the log: who's here, nobody stays forever)
+        plan.census_t = now + 30
+        local c, old, keys = {}, nil, {}
+        for _, a in ipairs(actors) do
+            local k = a.stm or (a.el and a.el.type) or "?"
+            if not c[k] then c[k] = 0; keys[#keys + 1] = k end
+            c[k] = c[k] + 1
+            local age = now - (a.born or a.came or now)
+            local fixed = a.el and (a.el.type == "stm_scenery" or a.el.type == "decor" or a.el.type == "moon")
+            if not fixed and k ~= "clock_hand" and (not old or age > old[2]) then old = { k .. "@" .. string.format("%.0f", a.x or -1), age } end
+        end
+        table.sort(keys)
+        for i, k in ipairs(keys) do keys[i] = k .. "=" .. c[k] end
+        msg.verbose(string.format("census: %d %s oldest %s %.0fs", #actors, table.concat(keys, ","),
+            old and old[1] or "-", old and old[2] or 0))
+    end
+    if holding() then return end
     if now >= (plan.replan_t or 0) then
         plan.replan_t = now + 3
         replan(now)
@@ -6389,14 +6406,13 @@ if hooks.stm and hooks.stm.install then
             if #free_ids < (a.layers or 1) then return false end
             a.el, a.uncounted, a.groups = a.el or el, true, a.groups or {}
             a.came = a.came or mp.get_time()
-            if el and a.el == el and is_gag(el) and #a.groups == 0 then
-                -- an act that puts itself up (the church, a house): the screen's gag, as if spawned
+            if el and a.el == el and plan.go == el and is_gag(el) and #a.groups == 0 then
+                -- an act called by the planner that puts itself up (the church, a house): the
+                -- screen's gag, as if spawned (only then: a school's later classes are its extras)
                 a.groups = groups_of(el)
-                if plan.go == el then
-                    gag_started(el); hooks.gag_noted = el
-                    local st = elements[el]
-                    if st then st.next = mp.get_time() + rnd(range(el.every, 30)) end
-                end
+                gag_started(el); hooks.gag_noted = el
+                local st = elements[el]
+                if st then st.next = mp.get_time() + rnd(range(el.every, 30)) end
             end
             a.id = take_id()
             if a.layers then
@@ -6751,6 +6767,15 @@ local function tick()
         if not ok then          -- (one broken actor must not take the whole theme down with it)
             msg.error(string.format("%s dropped: %s", tostring(a.el and a.el.type), tostring(alive)))
             alive = false
+        end
+        if ok and alive and type(x) == "number" and a.spr and M.planner and M.planner.hold then  -- nobody stays forever: a minute off screen is gone (planner.hold themes)
+            if x + (a.spr.w or 0) < 0 or x > W then
+                a.off_t = a.off_t or now
+                if now - a.off_t > 60 then
+                    msg.warn(string.format("%s %s off screen a minute (x %.0f): gone", tostring(a.stm or a.el and a.el.type), tostring(a.spr.name), x))
+                    alive = false
+                end
+            else a.off_t = nil end
         end
         if alive and not a.leaving then
             if not a.handed and not element_on(a.el) then leave(a) else grave_check(a, x, y) end

@@ -1237,7 +1237,7 @@
    "unit": 0.08
   }
  },
- "planner": {"group": "act", "queue": 3, "gap": [4, 12]},
+ "planner": {"group": "act", "queue": 3, "gap": [4, 12], "hold": 150},
  "elements": [
   {
    "_doc": "the moon: a lantern up there - it comes down to a child without a light (sinking, or loose and caught with a jump), and a child's lantern flies up to be the next one (stmaarten.lua S.moon; Ctrl+F5 down, Ctrl+F6 up)",
