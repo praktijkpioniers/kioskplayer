@@ -7,49 +7,407 @@
     "Art: tools/bake/stm_scenery.py (PIL), tools/bake/stm_people.py (KayKit, recipes in tools/bake/recipes/stmaarten)."
   ],
   "sprites": {
-    "house_a": {"anim": "anim/house_a", "unit": 0.037},
-    "house_b": {"anim": "anim/house_b", "unit": 0.037},
-    "house_c": {"anim": "anim/house_c", "unit": 0.037},
-    "bonfire": {"anim": "anim/bonfire", "unit": 0.055},
-    "cow": {"anim": "anim/cow", "unit": 0.1},
-    "goose": {"anim": "anim/goose", "unit": 0.12},
-    "geese_v": {"anim": "anim/geese_v", "height": 0.09},
-    "dom": {"file": "scenery/dom.png", "height": 0.30},
-    "dom_hands": {"anim": "anim/dom_hands", "unit": 0.30},
-    "flag_utrecht": {"anim": "anim/flag_utrecht", "unit": 0.024},
-    "flag_fr": {"anim": "anim/flag_fr", "unit": 0.1},
-    "flag_nl": {"anim": "anim/flag_nl", "unit": 0.1},
-    "flag_fr_s": {"anim": "anim/flag_fr", "unit": 0.05},
-    "flag_nl_s": {"anim": "anim/flag_nl", "unit": 0.05},
-    "flag_columbus_s": {"anim": "anim/flag_columbus", "unit": 0.05},
-    "caravel": {"anim": "anim/caravel", "unit": 0.06},
-    "island_whole": {"file": "scenery/island_whole.png", "height": 0.26},
-    "island_fr": {"file": "scenery/island_fr.png", "height": 0.26},
-    "island_nl": {"file": "scenery/island_nl.png", "height": 0.26},
-    "coconut": {"file": "scenery/coconut.png", "height": 0.022},
-    "turnip": {"file": "scenery/turnip.png", "height": 0.035},
-    "french": {"anim": "anim/french", "unit": 0.1},
-    "dutch": {"anim": "anim/dutch", "unit": 0.1},
-    "french_s": {"anim": "anim/french", "unit": 0.045},
-    "dutch_s": {"anim": "anim/dutch", "unit": 0.045},
-    "columbus_s": {"anim": "anim/columbus", "unit": 0.035},
-    "teen_a": {"anim": "anim/teen_a", "unit": 0.1},
-    "teen_b": {"anim": "anim/teen_b", "unit": 0.1},
-    "prince": {"anim": "anim/prince", "unit": 0.1},
-    "jester": {"anim": "anim/jester", "unit": 0.1},
-    "brass": {"anim": "anim/brass", "unit": 0.1}
+    "house_a": {
+      "anim": "anim/house_a",
+      "unit": 0.037
+    },
+    "house_b": {
+      "anim": "anim/house_b",
+      "unit": 0.037
+    },
+    "house_c": {
+      "anim": "anim/house_c",
+      "unit": 0.037
+    },
+    "bonfire": {
+      "anim": "anim/bonfire",
+      "unit": 0.055
+    },
+    "cow": {
+      "anim": "anim/cow",
+      "unit": 0.1
+    },
+    "goose": {
+      "anim": "anim/goose",
+      "unit": 0.12
+    },
+    "geese_v": {
+      "anim": "anim/geese_v",
+      "height": 0.09
+    },
+    "dom": {
+      "file": "scenery/dom.png",
+      "height": 0.3
+    },
+    "dom_hands": {
+      "anim": "anim/dom_hands",
+      "unit": 0.3
+    },
+    "flag_utrecht": {
+      "anim": "anim/flag_utrecht",
+      "unit": 0.024
+    },
+    "flag_fr": {
+      "anim": "anim/flag_fr",
+      "unit": 0.1
+    },
+    "flag_nl": {
+      "anim": "anim/flag_nl",
+      "unit": 0.1
+    },
+    "flag_fr_s": {
+      "anim": "anim/flag_fr",
+      "unit": 0.05
+    },
+    "flag_nl_s": {
+      "anim": "anim/flag_nl",
+      "unit": 0.05
+    },
+    "flag_columbus_s": {
+      "anim": "anim/flag_columbus",
+      "unit": 0.05
+    },
+    "caravel": {
+      "anim": "anim/caravel",
+      "unit": 0.06
+    },
+    "island_whole": {
+      "file": "scenery/island_whole.png",
+      "height": 0.26
+    },
+    "island_fr": {
+      "file": "scenery/island_fr.png",
+      "height": 0.26
+    },
+    "island_nl": {
+      "file": "scenery/island_nl.png",
+      "height": 0.26
+    },
+    "coconut": {
+      "file": "scenery/coconut.png",
+      "height": 0.022
+    },
+    "turnip": {
+      "file": "scenery/turnip.png",
+      "height": 0.035
+    },
+    "french": {
+      "anim": "anim/french",
+      "unit": 0.1
+    },
+    "dutch": {
+      "anim": "anim/dutch",
+      "unit": 0.1
+    },
+    "french_s": {
+      "anim": "anim/french",
+      "unit": 0.045
+    },
+    "dutch_s": {
+      "anim": "anim/dutch",
+      "unit": 0.045
+    },
+    "columbus_s": {
+      "anim": "anim/columbus",
+      "unit": 0.035
+    },
+    "teen_a": {
+      "anim": "anim/teen_a",
+      "unit": 0.1
+    },
+    "teen_b": {
+      "anim": "anim/teen_b",
+      "unit": 0.1
+    },
+    "prince": {
+      "anim": "anim/prince",
+      "unit": 0.1
+    },
+    "jester": {
+      "anim": "anim/jester",
+      "unit": 0.1
+    },
+    "brass": {
+      "anim": "anim/brass",
+      "unit": 0.1
+    }
   },
   "elements": [
-    {"_doc": "the Dom tower of Utrecht, far off at dusk (scenery: behind everyone, depth 1)", "type": "stm_scenery", "sprite": "dom", "place": [0.012, 0.0], "depth": 1, "hands": "dom_hands", "min": 6, "video_min": 9},
-    {"_doc": "the Utrecht flag on the Dom's upper gallery (mirrored: flying left, over the sky; on the Dom, behind everyone else)", "type": "stm_scenery", "sprite": "flag_utrecht", "place": [0.0, 0.1725], "mirror": true, "depth": 2, "min": 6, "video_min": 9},
-    {"_doc": "houses: the children ring and sing at the door (grumpy = chance the light goes off)", "type": "stm_house", "sprites": ["house_a", "house_b", "house_c"], "count": [1, 1], "grumpy": 0.25, "stay": [120, 240], "every": [90, 200], "delay": [5, 30], "min": 3, "video_min": 8, "group": "act", "gag_hold": 50},
-    {"_doc": "a Sint-Maartensvuur", "type": "stm_bonfire", "sprite": "bonfire", "stay": [120, 240], "every": [400, 800], "delay": [120, 400], "min": 5, "video_min": 8, "group": "act", "gag_hold": 60},
-    {"_doc": "a cow wandering by (de koeien hebben staarten)", "type": "stm_cow", "sprite": "cow", "group": "act", "every": [300, 600], "max_active": 1, "delay": [30, 90], "min": 4, "video_min": 8},
-    {"_doc": "geese - and St Martin hiding among them, found out (martin = chance)", "type": "stm_geese", "sprite": "goose", "group": "act", "n": [3, 5], "martin": 0.5, "stay": [25, 45], "every": [180, 360], "max_active": 1, "delay": [60, 150], "min": 4, "video_min": 8},
-    {"_doc": "two teenagers without lanterns at a door", "type": "stm_teens", "sprite": "teen_a", "sprites_pair": ["teen_a", "teen_b"], "group": ["stm_scene", "act"], "every": [300, 600], "max_active": 1, "delay": [90, 240], "min": 6, "video_min": 8},
-    {"_doc": "the border walk round the island of Sint Maarten (martin = chance he brings a blanket)", "type": "stm_border", "sprite": "dutch", "martin": 0.6, "group": ["stm_scene", "act"], "max_hops": 9, "every": [500, 900], "max_active": 1, "delay": [120, 400], "min": 7, "video_min": 8},
-    {"_doc": "the island story: Columbus bumps into it; St Martin cuts it in two", "type": "stm_island", "sprite": "island_whole", "group": ["stm_scene", "act"], "every": [500, 900], "max_active": 1, "delay": [200, 500], "min": 7, "video_min": 8},
-    {"_doc": "11:11, the carnival season opens: a prince, a jester and two trumpets cross the room once", "type": "stm_parade", "sprite": "prince", "at": "11:11", "members": ["prince", "jester", "brass", "brass"], "max_hops": 12, "every": [5, 5], "max_active": 1, "min": 8, "video_min": 8},
-    {"_doc": "geese flying over, south", "type": "flyer", "sprite": "geese_v", "every": [200, 400], "max_active": 1, "speed": [0.05, 0.07], "y": [0.03, 0.1], "amp": 0.01, "bend": [0.0, 0.05], "group": "flying", "min": 3, "video_min": 8}
+    {
+      "_doc": "the Dom tower of Utrecht, far off at dusk (scenery: behind everyone, depth 1)",
+      "type": "stm_scenery",
+      "sprite": "dom",
+      "place": [
+        0.012,
+        0.0
+      ],
+      "depth": 1,
+      "hands": "dom_hands",
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 6,
+        "video_min": 9
+      }
+    },
+    {
+      "_doc": "the Utrecht flag on the Dom's upper gallery (mirrored: flying left, over the sky; on the Dom, behind everyone else)",
+      "type": "stm_scenery",
+      "sprite": "flag_utrecht",
+      "place": [
+        0.0,
+        0.1725
+      ],
+      "mirror": true,
+      "depth": 2,
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 6,
+        "video_min": 9
+      }
+    },
+    {
+      "_doc": "houses: the children ring and sing at the door (grumpy = chance the light goes off)",
+      "type": "stm_house",
+      "sprites": [
+        "house_a",
+        "house_b",
+        "house_c"
+      ],
+      "count": [
+        1,
+        1
+      ],
+      "grumpy": 0.25,
+      "stay": [
+        120,
+        240
+      ],
+      "every": [
+        90,
+        200
+      ],
+      "delay": [
+        5,
+        30
+      ],
+      "min": 99,
+      "video_min": 99,
+      "group": "act",
+      "gag_hold": 50,
+      "_quiet_was": {
+        "min": 3,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "a Sint-Maartensvuur",
+      "type": "stm_bonfire",
+      "sprite": "bonfire",
+      "stay": [
+        120,
+        240
+      ],
+      "every": [
+        400,
+        800
+      ],
+      "delay": [
+        120,
+        400
+      ],
+      "min": 99,
+      "video_min": 99,
+      "group": "act",
+      "gag_hold": 60,
+      "_quiet_was": {
+        "min": 5,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "a cow wandering by (de koeien hebben staarten)",
+      "type": "stm_cow",
+      "sprite": "cow",
+      "group": "act",
+      "every": [
+        300,
+        600
+      ],
+      "max_active": 1,
+      "delay": [
+        30,
+        90
+      ],
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 4,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "geese - and St Martin hiding among them, found out (martin = chance)",
+      "type": "stm_geese",
+      "sprite": "goose",
+      "group": "act",
+      "n": [
+        3,
+        5
+      ],
+      "martin": 0.5,
+      "stay": [
+        25,
+        45
+      ],
+      "every": [
+        180,
+        360
+      ],
+      "max_active": 1,
+      "delay": [
+        60,
+        150
+      ],
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 4,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "two teenagers without lanterns at a door",
+      "type": "stm_teens",
+      "sprite": "teen_a",
+      "sprites_pair": [
+        "teen_a",
+        "teen_b"
+      ],
+      "group": [
+        "stm_scene",
+        "act"
+      ],
+      "every": [
+        300,
+        600
+      ],
+      "max_active": 1,
+      "delay": [
+        90,
+        240
+      ],
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 6,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "the border walk round the island of Sint Maarten (martin = chance he brings a blanket)",
+      "type": "stm_border",
+      "sprite": "dutch",
+      "martin": 0.6,
+      "group": [
+        "stm_scene",
+        "act"
+      ],
+      "max_hops": 9,
+      "every": [
+        500,
+        900
+      ],
+      "max_active": 1,
+      "delay": [
+        120,
+        400
+      ],
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 7,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "the island story: Columbus bumps into it; St Martin cuts it in two",
+      "type": "stm_island",
+      "sprite": "island_whole",
+      "group": [
+        "stm_scene",
+        "act"
+      ],
+      "every": [
+        500,
+        900
+      ],
+      "max_active": 1,
+      "delay": [
+        200,
+        500
+      ],
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 7,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "11:11, the carnival season opens: a prince, a jester and two trumpets cross the room once",
+      "type": "stm_parade",
+      "sprite": "prince",
+      "at": "11:11",
+      "members": [
+        "prince",
+        "jester",
+        "brass",
+        "brass"
+      ],
+      "max_hops": 12,
+      "every": [
+        5,
+        5
+      ],
+      "max_active": 1,
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 8,
+        "video_min": 8
+      }
+    },
+    {
+      "_doc": "geese flying over, south",
+      "type": "flyer",
+      "sprite": "geese_v",
+      "every": [
+        200,
+        400
+      ],
+      "max_active": 1,
+      "speed": [
+        0.05,
+        0.07
+      ],
+      "y": [
+        0.03,
+        0.1
+      ],
+      "amp": 0.01,
+      "bend": [
+        0.0,
+        0.05
+      ],
+      "group": "flying",
+      "min": 99,
+      "video_min": 99,
+      "_quiet_was": {
+        "min": 3,
+        "video_min": 8
+      }
+    }
   ]
 }

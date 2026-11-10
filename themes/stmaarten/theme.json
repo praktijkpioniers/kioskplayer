@@ -7,59 +7,73 @@
  "sprites": {
   "kid_00": {
    "anim": "anim/kid_00",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_01": {
    "anim": "anim/kid_01",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_02": {
    "anim": "anim/kid_02",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_03": {
    "anim": "anim/kid_03",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_04": {
    "anim": "anim/kid_04",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_05": {
    "anim": "anim/kid_05",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_06": {
    "anim": "anim/kid_06",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_07": {
    "anim": "anim/kid_07",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_08": {
    "anim": "anim/kid_08",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_09": {
    "anim": "anim/kid_09",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_10": {
    "anim": "anim/kid_10",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_11": {
    "anim": "anim/kid_11",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_12": {
    "anim": "anim/kid_12",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "kid_13": {
    "anim": "anim/kid_13",
-   "unit": 0.075
+   "unit": 0.0525,
+   "_quiet_was": 0.075
   },
   "martin_0": {
    "anim": "anim/martin_0",
@@ -104,8 +118,9 @@
     "lantern/carry_round_orange_6.png",
     "lantern/carry_round_orange_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "carry_beet": {
    "frames": [
@@ -118,8 +133,9 @@
     "lantern/carry_beet_6.png",
     "lantern/carry_beet_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_beet": {
    "frames": [
@@ -135,8 +151,15 @@
    "height": 0.1,
    "fps": 8
   },
-  "unlit_beet": {"file": "lantern/unlit_beet.png", "height": 0.143},
-  "loose_beet": {"file": "lantern/loose_beet.png", "height": 0.117},
+  "unlit_beet": {
+   "file": "lantern/unlit_beet.png",
+   "height": 0.1001,
+   "_quiet_was": 0.143
+  },
+  "loose_beet": {
+   "file": "lantern/loose_beet.png",
+   "height": 0.117
+  },
   "stand_round_orange": {
    "frames": [
     "lantern/stand_round_orange_0.png",
@@ -162,8 +185,9 @@
     "lantern/carry_round_red_6.png",
     "lantern/carry_round_red_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_red": {
    "frames": [
@@ -190,8 +214,9 @@
     "lantern/carry_round_yellow_6.png",
     "lantern/carry_round_yellow_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_yellow": {
    "frames": [
@@ -218,8 +243,9 @@
     "lantern/carry_round_blue_6.png",
     "lantern/carry_round_blue_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_blue": {
    "frames": [
@@ -246,8 +272,9 @@
     "lantern/carry_round_green_6.png",
     "lantern/carry_round_green_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_green": {
    "frames": [
@@ -274,8 +301,9 @@
     "lantern/carry_round_pink_6.png",
     "lantern/carry_round_pink_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_pink": {
    "frames": [
@@ -302,8 +330,9 @@
     "lantern/carry_round_purple_6.png",
     "lantern/carry_round_purple_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_round_purple": {
    "frames": [
@@ -330,8 +359,9 @@
     "lantern/carry_star_orange_6.png",
     "lantern/carry_star_orange_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_orange": {
    "frames": [
@@ -358,8 +388,9 @@
     "lantern/carry_star_red_6.png",
     "lantern/carry_star_red_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_red": {
    "frames": [
@@ -386,8 +417,9 @@
     "lantern/carry_star_yellow_6.png",
     "lantern/carry_star_yellow_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_yellow": {
    "frames": [
@@ -414,8 +446,9 @@
     "lantern/carry_star_blue_6.png",
     "lantern/carry_star_blue_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_blue": {
    "frames": [
@@ -442,8 +475,9 @@
     "lantern/carry_star_green_6.png",
     "lantern/carry_star_green_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_green": {
    "frames": [
@@ -470,8 +504,9 @@
     "lantern/carry_star_pink_6.png",
     "lantern/carry_star_pink_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_pink": {
    "frames": [
@@ -498,8 +533,9 @@
     "lantern/carry_star_purple_6.png",
     "lantern/carry_star_purple_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_star_purple": {
    "frames": [
@@ -526,8 +562,9 @@
     "lantern/carry_house_orange_6.png",
     "lantern/carry_house_orange_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_orange": {
    "frames": [
@@ -554,8 +591,9 @@
     "lantern/carry_house_red_6.png",
     "lantern/carry_house_red_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_red": {
    "frames": [
@@ -582,8 +620,9 @@
     "lantern/carry_house_yellow_6.png",
     "lantern/carry_house_yellow_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_yellow": {
    "frames": [
@@ -610,8 +649,9 @@
     "lantern/carry_house_blue_6.png",
     "lantern/carry_house_blue_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_blue": {
    "frames": [
@@ -638,8 +678,9 @@
     "lantern/carry_house_green_6.png",
     "lantern/carry_house_green_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_green": {
    "frames": [
@@ -666,8 +707,9 @@
     "lantern/carry_house_pink_6.png",
     "lantern/carry_house_pink_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_pink": {
    "frames": [
@@ -694,8 +736,9 @@
     "lantern/carry_house_purple_6.png",
     "lantern/carry_house_purple_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stand_house_purple": {
    "frames": [
@@ -835,9 +878,18 @@
    "file": "prop/cloth.png",
    "height": 0.045
   },
-  "rich": {"anim": "anim/rich", "unit": 0.1},
-  "cloth_v": {"file": "prop/cloth_v.png", "height": 0.072},
-  "cloth_h": {"file": "prop/cloth_h.png", "height": 0.029},
+  "rich": {
+   "anim": "anim/rich",
+   "unit": 0.1
+  },
+  "cloth_v": {
+   "file": "prop/cloth_v.png",
+   "height": 0.072
+  },
+  "cloth_h": {
+   "file": "prop/cloth_h.png",
+   "height": 0.029
+  },
   "coin": {
    "frames": [
     "prop/coin_0.png",
@@ -912,11 +964,26 @@
    "anim": "anim/martin_D_3",
    "unit": 0.1
   },
-  "martin_D_1v": {"anim": "anim/martin_D_1v", "unit": 0.1},
-  "martin_D_1h": {"anim": "anim/martin_D_1h", "unit": 0.1},
-  "martin_D_2vv": {"anim": "anim/martin_D_2vv", "unit": 0.1},
-  "martin_D_2hh": {"anim": "anim/martin_D_2hh", "unit": 0.1},
-  "martin_D_2vh": {"anim": "anim/martin_D_2vh", "unit": 0.1},
+  "martin_D_1v": {
+   "anim": "anim/martin_D_1v",
+   "unit": 0.1
+  },
+  "martin_D_1h": {
+   "anim": "anim/martin_D_1h",
+   "unit": 0.1
+  },
+  "martin_D_2vv": {
+   "anim": "anim/martin_D_2vv",
+   "unit": 0.1
+  },
+  "martin_D_2hh": {
+   "anim": "anim/martin_D_2hh",
+   "unit": 0.1
+  },
+  "martin_D_2vh": {
+   "anim": "anim/martin_D_2vh",
+   "unit": 0.1
+  },
   "beggar_bare": {
    "anim": "anim/beggar_bare",
    "unit": 0.1
@@ -935,87 +1002,108 @@
   },
   "unlit_round_orange": {
    "file": "lantern/unlit_round_orange.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_red": {
    "file": "lantern/unlit_round_red.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_yellow": {
    "file": "lantern/unlit_round_yellow.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_blue": {
    "file": "lantern/unlit_round_blue.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_green": {
    "file": "lantern/unlit_round_green.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_pink": {
    "file": "lantern/unlit_round_pink.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_round_purple": {
    "file": "lantern/unlit_round_purple.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_orange": {
    "file": "lantern/unlit_star_orange.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_red": {
    "file": "lantern/unlit_star_red.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_yellow": {
    "file": "lantern/unlit_star_yellow.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_blue": {
    "file": "lantern/unlit_star_blue.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_green": {
    "file": "lantern/unlit_star_green.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_pink": {
    "file": "lantern/unlit_star_pink.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_star_purple": {
    "file": "lantern/unlit_star_purple.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_orange": {
    "file": "lantern/unlit_house_orange.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_red": {
    "file": "lantern/unlit_house_red.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_yellow": {
    "file": "lantern/unlit_house_yellow.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_blue": {
    "file": "lantern/unlit_house_blue.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_green": {
    "file": "lantern/unlit_house_green.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_pink": {
    "file": "lantern/unlit_house_pink.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "unlit_house_purple": {
    "file": "lantern/unlit_house_purple.png",
-   "height": 0.143
+   "height": 0.1001,
+   "_quiet_was": 0.143
   },
   "spark": {
    "frames": [
@@ -1076,8 +1164,9 @@
     "lantern/carry_moon_6.png",
     "lantern/carry_moon_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "stick": {
    "file": "lantern/stick.png",
@@ -1198,8 +1287,9 @@
     "lantern/carry_led_6.png",
     "lantern/carry_led_7.png"
    ],
-   "height": 0.143,
-   "fps": 8
+   "height": 0.1001,
+   "fps": 8,
+   "_quiet_was": 0.143
   },
   "led_off": {
    "file": "lantern/led_off.png",
@@ -1268,7 +1358,16 @@
    "unit": 0.0344
   }
  },
- "planner": {"group": "act", "queue": 3, "gap": [4, 12], "hold": 150},
+ "planner": {
+  "group": "act",
+  "queue": 3,
+  "gap": [
+   4,
+   12
+  ],
+  "hold": 150,
+  "_quiet_note": "quiet mode 2026-11-11: only one small lantern child; undo: git revert the quiet-mode commit, see themes/stmaarten/NOTES.md"
+ },
  "elements": [
   {
    "_doc": "the moon: a lantern up there - it comes down to a child without a light (sinking, or loose and caught with a jump), and a child's lantern flies up to be the next one (stmaarten.lua S.moon; Ctrl+F5 down, Ctrl+F6 up)",
@@ -1290,13 +1389,17 @@
    ],
    "loose": 0.4,
    "miss": 0.15,
-   "min": 1,
+   "min": 99,
    "every": [
     6,
     12
    ],
    "max_active": 1,
-   "video_min": 5
+   "video_min": 99,
+   "_quiet_was": {
+    "min": 1,
+    "video_min": 5
+   }
   },
   {
    "type": "decor",
@@ -1331,9 +1434,13 @@
     1,
     4
    ],
-   "min": 1,
+   "min": 99,
    "full": 7,
-   "video_min": 2
+   "video_min": 99,
+   "_quiet_was": {
+    "min": 1,
+    "video_min": 2
+   }
   },
   {
    "_doc": "children with lanterns, alone or in twos and threes",
@@ -1380,36 +1487,55 @@
     "carry_led",
     "carry_beet"
    ],
-   "notes": [
-    "note_0",
-    "note_1",
-    "note_2",
-    "note_3"
-   ],
+   "notes": [],
    "n": [
     1,
-    3
+    1
    ],
    "min": 2,
    "full": 8,
    "every": [
-    90,
-    200
+    120,
+    240
    ],
-   "max_active": [
-    1,
-    2
-   ],
+   "max_active": 1,
    "delay": [
-    5,
-    30
+    10,
+    40
    ],
    "video_min": 8,
    "spacing": 3.0,
-   "unlit": 0.167,
-   "fire": 0.03,
-   "led_dies": 0.5,
-   "led_back": 0.8
+   "unlit": 0,
+   "fire": 0,
+   "led_dies": 0,
+   "led_back": 0.8,
+   "_quiet_was": {
+    "n": [
+     1,
+     3
+    ],
+    "every": [
+     90,
+     200
+    ],
+    "max_active": [
+     1,
+     2
+    ],
+    "delay": [
+     5,
+     30
+    ],
+    "notes": [
+     "note_0",
+     "note_1",
+     "note_2",
+     "note_3"
+    ],
+    "unlit": 0.167,
+    "fire": 0.03,
+    "led_dies": 0.5
+   }
   },
   {
    "_doc": "a lantern procession: a line of children",
@@ -1469,7 +1595,7 @@
    ],
    "speed": 0.75,
    "spacing": 3.2,
-   "min": 5,
+   "min": 99,
    "full": 8,
    "every": [
     240,
@@ -1480,7 +1606,7 @@
     30,
     120
    ],
-   "video_min": 8,
+   "video_min": 99,
    "unlit": 0.167,
    "fire": 0.03,
    "led_dies": 0.5,
@@ -1493,7 +1619,11 @@
     "pole_star",
     "pole_round",
     "pole_house"
-   ]
+   ],
+   "_quiet_was": {
+    "min": 5,
+    "video_min": 8
+   }
   },
   {
    "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",
@@ -1510,7 +1640,7 @@
     120,
     260
    ],
-   "min": 4,
+   "min": 99,
    "full": 8,
    "every": [
     100,
@@ -1524,20 +1654,36 @@
     10,
     60
    ],
-   "video_min": 8
+   "video_min": 99,
+   "_quiet_was": {
+    "min": 4,
+    "video_min": 8
+   }
   },
   {
    "_doc": "the rich man (tools/bake/rich.py; stmaarten.lua S.rich): fur coat, top hat, cane - strolls across nose up, snubs the beggars he passes (coin: the chance a coin drops from his pocket all the same, glinting by the beggar); sung to he pats his pockets (pocket_coin: a coin after all). Also comes out of the church. Preview Alt+F6",
    "type": "rich",
-   "sprites": ["rich"],
+   "sprites": [
+    "rich"
+   ],
    "coin": 0.3,
    "pocket_coin": 0.4,
-   "min": 5,
+   "min": 99,
    "full": 8,
-   "every": [120, 260],
+   "every": [
+    120,
+    260
+   ],
    "max_active": 1,
-   "delay": [40, 120],
-   "video_min": 8
+   "delay": [
+    40,
+    120
+   ],
+   "video_min": 99,
+   "_quiet_was": {
+    "min": 5,
+    "video_min": 8
+   }
   },
   {
    "_doc": "St Martin sharing his cloak (stages: full, half, a quarter, none). \"look\" picks the outfit: v1 (first try), A gold cuirass + plumed helmet, B silver cuirass + plumed helmet, C bareheaded (Shift+F5 cycles it live)",
@@ -1552,7 +1698,7 @@
    ],
    "cloth": "cloth",
    "beggar_chance": 0.7,
-   "min": 5,
+   "min": 99,
    "full": 8,
    "every": [
     60,
@@ -1563,7 +1709,7 @@
     15,
     60
    ],
-   "video_min": 8,
+   "video_min": 99,
    "looks": {
     "v1": [
      "martin_0",
@@ -1596,8 +1742,21 @@
      "martin_D_3"
     ]
    },
-   "cuts": {"D": {"v": "martin_D_1v", "h": "martin_D_1h", "vv": "martin_D_2vv", "hh": "martin_D_2hh", "vh": "martin_D_2vh", "hv": "martin_D_2vh"}},
-   "look": "D"
+   "cuts": {
+    "D": {
+     "v": "martin_D_1v",
+     "h": "martin_D_1h",
+     "vv": "martin_D_2vv",
+     "hh": "martin_D_2hh",
+     "vh": "martin_D_2vh",
+     "hv": "martin_D_2vh"
+    }
+   },
+   "look": "D",
+   "_quiet_was": {
+    "min": 5,
+    "video_min": 8
+   }
   },
   {
    "_doc": "the church: now and then the bell rings and the door opens; the beggars go in out of the cold, then somebody comes out (St Martin most likely when there's none); a child may fetch a beggar and take him (fetch = chance per service)",
@@ -1621,11 +1780,15 @@
     20,
     90
    ],
-   "min": 4,
-   "video_min": 8,
+   "min": 99,
+   "video_min": 99,
    "group": "act",
    "gag_hold": 90,
-   "hands": "church_hands"
+   "hands": "church_hands",
+   "_quiet_was": {
+    "min": 4,
+    "video_min": 8
+   }
   },
   {
    "_doc": "the school: now and then its door opens and a class comes out on its lantern walk, the juf or meester in front with the big lantern on a pole (class = the procession's children); a class from another screen passing a school goes in there",
@@ -1651,10 +1814,14 @@
     4,
     7
    ],
-   "min": 5,
-   "video_min": 8,
+   "min": 99,
+   "video_min": 99,
    "group": "act",
-   "gag_hold": 75
+   "gag_hold": 75,
+   "_quiet_was": {
+    "min": 5,
+    "video_min": 8
+   }
   }
  ]
 }
