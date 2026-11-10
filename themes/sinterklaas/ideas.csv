@@ -1,0 +1,13 @@
+character,idea,status,how,key
+Sint,Walks in with his crozier; turns to us; waves or nods; walks on,done,performer sint3d (tools/bake/recipes/sint.json),s
+Sint,Rides in on Ozosnel (white horse); waves from the saddle; the horse grazes or shakes its head,done,performer sint_horse3d (horse.py + ride.py),s
+Piet,Roetveegpieten (soot smudges only) in four colour sets walk by; wave / hop / throw / pick up,done,performer piet*3d (piet.json + piet_variants.py),s
+Props,Shoe with a carrot for the horse; a chocolate letter,done,visitor "shoes" (level 1+),1
+Props,Presents in a bottom corner; make way for big acts,done,decor group presents (level 3+; both corners at 8),3
+Props,Pepernoten tumbling down and lying a while,done,particles pepernoot (level 4+; a shower at 8),4
+Steamboat,Slides in along the bottom with funnel smoke; Sint waves from the deck; sails off,to do,performer from AI art + procedural smoke; for the intocht sub-event (needs scheduler),
+Piet,Throws a handful of pepernoten: they fly from his hand,to do,throw clip + particle burst at the hand (engine hook),
+Piet,Climbs onto a roof edge / chimney and drops a present down,to do,chimney art (AI) + climb clip,
+Props,Chocomelk and speculaas as visitors,to do,AI art in job 22fe3a1a80db,
+Pakjesavond,Sack of presents; a Piet carries it and leaves presents,to do,sub-event sinterklaas-pakjesavond (needs scheduler),
+Polish,Crozier curl; staff covering Sint's face in ride_wave; softer saddle cloth; shorter graze clip,to do,rebake,
