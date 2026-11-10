@@ -203,10 +203,14 @@ end
 -- his cut: a piece off, the stage on; the last piece (stage 3): he sits down in the cold after
 local function martin_cut_steps(b, side, give_start, after)
     local s0 = b.stage or 0
+    local k, cut_clip = nil, "cut"
+    if b.cut_pick then k, cut_clip = b.cut_pick() end     -- (H or V: his own path of cuts)
     local steps = {
         { clip = "turn_front", face = side },
         { clip = "idle", dur = 0.5 },
-        { clip = "cut", on_end = function() martin_stage(b, math.min(3, s0 + 1)) end },
+        { clip = cut_clip, on_end = function()
+            if b.set_stage then b.set_stage(math.min(3, s0 + 1), k) else martin_stage(b, math.min(3, s0 + 1)) end
+        end },
         { clip = "give", on_start = give_start },
         { clip = "idle", dur = 1.0 },
         { clip = "turn_side", face = b.dir0 or b.dir, on_end = function()
@@ -250,7 +254,7 @@ function X.house(el, spr, grumpy, at)
     end
     function a.react(g)                               -- they've sung
         if a.grumpy then
-            play("peek", false, function() play("dark_idle"); a.busy = nil; g.resume() end)
+            play("peek", false, function() play("dark_idle"); a.busy, a.act_done = nil, true; g.resume() end)
             return
         end
         play("open", false, function()
@@ -265,7 +269,7 @@ function X.house(el, spr, grumpy, at)
                 end)
             end
             later(a, d + 2.4, function()
-                play("open", true, function() play("idle"); a.busy = nil; g.resume() end)
+                play("open", true, function() play("idle"); a.busy, a.act_done = nil, true; g.resume() end)
             end)
         end)
     end
@@ -332,7 +336,7 @@ function X.spawn_bonfire(el, spr)
                 ttl = rnd(range(el.stay, 150, 300)) }
     function a.can_hear() return a.rise >= 1 and not a.busy and not a.going end
     function a.listen(g) a.busy, a.busy_t = g, now() end
-    function a.react(g) later(a, 1.5, function() a.busy = nil; g.resume() end) end
+    function a.react(g) later(a, 1.5, function() a.busy, a.act_done = nil, true; g.resume() end) end   -- (sung at: act done)
     a.leave = function() a.going = true end
     function a.update(dt, t)
         tick_timers(a)

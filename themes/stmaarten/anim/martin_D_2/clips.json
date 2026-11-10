@@ -43,6 +43,20 @@
    "fps": 8.0,
    "loop": false,
    "stride": 0.0
+  },
+  "cut_v": {
+   "files": "cut_v_*.png",
+   "count": 14,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
+  },
+  "cut_h": {
+   "files": "cut_h_*.png",
+   "count": 14,
+   "fps": 12.0,
+   "loop": false,
+   "stride": 0.0
   }
  },
  "unit_px": 94.11764705882354,

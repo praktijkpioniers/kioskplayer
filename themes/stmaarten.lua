@@ -333,16 +333,24 @@ local function stage_sprite(el, s)
     return E.M().sprites[names[s + 1] or ""]
 end
 S.stage_sprite = stage_sprite         -- (stm_extra.lua: the sprite for a stage, in the chosen look)
+-- the cloak cut H or V at random (el.cuts[look][path], path the cuts so far: "v", "hh", "vh"...): V lengthwise -
+-- narrower, from one shoulder; H across - shorter. Without a sprite for the path: the plain stage sprite
+local function cut_sprite(el, s, path)
+    local cuts = el.cuts and el.cuts[el.look or ""]
+    local nm = cuts and path and path ~= "" and s < 3 and cuts[path]
+    return (nm and E.M().sprites[nm]) or stage_sprite(el, s)
+end
 
 function S.martin(el, spr, h)
     local W, H = E.W(), E.H()
     local room = E.room()
     if not h and (room.taken["chr:martin"] or #others("martin") > 0) then return nil end
     local stage = h and tonumber(h.stage) or 0
-    spr = stage_sprite(el, stage) or spr
+    local path = h and h.path or ""
+    spr = cut_sprite(el, stage, path) or spr
     if not (spr and spr.clips and spr.clips.walk and spr.origin) then return nil end
     local u = unit(spr)
-    local a = { el = el, spr = spr, stm = "martin", family = "martin", steps = {}, tc = 0, stage = stage, unique = false }
+    local a = { el = el, spr = spr, stm = "martin", family = "martin", steps = {}, tc = 0, stage = stage, path = path, unique = false }
     a.v = walk_v(spr)
     local front = 0.5 * u
     if h then
@@ -358,10 +366,16 @@ function S.martin(el, spr, h)
         a.x = a.dir > 0 and -u or W + u
     end
     a.hops = h and tonumber(h.hops) or 0
-    local function set_stage(s)
+    local function set_stage(s, k)           -- (k: this cut, "v" or "h")
         a.stage = s
-        local sp = stage_sprite(el, s)
+        if k then a.path = a.path .. k end
+        local sp = cut_sprite(el, s, a.path)
         if sp then a.spr = sp end
+    end
+    a.set_stage = set_stage                  -- (stm_extra.lua: its cuts)
+    function a.cut_pick()                    -- this cut: which way, the clip for it
+        local k = math.random() < 0.5 and "v" or "h"
+        return k, (a.spr.clips["cut_" .. k] and "cut_" .. k or "cut")
     end
     local function sit_down_cold()
         local sx = math.max(0.15 * W, math.min(0.85 * W, a.x + a.dir * rnd(0.12, 0.25) * W))
@@ -382,15 +396,16 @@ function S.martin(el, spr, h)
     end
     local function share(b)           -- the act: stop by him, cut, hand over
         b.claimed = a
+        local k, cut_clip = a.cut_pick()
         local side = b.x > a.x and 1 or -1
         local stand = b.x - side * 1.05 * u
         a.steps = {
             { clip = "walk", walk_to = stand },
             { clip = "turn_front", face = side },
             { clip = "idle", dur = 0.6 },
-            { clip = "cut", on_end = function() set_stage(math.min(3, a.stage + 1)) end },
+            { clip = cut_clip, on_end = function() set_stage(math.min(3, a.stage + 1), k) end },
             { clip = "give", on_start = function()
-                local cl = E.M().sprites[el.cloth or "cloth"]
+                local cl = E.M().sprites[(el.cloth or "cloth") .. "_" .. k] or E.M().sprites[el.cloth or "cloth"]
                 local hx = a.x + side * 0.45 * u
                 fly(cl, hx, H - 1.1 * u, b.x, H - 0.7 * u, 0.9, function() b.receive() end)
             end },
@@ -441,7 +456,7 @@ function S.martin(el, spr, h)
             if not a.steps[1] then
                 a.x = a.x + a.dir * a.v * dt
                 if not a.cold then
-                    E.walk_out(a, a.x, a.dir, front, { stage = a.stage, sprite = a.spr.name })
+                    E.walk_out(a, a.x, a.dir, front, { stage = a.stage, sprite = a.spr.name, path = a.path })
                 end
                 if a.x < -u * 2 or a.x > W + u * 2 then return false end
                 frame = clip_frame(a.spr, "walk", t)
@@ -511,6 +526,7 @@ local function new_group(id, dir, el)
         if g.last == t then return end
         g.last = t
         local n = now()
+        if g.mode == "walk" then g.since = nil elseif not g.since then g.since = n end
         if g.mode == "sing" and g.sing_end and n >= g.sing_end and not g.join then
             g.mode, g.react_t = "react", n
             if g.target and g.target.react and not g.target.dead then g.target.react(g) else g.resume() end
@@ -519,6 +535,8 @@ local function new_group(id, dir, el)
         elseif g.join and (g.join.mode == "walk" or not groups[g.join.id]) then
             g.resume()
         elseif g.mode ~= "walk" and g.target and g.target.dead then
+            g.resume()
+        elseif g.since and g.mode ~= "school" and n - g.since > 30 then     -- (stopped too long, whatever for: walk on)
             g.resume()
         end
     end
@@ -786,6 +804,13 @@ local function new_kid(el, spr, g, x, lantern)
         end
         local clip, k = a.clip, a.k
         if a.dead then return false end
+        -- nobody stays: off the screen (out of sight) for long - a hand-over refused, held up out there - gone
+        if a.x < -1.5 * u or a.x > W_ + 1.5 * u then
+            a.off_t = a.off_t or now()
+            if now() - a.off_t > 15 then return false end
+        else
+            a.off_t = nil
+        end
         local ahead, gap
         for _, b in ipairs(g.alive()) do
             local d = (b.x - a.x) * g.dir
@@ -797,6 +822,9 @@ local function new_kid(el, spr, g, x, lantern)
             local moving = false
             if g.mode == "walk" then
                 moving = not (ahead and gap < spacing and not ahead.leaving)
+                if moving then a.blocked_t = nil                 -- (held up behind one who doesn't go on: past it after a while)
+                elseif not a.blocked_t then a.blocked_t = now()
+                elseif now() - a.blocked_t > 6 then moving = true end
                 if not ahead then         -- the first here: whom does it meet?
                     for _, m in ipairs(S.meet) do
                         for _, b in ipairs(others(m.who)) do
@@ -1337,6 +1365,7 @@ function S.church(el, spr, h)
             elseif state == "shut" and now() - st_t > 1 then
                 play("idle")
                 to_state("idle")
+                a.act_done = true                     -- (a service over: the screen's free for the next gag)
                 next_service = now() + rnd(range(el.service, 40))
             end
             if a.kid_out and now() >= a.kid_out.at then
@@ -1525,6 +1554,7 @@ function S.school(el, spr, h)
             elseif state == "shut" and now() - st_t > 1 then
                 play("idle")
                 to_state("idle")
+                a.act_done = true                     -- (a class out or in: the screen's free for the next gag)
                 if not out_t and now() - a.t0 < a.ttl * 0.5 then out_t = now() + rnd(range(el.out, 30)) end
             end
         end

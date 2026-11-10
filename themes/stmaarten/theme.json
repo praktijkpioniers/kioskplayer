@@ -805,6 +805,8 @@
    "file": "prop/cloth.png",
    "height": 0.045
   },
+  "cloth_v": {"file": "prop/cloth_v.png", "height": 0.072},
+  "cloth_h": {"file": "prop/cloth_h.png", "height": 0.029},
   "coin": {
    "frames": [
     "prop/coin_0.png",
@@ -879,6 +881,11 @@
    "anim": "anim/martin_D_3",
    "unit": 0.1
   },
+  "martin_D_1v": {"anim": "anim/martin_D_1v", "unit": 0.1},
+  "martin_D_1h": {"anim": "anim/martin_D_1h", "unit": 0.1},
+  "martin_D_2vv": {"anim": "anim/martin_D_2vv", "unit": 0.1},
+  "martin_D_2hh": {"anim": "anim/martin_D_2hh", "unit": 0.1},
+  "martin_D_2vh": {"anim": "anim/martin_D_2vh", "unit": 0.1},
   "beggar_bare": {
    "anim": "anim/beggar_bare",
    "unit": 0.1
@@ -1543,6 +1550,7 @@
      "martin_D_3"
     ]
    },
+   "cuts": {"D": {"v": "martin_D_1v", "h": "martin_D_1h", "vv": "martin_D_2vv", "hh": "martin_D_2hh", "vh": "martin_D_2vh", "hv": "martin_D_2vh"}},
    "look": "D"
   },
   {

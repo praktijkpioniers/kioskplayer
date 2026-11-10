@@ -10,6 +10,7 @@ lantern/hang_<shape>_<colour>_<k>.png   hanging from the top edge on a string (d
 lantern/stand_<shape>_<colour>_<k>.png  its stick stuck in the ground (left with a beggar)
 prop/moon.png, prop/note_<k>.png, prop/sweet.png, prop/mandarin.png, prop/apple.png, prop/present.png,
 prop/coin_<k>.png (a glint)
+lantern/{carry,stand}_beet_<k>.png, unlit_beet.png, loose_beet.png  a carved sugar beet (the old lantern)
 lantern/pole_<shape>_<k>.png  the class's big lantern on the teacher's striped pole (school.py)
 Shapes: round (a ribbed paper ball), star, house. The glow is a soft halo baked round the lantern.
 """
@@ -86,6 +87,44 @@ def lantern_body(shape, col, light, r=26):
         ImageDraw.Draw(g).ellipse((cx - r * 0.35, cy - r * 0.35, cx + r * 0.35, cy + r * 0.35),
                                   fill=mix(col, 0.8 * light, (255, 250, 210)) + (int(190 * light),))
         im.alpha_composite(g.filter(ImageFilter.GaussianBlur(4 * S)))
+    elif shape == "beet":
+        # a sugar beet hollowed out: a fat pale root, pink-purple at the shoulders, tapering to a
+        # crooked tail; a face carved in it, the candle glowing through; a wire handle through the top
+        cy = top + int(0.95 * r)
+        pts = []
+        for i in range(25):
+            a = 2 * math.pi * i / 24
+            sx, sy = math.cos(a), math.sin(a)
+            rx = r * (0.98 if sy < 0 else 0.98 - 0.42 * sy)
+            ry = r * (0.78 if sy < 0 else 1.05)
+            pts.append((cx + rx * sx, cy + ry * sy))
+        flesh = (236, 222, 196) if light > 0 else (150, 138, 122)
+        d.polygon(pts, fill=flesh + (255,), outline=INK, width=ow)
+        tail = [(cx - 0.12 * r, cy + 1.0 * r), (cx + 0.05 * r, cy + 1.3 * r), (cx - 0.08 * r, cy + 1.55 * r)]
+        d.line(tail, fill=INK, width=ow, joint="curve")
+        sh = Image.new("RGBA", im.size, (0, 0, 0, 0))     # the purple-pink shoulders
+        ImageDraw.Draw(sh).ellipse((cx - r * 1.1, cy - r * 1.05, cx + r * 1.1, cy - r * 0.15), fill=(176, 92, 130, 170))
+        mask = Image.new("L", im.size, 0)
+        ImageDraw.Draw(mask).polygon(pts, fill=255)
+        sh.putalpha(Image.composite(sh.getchannel("A"), Image.new("L", im.size, 0), mask))
+        im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(3 * S)))
+        d = ImageDraw.Draw(im)
+        d.polygon(pts, outline=INK, width=ow)
+        d.line([(cx - 0.2 * r, cy - 0.78 * r), (cx - 0.35 * r, top - 2 * S)], fill=(90, 140, 60, 255), width=3 * S)   # leaf stubs
+        d.line([(cx + 0.15 * r, cy - 0.78 * r), (cx + 0.32 * r, top)], fill=(90, 140, 60, 255), width=3 * S)
+        hole = mix((255, 170, 60), 0.5 * min(1, light), (255, 245, 190)) + (255,) if light > 0 else (55, 40, 40, 255)
+        for ex in (-1, 1):                                 # eyes, a nose, a toothy grin
+            d.polygon([(cx + ex * 0.42 * r, cy - 0.32 * r), (cx + ex * 0.16 * r, cy - 0.32 * r),
+                       (cx + ex * 0.3 * r, cy - 0.06 * r)][::ex], fill=hole, outline=INK, width=S)
+        d.polygon([(cx, cy - 0.02 * r), (cx - 0.08 * r, cy + 0.14 * r), (cx + 0.08 * r, cy + 0.14 * r)], fill=hole)
+        grin = [(cx - 0.5 * r, cy + 0.25 * r)]
+        for i in range(1, 8):
+            f = i / 8
+            gx = cx - 0.5 * r + f * r
+            grin.append((gx, cy + 0.25 * r + (0.22 * r if i % 2 else 0.1 * r) * math.sin(math.pi * f) + 0.05 * r))
+        grin += [(cx + 0.5 * r, cy + 0.25 * r), (cx, cy + 0.62 * r)]
+        d.polygon(grin, fill=hole, outline=INK, width=S)
+        d.line([(cx - 0.98 * r, cy - 0.1 * r), (cx, top - 3 * S), (cx + 0.98 * r, cy - 0.1 * r)], fill=INK, width=S)   # the wire handle
     else:   # house
         x0, x1 = cx - 0.8 * r, cx + 0.8 * r
         roof_top, eave, base = top + 2 * S, top + int(0.75 * r), top + int(1.95 * r)
@@ -308,8 +347,13 @@ def coin(k):
     return im.resize((w // S, h // S), Image.LANCZOS)
 
 
-def cloth():
-    """The piece of red cloak St Martin hands over (flying from his hand to the beggar)."""
+def cloth(cut=""):
+    """The piece of red cloak St Martin hands over (flying from his hand to the beggar). cut "v": a long
+    narrow strip (cut lengthwise), "h": a wide short piece (cut across)."""
+    if cut:
+        sx, sy = {"v": (0.5, 1.6), "h": (1.25, 0.65)}[cut]
+        im = cloth().resize((round(60 * sx), round(40 * sy)), Image.LANCZOS)
+        return im
     w, h = 60 * S, 40 * S
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -601,6 +645,12 @@ def main():
     for k in range(BURN_N):
         burning(k).save(os.path.join(ld, f"burn_{k}.png"), optimize=True)
     ash().save(os.path.join(pd, "ash.png"), optimize=True)
+    beet = (236, 200, 170)                             # (its glow: a warm root-candle light)
+    for k in range(FRAMES):
+        carried("beet", beet, k).save(os.path.join(ld, f"carry_beet_{k}.png"), optimize=True)
+        standing("beet", beet, k).save(os.path.join(ld, f"stand_beet_{k}.png"), optimize=True)
+    carried("beet", beet, 0, lit=False).save(os.path.join(ld, "unlit_beet.png"), optimize=True)
+    loose("beet", beet).save(os.path.join(ld, "loose_beet.png"), optimize=True)
     for k in range(FRAMES):
         led(k).save(os.path.join(ld, f"carry_led_{k}.png"), optimize=True)
     led(0, on=False).save(os.path.join(ld, "led_off.png"), optimize=True)
@@ -611,6 +661,8 @@ def main():
     fruit("apple").save(os.path.join(pd, "apple.png"), optimize=True)
     present().save(os.path.join(pd, "present.png"), optimize=True)
     cloth().save(os.path.join(pd, "cloth.png"), optimize=True)
+    for cut in ("v", "h"):
+        cloth(cut).save(os.path.join(pd, "cloth_%s.png" % cut), optimize=True)
     print("lanterns and props written to", OUT)
 
 

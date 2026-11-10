@@ -792,6 +792,24 @@
    "drop": [
     "blade"
    ]
+  },
+  "cut_v": {
+   "action": "1H_Melee_Attack_Chop",
+   "yaw": 55,
+   "step": 2,
+   "show": [],
+   "drop": [
+    "hilt"
+   ]
+  },
+  "cut_h": {
+   "action": "1H_Melee_Attack_Slice_Horizontal",
+   "yaw": 55,
+   "step": 2,
+   "show": [],
+   "drop": [
+    "hilt"
+   ]
   }
  },
  "parts": [
