@@ -1150,6 +1150,60 @@
   "ash": {
    "file": "prop/ash.png",
    "height": 0.032
+  },
+  "juf": {
+   "anim": "anim/juf",
+   "unit": 0.1
+  },
+  "meester": {
+   "anim": "anim/meester",
+   "unit": 0.1
+  },
+  "school": {
+   "anim": "anim/school",
+   "unit": 0.1
+  },
+  "pole_star": {
+   "frames": [
+    "lantern/pole_star_0.png",
+    "lantern/pole_star_1.png",
+    "lantern/pole_star_2.png",
+    "lantern/pole_star_3.png",
+    "lantern/pole_star_4.png",
+    "lantern/pole_star_5.png",
+    "lantern/pole_star_6.png",
+    "lantern/pole_star_7.png"
+   ],
+   "height": 0.22,
+   "fps": 8
+  },
+  "pole_round": {
+   "frames": [
+    "lantern/pole_round_0.png",
+    "lantern/pole_round_1.png",
+    "lantern/pole_round_2.png",
+    "lantern/pole_round_3.png",
+    "lantern/pole_round_4.png",
+    "lantern/pole_round_5.png",
+    "lantern/pole_round_6.png",
+    "lantern/pole_round_7.png"
+   ],
+   "height": 0.22,
+   "fps": 8
+  },
+  "pole_house": {
+   "frames": [
+    "lantern/pole_house_0.png",
+    "lantern/pole_house_1.png",
+    "lantern/pole_house_2.png",
+    "lantern/pole_house_3.png",
+    "lantern/pole_house_4.png",
+    "lantern/pole_house_5.png",
+    "lantern/pole_house_6.png",
+    "lantern/pole_house_7.png"
+   ],
+   "height": 0.22,
+   "fps": 8
   }
  },
  "elements": [
@@ -1364,7 +1418,16 @@
    "unlit": 0.167,
    "fire": 0.03,
    "led_dies": 0.5,
-   "led_back": 0.8
+   "led_back": 0.8,
+   "teachers": [
+    "juf",
+    "meester"
+   ],
+   "poles": [
+    "pole_star",
+    "pole_round",
+    "pole_house"
+   ]
   },
   {
    "_doc": "beggars sitting in the cold. \"sprites\" picks them: rags (after the legend) beggar_rags_old, beggar_rags_woman, beggar_rags_young; the first try beggar_old, beggar_woman, beggar_young, beggar_hood",
@@ -1469,6 +1532,33 @@
     90
    ],
    "min": 4,
+   "video_min": 9
+  },
+  {
+   "_doc": "the school: now and then its door opens and a class comes out on its lantern walk, the juf or meester in front with the big lantern on a pole (class = the procession's children); a class from another screen passing a school goes in there",
+   "type": "school",
+   "sprite": "school",
+   "stay": [
+    300,
+    600
+   ],
+   "out": [
+    20,
+    60
+   ],
+   "every": [
+    500,
+    900
+   ],
+   "delay": [
+    30,
+    150
+   ],
+   "n": [
+    4,
+    7
+   ],
+   "min": 5,
    "video_min": 9
   }
  ]

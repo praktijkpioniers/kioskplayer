@@ -10,6 +10,7 @@ lantern/hang_<shape>_<colour>_<k>.png   hanging from the top edge on a string (d
 lantern/stand_<shape>_<colour>_<k>.png  its stick stuck in the ground (left with a beggar)
 prop/moon.png, prop/note_<k>.png, prop/sweet.png, prop/mandarin.png, prop/apple.png, prop/present.png,
 prop/coin_<k>.png (a glint)
+lantern/pole_<shape>_<k>.png  the class's big lantern on the teacher's striped pole (school.py)
 Shapes: round (a ribbed paper ball), star, house. The glow is a soft halo baked round the lantern.
 """
 import math, os
@@ -513,6 +514,58 @@ def led(k, on=True):
     return pinned(im.resize((CW, CH), Image.LANCZOS))
 
 
+def pole(shape, col, k):
+    """The class's big lantern, carried in front by the teacher: as carried() (the same frame, grip, the
+    lantern's middle at the same place) but on a striped pole that goes on past the hook to a knob with
+    two ribbons fluttering from it, and paper streamers hanging under the lantern. Drawn taller (theme
+    height) so it is big over the children's heads."""
+    im = Image.new("RGBA", (CW * S, CH * S), (0, 0, 0, 0))
+    lt = light_at(k)
+    body = lantern_body(shape, col, lt, CARRY_R)
+    sway = 6 * math.sin(2 * math.pi * k / FRAMES)
+    tip = (TIP[0] * S, TIP[1] * S)
+    gx, gy = GRIP[0] * S, GRIP[1] * S
+    ang = math.atan2(tip[1] - gy, tip[0] - gx)
+    top = (tip[0] + 22 * S * math.cos(ang), tip[1] + 22 * S * math.sin(ang))
+    # the ribbons from the knob, fluttering backwards
+    for j, rc in enumerate(((235, 50, 45), (70, 130, 240))):
+        pts = []
+        for i in range(9):
+            f = i / 8
+            pts.append((top[0] - (34 * f + 4) * S, top[1] + (4 + 12 * j) * S * f
+                        + 5 * S * math.sin(2 * math.pi * (k / FRAMES + f * 1.2 + j * 0.3)) * f))
+        for a_, b_ in zip(pts, pts[1:]):
+            im_d = ImageDraw.Draw(im)
+            im_d.line([a_, b_], fill=rc + (255,), width=4 * S)
+    big = Image.new("RGBA", (body.width * 2, body.height * 2), (0, 0, 0, 0))
+    big.paste(body, (body.width // 2, body.height))
+    # streamers under the lantern (in the body's box, so they swing with it)
+    sd = ImageDraw.Draw(big)
+    bx, by = body.width, body.height + body.height - 6 * S
+    for j, sc in enumerate(((255, 215, 50), (250, 110, 180), (70, 200, 90), (255, 140, 30))):
+        x = bx + (j - 1.5) * 9 * S
+        w = 3 * math.sin(2 * math.pi * (k / FRAMES + j * 0.25))
+        sd.line([(x, by), (x + w * S, by + 14 * S), (x - w * S, by + 26 * S)], fill=sc + (255,), width=3 * S)
+    big = big.rotate(sway, resample=Image.BICUBIC, center=(body.width, body.height))
+    centre = (tip[0] - math.sin(math.radians(sway)) * body.height * 0.5,
+              tip[1] + math.cos(math.radians(sway)) * body.height * 0.5)
+    im.alpha_composite(glow(im.size, centre, 62 * S, col, lt * 1.6))
+    im.alpha_composite(big, (tip[0] - body.width, tip[1] - body.height))
+    d = ImageDraw.Draw(im)
+    d.line([(gx, gy), top], fill=INK, width=7 * S)
+    n = 9                                              # red and white stripes
+    for i in range(n):
+        f0, f1 = i / n, (i + 1) / n
+        p0 = (gx + (top[0] - gx) * f0, gy + (top[1] - gy) * f0)
+        p1 = (gx + (top[0] - gx) * f1, gy + (top[1] - gy) * f1)
+        d.line([p0, p1], fill=(225, 60, 50, 255) if i % 2 else (245, 240, 230, 255), width=4 * S)
+    d.ellipse((top[0] - 5 * S, top[1] - 5 * S, top[0] + 5 * S, top[1] + 5 * S), fill=(226, 179, 64, 255), outline=INK, width=S)
+    return pinned(im.resize((CW, CH), Image.LANCZOS))
+
+
+POLES = [("star", "yellow"), ("round", "orange"), ("house", "red")]
+
+
 def main():
     ld, pd = os.path.join(OUT, "lantern"), os.path.join(OUT, "prop")
     os.makedirs(ld, exist_ok=True)
@@ -551,6 +604,9 @@ def main():
     for k in range(FRAMES):
         led(k).save(os.path.join(ld, f"carry_led_{k}.png"), optimize=True)
     led(0, on=False).save(os.path.join(ld, "led_off.png"), optimize=True)
+    for shape, name in POLES:
+        for k in range(FRAMES):
+            pole(shape, COLOURS[name], k).save(os.path.join(ld, f"pole_{shape}_{k}.png"), optimize=True)
     fruit("mandarin").save(os.path.join(pd, "mandarin.png"), optimize=True)
     fruit("apple").save(os.path.join(pd, "apple.png"), optimize=True)
     present().save(os.path.join(pd, "present.png"), optimize=True)

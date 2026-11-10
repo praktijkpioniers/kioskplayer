@@ -16,7 +16,7 @@
 --     St Martin with a full cloak comes along and finds him. One St Martin in the room (chr:martin).
 --   beggar: walks in slowly, sits down and huddles (shivers); a while, then gets up and goes.
 -- Preview keys: F5 St Martin now (and a beggar here), F6 children (they meet whoever's here),
--- F7 a procession, F8 a beggar.
+-- F7 a procession, F8 a beggar, Shift+F7 a class out of the school (see the school below).
 
 local S = {}
 local E                         -- the engine API (see install)
@@ -409,7 +409,7 @@ local function new_group(id, dir, el)
         local best, bd
         for _, k in ipairs(g.alive()) do
             local d = math.abs(k.x - target.x)
-            if not k.steps[1] and (not bd or d < bd) then best, bd = k, d end
+            if not k.steps[1] and not k.teacher and (not bd or d < bd) then best, bd = k, d end
         end
         return best
     end
@@ -491,6 +491,7 @@ local function new_kid(el, spr, g, x, lantern)
     a.bare = lantern and lantern.name == "stick" or nil
     a.ph = rnd(0, 6.28)
     a.note = E.M().sprites[(el.notes or {})[math.random(math.max(1, #(el.notes or {})))] or ""]
+    for _, n in ipairs(el.teachers or {}) do if spr.name == n then a.teacher = true end end     -- (the juf, the meester)
     g.members[#g.members + 1] = a
     function a.cheer() if not a.steps[1] then a.steps = { { clip = "cheer" } } end end
     function a.lightless() return a.unlit or a.bare or a.dead_led or not a.lantern end
@@ -763,7 +764,8 @@ local function new_kid(el, spr, g, x, lantern)
                 frame, _, k = clip_frame(spr, "walk", t, false, a.v / a.v_own)
                 clip = "walk"
                 E.walk_out(a, a.x, g.dir, 0.4 * u, { grp = g.id, lantern = a.lantern and a.lantern.name or "",
-                                                       proc = g.proc and 1 or nil, gv = a.v })
+                                                       proc = g.proc and 1 or nil, gv = a.v, cls = g.cls and 1 or nil,
+                                                       sp = g.spacing and g.spacing / E.H() or nil })
                 if a.x < -6 * u or a.x > W_ + 6 * u then
                     if (a.x - W_ / 2) * g.dir > 0 then return false end
                 end
@@ -822,6 +824,8 @@ function S.kid(el, spr, h)
     if h then           -- come over from next door: its group, here
         local g = groups[h.grp] or new_group(h.grp, h.dir == 1 and 1 or -1, el)
         g.proc = h.proc and true or g.proc
+        g.cls = h.cls and true or g.cls               -- (a class on its lantern walk: goes into a school it passes)
+        g.spacing = g.spacing or (tonumber(h.sp) and tonumber(h.sp) * H)
         g.v = tonumber(h.gv) or g.v or walk_v(spr) * 0.85
         local a = new_kid(el, spr, g, 0, lantern_sprite(el, h.lantern))
         a.x = E.walk_in_x(h, a.v, 0.4 * unit(spr))
@@ -886,7 +890,7 @@ local function kids_where(test)
     local W = E.W()
     local out = {}
     for _, k in ipairs(others("kid")) do
-        if k.x > 0.12 * W and k.x < 0.88 * W and not k.steps[1] and not k.chasing and k.g and k.g.mode == "walk" and test(k) then
+        if k.x > 0.12 * W and k.x < 0.88 * W and not k.steps[1] and not k.chasing and not k.teacher and k.g and k.g.mode == "walk" and test(k) then
             out[#out + 1] = k
         end
     end
@@ -1135,7 +1139,7 @@ function S.church(el, spr, h)
         local cx = E.free_x(0.3 * W, 0.7 * W)
         local clear = true
         for _, b in ipairs(E.actors()) do
-            if b.stm == "house" and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
+            if (b.stm == "house" or b.stm == "school") and not b.dead and math.abs(b.x - cx) < 0.2 * W then clear = false end
         end
         if clear then x = cx break end
     end
@@ -1269,6 +1273,187 @@ function S.church(el, spr, h)
     return nil
 end
 
+-- ── the school: a class on its lantern walk ────────────────────────────────
+-- Stands a while (el.stay) like the church; after el.out seconds its door opens and a class comes out,
+-- the juf or meester in front with the big lantern on a pole (pole_*), the children (the procession's
+-- element: its sprites, lanterns and n) after, one by one through the door. They walk off as a
+-- procession, on over the screens; a class walking towards a school (its own is behind it) goes in
+-- there, one after the other behind the teacher, and the door shuts. Clips (tools/bake/school.py):
+-- idle, open (backwards: shut), opened.
+local school_now = false             -- (preview) Shift+F7: the class comes out now
+
+local function class_el()
+    for _, e in ipairs(E.M().elements) do
+        if e.type == "kid" and e.procession and e.teachers and E.elements()[e] then return e end
+    end
+end
+
+function S.school(el, spr, h)
+    local W, H = E.W(), E.H()
+    if not (spr and spr.clips and spr.clips.open and spr.origin) then return nil end
+    local st = E.elements()[el]
+    local forced = st and st.force
+    if st then st.force = nil end
+    if #others("school") > 0 then
+        if forced then school_now = true end
+        return nil
+    end
+    if not forced then
+        if not el._next then el._next = now() + rnd(range(el.delay, 30)) return nil end
+        if now() < el._next then return nil end
+    end
+    el._next = now() + rnd(range(el.every, 500))
+    local x
+    for _ = 1, 8 do                  -- (not where a house or the church stands)
+        local cx = E.free_x(0.3 * W, 0.7 * W)
+        local clear = true
+        for _, b in ipairs(E.actors()) do
+            if (b.stm == "house" or b.stm == "church") and not b.dead and math.abs(b.x - cx) < 0.25 * W then clear = false end
+        end
+        if clear then x = cx break end
+    end
+    if not x then el._next = now() + 20 return nil end
+    local a = { el = el, spr = spr, stm = "school", x = x, cx = x, clip = "idle", tc = 0, rise = 0, t0 = now(),
+                ttl = rnd(range(el.stay, 300)), unique = false }
+    local state, st_t = "idle", now()
+    local out_t = now() + (forced and 3 or rnd(range(el.out, 30)))
+    local file = nil                 -- the class coming out: { g, el, left = sprites, lanterns }
+    local queue = {}                 -- a class going in
+    local function play(name, reverse) a.clip, a.rev, a.tc = name, reverse, 0 end
+    local function to_state(s) state, st_t = s, now() end
+    a.open_now = false
+    a.leave = function() a.going = true end
+
+    -- the class: the teacher (and the pole lantern) and the children, to come out one by one
+    local function make_class()
+        local cel = class_el()
+        if not cel then return false end
+        local M = E.M()
+        local tspr = E.free_sprite({ sprites = cel.teachers })
+        local poles = cel.poles or {}
+        local pole = M.sprites[poles[math.random(math.max(1, #poles))] or ""]
+        if not (tspr and pole) then return false end
+        local lo, hi = range(el.n or cel.n, 4)
+        local n = math.floor(rnd(lo, hi + 0.999))
+        local dir = math.random() < 0.5 and 1 or -1
+        local g = new_group(tostring(math.random(1, 1e9)), dir, cel)
+        g.proc, g.cls = true, true
+        local ku
+        local list, used = {}, { [tspr] = true }
+        for _ = 1, n do
+            for _ = 1, 10 do
+                local s = E.free_sprite(cel)
+                if s and not used[s] then used[s] = true list[#list + 1] = s break end
+            end
+        end
+        if #list == 0 then groups[g.id] = nil return false end
+        ku = unit(list[1])
+        g.v = walk_v(list[1]) * (cel.speed or 0.75)
+        g.spacing = (cel.spacing or 3.2) * ku
+        file = { g = g, el = cel, queue = { { spr = tspr, lantern = pole } } }
+        for _, s in ipairs(list) do file.queue[#file.queue + 1] = { spr = s } end
+        mp.msg.info("[school] a class out: " .. tspr.name .. " and " .. #list)
+        return true
+    end
+    -- the next one out of the door, when the one before is a step away
+    local function file_out()
+        if not file then return end
+        local g = file.g
+        local last = file.last
+        if last and not last.dead and math.abs(last.x - a.x) < g.spacing * 0.9 then return end
+        if E.free_ids() < 3 + 2 then file.queue = {} end
+        local q = table.remove(file.queue, 1)
+        if not q then file = nil return end
+        local k = new_kid(file.el, q.spr, g, a.x, q.lantern or lantern_sprite(file.el, nil, math.random() < (file.el.unlit or 0) ))
+        k.x = a.x
+        if E.add(k, file.el) then file.last = k else k.dead = true end
+    end
+
+    -- a class from elsewhere coming along: in it goes, the teacher first
+    local function class_coming()
+        if state ~= "idle" or file then return end
+        for _, k in ipairs(others("kid")) do
+            local g = k.g
+            local d = g and (a.x - k.x) * g.dir
+            if k.teacher and g.cls and g.mode == "walk" and not k.steps[1]
+               and d and d > 0.5 * unit(k.spr) and d < 0.45 * W and k.x > 0 and k.x < W then
+                g.mode = "school"
+                local mem = g.alive()
+                table.sort(mem, function(p, q) return (p.x - q.x) * g.dir > 0 end)
+                for i, b in ipairs(mem) do
+                    local prev = mem[i - 1]
+                    local bu = unit(b.spr)
+                    b.singing = false
+                    b.steps = {
+                        { clip = "walk", walk_to = a.x - g.dir * (0.25 * bu + (i - 1) * 1.0 * bu), v = g.v },
+                        { clip = "idle", wait = function() return a.open_now and (not prev or prev.dead) end },
+                        { clip = "walk", walk_to = a.x, v = g.v, on_end = function() b.dead = true end },
+                    }
+                    queue[#queue + 1] = b
+                end
+                mp.msg.info("[school] a class goes in: " .. #mem)
+                return true
+            end
+        end
+    end
+
+    function a.update(dt, t)
+        if a.going then
+            a.rise = a.rise - dt / 1.5
+            if a.rise <= 0 then a.dead = true return false end
+        elseif a.rise < 1 then
+            a.rise = math.min(1, a.rise + dt / 1.5)
+        elseif state == "idle" and now() - a.t0 > a.ttl and #queue == 0 and not file then
+            a.going = true
+        end
+        if a.rise >= 1 and not a.going then
+            if school_now and state == "idle" then school_now, out_t = false, now() end
+            if state == "idle" then
+                if class_coming() then
+                    to_state("wait_in")
+                elseif out_t and now() >= out_t then
+                    out_t = nil
+                    if make_class() then to_state("opening"); play("open") end
+                end
+            elseif state == "wait_in" then
+                local near = queue[1]
+                if not near or near.dead or math.abs(near.x - a.x) < 1.2 * unit(near.spr) or now() - st_t > 30 then
+                    to_state("opening"); play("open")
+                end
+            elseif state == "opening" and a.clip == "opened" then
+                a.open_now = true
+                to_state("open")
+            elseif state == "open" then
+                file_out()
+                local alive = 0
+                for _, b in ipairs(queue) do if not b.dead then alive = alive + 1 end end
+                if alive == 0 and not file and now() - st_t > 2.5 then
+                    queue = {}
+                    a.open_now = false
+                    play("open", true)
+                    to_state("shut")
+                elseif now() - st_t > 60 then        -- (stuck: shut anyway)
+                    for _, b in ipairs(queue) do b.dead = true end
+                    file, queue = nil, {}
+                end
+            elseif state == "shut" and now() - st_t > 1 then
+                play("idle")
+                to_state("idle")
+                if not out_t and now() - a.t0 < a.ttl * 0.5 then out_t = now() + rnd(range(el.out, 30)) end
+            end
+        end
+        a.tc = a.tc + dt
+        local frame, done = clip_frame(spr, a.clip, a.tc, a.rev)
+        if done and a.clip == "open" and not a.rev then play("opened"); frame = clip_frame(spr, "opened", 0) end
+        local l = layer(spr, frame, false, a.x, H, 0, (1 - ease(a.rise)) * spr.h)
+        return true, l.x, l.y, l.frame, l.variant
+    end
+    if X2 then X2.ids_low_first(true) end
+    E.add(a, el)
+    if X2 then X2.ids_low_first(false) end
+    return nil
+end
+
 -- ── preview keys ────────────────────────────────────────────────────────────
 
 local function force(t)
@@ -1376,6 +1561,9 @@ function S.install(api)
         force("kid")
         force("church")
     end)
+    mp.add_forced_key_binding("Shift+F7", "stm-school", function()         -- a class comes out of the school
+        if #others("school") > 0 then school_now = true else force("school") end
+    end)
     mp.add_forced_key_binding("Ctrl+F7", "stm-fire", function()             -- a lantern catches fire
         force_fire = true
         force("kid")
@@ -1386,6 +1574,7 @@ function S.install(api)
     end)
     E.spawn.kid, E.spawn.martin, E.spawn.beggar, E.spawn.moon = S.kid, S.martin, S.beggar, S.moon
     E.spawn.church = S.church
+    E.spawn.school = S.school
 end
 
 function S.reset() groups = {} end

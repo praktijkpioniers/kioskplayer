@@ -27,6 +27,13 @@ likely when the room has none), a beggar, a child with a lantern, or the rich ma
 fetches a beggar first, holds out a hand, and they go in together; the child comes out again.
 Preview: **Shift+F8** the bell and the service, **Ctrl+F8** a child takes a beggar to church.
 
+## The school
+A primary school stands a while (paper lanterns the children made stuck on its windows). Its door
+opens and a class comes out on its lantern walk: the juf or the meester in front with the big lantern
+on a striped pole, the children after, one by one. They walk on over the screens; a class walking
+up to a school goes in there, one after the other, and the door shuts behind them.
+Preview: **Shift+F7** a class comes out (the school first, when there's none).
+
 ## Lantern trouble
 Now and then a candle sets a paper lantern on fire: the child stops and watches it burn; ash falls,
 a bare smoking stick is left, and the nearest friend brings a new lantern. A child with an LED lantern
@@ -47,5 +54,4 @@ naps, maybe under a piece of cloak); a jet over Maho beach. At 11:11 the carniva
 the room once. Keys: F9 (Shift: grumpy), Ctrl+F9, F10, F11, F12, Shift+F10/F11/F12, Ctrl+F10.
 
 ## Still to do
-Church and school nodes, the rich man, the teacher-led school procession, lanterns catching fire,
-LED lantern, sugar-beet lantern (see ideas.csv).
+The rich man, the sugar-beet lantern (see ideas.csv).

@@ -1,0 +1,33 @@
+{
+ "view": "front",
+ "baked_by": "tools/bake/school.py",
+ "clips": {
+  "idle": {
+   "files": "idle_*.png",
+   "count": 4,
+   "fps": 3,
+   "loop": true
+  },
+  "open": {
+   "files": "open_*.png",
+   "count": 7,
+   "fps": 10,
+   "loop": false
+  },
+  "opened": {
+   "files": "opened_*.png",
+   "count": 4,
+   "fps": 3,
+   "loop": true
+  }
+ },
+ "unit_px": 69.16666666666667,
+ "origin_px": [
+  280,
+  512
+ ],
+ "door_px": [
+  280,
+  500
+ ]
+}
